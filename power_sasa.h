@@ -30,6 +30,7 @@ If you have no license please contact SASA-support@kit.edu
 #define ATOMVOL
 
 #include <cstdlib>
+#include <array>
 #include <cmath>
 #include <iostream>
 #include "power_diagram.h"
