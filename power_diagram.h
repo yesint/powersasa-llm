@@ -707,8 +707,18 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			nRevertZeros=zeros.size();
 			nRevertPoints=points.size();
 			std::vector<CellId> old_bond_ids(nRevertPoints, kInvalidId);
+			std::vector<std::vector<CellId> > old_neighbour_ids(nRevertPoints);
 			for(std::size_t i=0;i<nRevertPoints;++i)
+			{
 				old_bond_ids[i] = (points[i].bondToId != kInvalidId) ? points[i].bondToId : cell_id_or_invalid(points[i].bondTo);
+				old_neighbour_ids[i].resize(points[i].neighbours.size(), kInvalidId);
+				for(std::size_t j=0;j<points[i].neighbours.size();++j)
+				{
+					old_neighbour_ids[i][j] = (!points[i].neighboursIds.empty() && j < points[i].neighboursIds.size())
+						? points[i].neighboursIds[j]
+						: cell_id_or_invalid(points[i].neighbours[j]);
+				}
+			}
 			for(int c=0;c<(1<<dimension);c++)
 			{
 				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
@@ -788,11 +798,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							{
 									const std::size_t point_idx = static_cast<std::size_t>(it - points.begin());
 									if(point_idx < old_bond_ids.size() && old_bond_ids[point_idx] != kInvalidId) set_bond_to_id(*it, old_bond_ids[point_idx]);
-									for(typename std::vector<cellPtr>::iterator itn=it->neighbours.begin();itn!=it->neighbours.end();++itn)
-										(*itn)+=&points[0]-oldstorage;
+									it->neighbours.assign(old_neighbour_ids[point_idx].size(), NULL);
+									it->neighboursIds = old_neighbour_ids[point_idx];
+									for(std::size_t neighbour_idx=0;neighbour_idx<it->neighboursIds.size();++neighbour_idx)
+										it->neighbours[neighbour_idx] = cell_ptr_from_id(it->neighboursIds[neighbour_idx]);
 							}
+					}
 				}
-			}
 		}
 
 
