@@ -362,9 +362,11 @@ public :
 			source_vertex->generators[nth(2,branch)],
 			sol,
 			&vertices[source_id],
-			branch);
-		zp.fromId = source_id;
-		for(int g=0;g<dimension;++g) zp.generatorRefs[g] = source_vertex->generatorRefs[nth(g,branch)];
+			branch,
+			source_vertex->generatorRefs[nth(0,branch)],
+			source_vertex->generatorRefs[nth(1,branch)],
+			source_vertex->generatorRefs[nth(2,branch)],
+			source_id);
 		zeros.push_back(zp);
 	}
 	inline void sync_all_link_mirrors()
@@ -2196,14 +2198,27 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 		std::array<cellPtr,dimension> generators;
 		std::array<GeneratorRef,dimension> generatorRefs;
 
-		zeroPoint(const cellPtr& a,const cellPtr& b,const cellPtr& c,const PDFloat& position,const vertexPtr& origin,const int& way):
-			pos(position),from(origin),fromId(kInvalidId),branch(way)
+		zeroPoint(
+			const cellPtr& a,
+			const cellPtr& b,
+			const cellPtr& c,
+			const PDFloat& position,
+			const vertexPtr& origin,
+			const int& way,
+			const GeneratorRef& aref = GeneratorRef(),
+			const GeneratorRef& bref = GeneratorRef(),
+			const GeneratorRef& cref = GeneratorRef(),
+			const VertexId origin_id = kInvalidId):
+			pos(position),from(origin),fromId(origin_id),branch(way)
 		{
 			generators[0]=a;
+			generatorRefs[0]=aref;
 //		generators[0]->myZeroPoints.push_back(this);
 		generators[1]=b;
+			generatorRefs[1]=bref;
 //		generators[1]->myZeroPoints.push_back(this);
 		generators[2]=c;
+			generatorRefs[2]=cref;
 //		generators[2]->myZeroPoints.push_back(this);
 
 	}
