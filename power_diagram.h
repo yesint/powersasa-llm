@@ -332,6 +332,14 @@ public :
 	{
 		return (id == kInvalidId || id >= points.size()) ? NULL : &points[id];
 	}
+	inline const_cellPtr cell_ptr_from_id_const(const CellId id) const
+	{
+		return (id == kInvalidId || id >= points.size()) ? NULL : &points[id];
+	}
+	inline vertexPtr vertex_ptr_from_id(const VertexId id)
+	{
+		return (id == kInvalidId || id >= vertices.size()) ? NULL : &vertices[id];
+	}
 	inline void set_bond_to(cell& a_cell, const cellPtr ptr)
 	{
 		a_cell.bondTo = ptr;
@@ -1140,9 +1148,20 @@ std::cout<<std::endl;
 	{
 		// Greedy neighbor walk to find the cell with minimal power at pos inside the current cube.
 		if(hint==NULL)hint =&points[points.size()/2];
-			for(const cellPtr neighbour : hint->neighbours)
+			if(!hint->neighboursIds.empty())
 			{
-				if(neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
+				for(const CellId neighbour_id : hint->neighboursIds)
+				{
+					const_cellPtr neighbour = cell_ptr_from_id_const(neighbour_id);
+					if(neighbour != NULL && neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
+				}
+			}
+			else
+			{
+				for(const cellPtr neighbour : hint->neighbours)
+				{
+					if(neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
+				}
 			}
 			return hint;
 		}
@@ -1150,19 +1169,26 @@ private:
 	vertexPtr getRepresentative(const const_cellPtr This)
 	{
 		// Retrieve a connected representative vertex for This, falling back along bondTo if needed.
-		if(This->myVertices.front()->isConnected()&&This->myVertices.front()->hasGenerator(This))
+		const std::size_t n_vertices = This->myVerticesIds.empty() ? This->myVertices.size() : This->myVerticesIds.size();
+		for(std::size_t i = 0; i < n_vertices; ++i)
+		{
+			vertexPtr candidate = NULL;
+			if(!This->myVerticesIds.empty())
 			{
-				return This->myVertices.front();
+				candidate = vertex_ptr_from_id(This->myVerticesIds[i]);
 			}
-			else 
-				for(std::size_t i=1;i<This->myVertices.size();++i)
-				{
-					if(This->myVertices[i]->isConnected()&&This->myVertices[i]->hasGenerator(This))
-						return This->myVertices[i];
-				}
-		
-		if(!(This==&points[0])) return getRepresentative(This->bondTo);
-		else 
+			if(candidate == NULL && i < This->myVertices.size())
+			{
+				candidate = This->myVertices[i];
+			}
+			if(candidate != NULL && candidate->isConnected() && candidate->hasGenerator(This))
+			{
+				return candidate;
+			}
+		}
+		if(This->bondToId != kInvalidId) return getRepresentative(cell_ptr_from_id(This->bondToId));
+		if(!(This==&points[0]) && This->bondTo != NULL) return getRepresentative(This->bondTo);
+		else
 		{
 			return &vertices[0];
 		}
@@ -1172,7 +1198,7 @@ private:
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
-			hint=getRepresentative(This.bondTo);
+			hint=getRepresentative((This.bondToId != kInvalidId) ? cell_ptr_from_id(This.bondToId) : This.bondTo);
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
 			findReplacedVertex(hint,value,This);
 			if(__power_diagram_internal_timing__)t2+=clock();
