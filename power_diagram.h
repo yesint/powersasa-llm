@@ -204,7 +204,7 @@ public :
 			PDCoord position;
 			PDFloat r;
 			PDFloat r2;
-			typedef zeroPoint* zeroPointPtr;
+			using zeroPointPtr = zeroPoint*;
 			cellPtr bondTo;
 			std::vector<cellPtr> neighbours;
 			std::vector<vertexPtr> myVertices;
