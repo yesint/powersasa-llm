@@ -632,13 +632,19 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		clear_interna();
 			if(size>points.size())
 			{
-				const cellPtr old=&points.front();
+				std::vector<CellId> old_bond_ids(points.size(), kInvalidId);
+				for(std::size_t i=1;i<points.size();++i)
+				{
+					old_bond_ids[i] = (points[i].bondToId != kInvalidId)
+						? points[i].bondToId
+						: cell_id_or_invalid(points[i].bondTo);
+				}
+				const cellPtr old = points.empty() ? NULL : points.data();
 				points.reserve(size);
-					if(old!=&points.front())
-						for(int i=1;i<points.size();i++)
+					if(old != NULL && old != points.data())
+						for(std::size_t i=1;i<points.size();++i)
 						{
-							if(points[i].bondToId != kInvalidId) set_bond_to_id(points[i], points[i].bondToId);
-							else if(points[i].bondTo != NULL) set_bond_to(points[i], points[i].bondTo-old+&points[0]);
+							if(old_bond_ids[i] != kInvalidId) set_bond_to_id(points[i], old_bond_ids[i]);
 						}
 				}
 		zeros.clear();
