@@ -194,7 +194,6 @@ private:
 	std::vector<VertexId> ReplacedIds;//mirrored IDs for Replaced
 	std::vector<vertexPtr> Invalids;//old vertices that are removed reloaded
 	std::vector<cellPtr> Involved; // all cells which are involved
-	std::vector<CellId> InvolvedIds; // mirrored IDs for Involved
 	std::vector<GeneratorRef> InvolvedRefs; // mirrored refs for Involved (point or side)
 	std::vector< EdgeEnds> planes;//used for connecting new vertices, stores "open ends"
 	enum class ReplaceState
@@ -377,11 +376,9 @@ public :
 	inline void validate_transient_mirror_invariants() const
 	{
 #if PD_ENABLE_TOPOLOGY_ASSERTS
-		if(Involved.size() != InvolvedIds.size()) throw MyException();
 		if(Involved.size() != InvolvedRefs.size()) throw MyException();
 		for(std::size_t i=0;i<Involved.size();++i)
 		{
-			if(InvolvedIds[i] != cell_id_or_invalid(Involved[i])) throw MyException();
 			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
 			if(InvolvedRefs[i].kind != ref.kind || InvolvedRefs[i].index != ref.index) throw MyException();
 		}
@@ -496,26 +493,22 @@ public :
 	inline void clear_involved()
 	{
 		Involved.clear();
-		InvolvedIds.clear();
 		InvolvedRefs.clear();
 		validate_transient_mirror_invariants();
 	}
 	inline void sync_involved_ids_from_ptrs()
 	{
-		InvolvedIds.resize(Involved.size(), kInvalidId);
 		InvolvedRefs.resize(Involved.size(), GeneratorRef());
 		for(std::size_t i=0;i<Involved.size();++i)
 		{
 			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
 			InvolvedRefs[i] = ref;
-			InvolvedIds[i] = (ref.kind == GeneratorKind::point) ? static_cast<CellId>(ref.index) : kInvalidId;
 		}
 		validate_transient_mirror_invariants();
 	}
 	inline void push_involved(const cellPtr ptr)
 	{
 		Involved.push_back(ptr);
-		InvolvedIds.push_back(cell_id_or_invalid(ptr));
 		InvolvedRefs.push_back(generator_ref_or_invalid(ptr));
 		validate_transient_mirror_invariants();
 	}
