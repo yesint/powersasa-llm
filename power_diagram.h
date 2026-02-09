@@ -1481,11 +1481,9 @@ if(std::abs(checkconst)>0.001)
 			}
 		}
 		if(!dim_is_real)
-			if(!dim_is_real)
-				if(that->isCorner())
-					return 3;
-				else return 2;
-			else	return 1;
+			if(that->isCorner())
+				return 3;
+			else return 2;
 		else	return 0;
 	}
 	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=nullptr)
@@ -1702,15 +1700,13 @@ private:
 				{
 					cellPtr involved_cell = involved_ptr_at(involved_idx);
 					if(involved_cell == nullptr) continue;
-					std::size_t neighbour_idx=0;
-						while(neighbour_idx<involved_cell->neighboursIds.size())
-						{
-							cellPtr neighbour = (neighbour_idx < involved_cell->neighboursIds.size())
-								? cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx])
-								: nullptr;
-							if(neighbour == nullptr || neighbour->visitedAs==-1)
-								erase_cell_neighbour(*involved_cell, neighbour_idx);
-							else
+						std::size_t neighbour_idx=0;
+							while(neighbour_idx<involved_cell->neighboursIds.size())
+							{
+								cellPtr neighbour = cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx]);
+								if(neighbour == nullptr || neighbour->visitedAs==-1)
+									erase_cell_neighbour(*involved_cell, neighbour_idx);
+								else
 							++neighbour_idx;
 					}
 			}
