@@ -28,9 +28,6 @@ If you have no license please contact SASA-support@kit.edu
 #ifndef PD_ENABLE_TOPOLOGY_ASSERTS
 #define PD_ENABLE_TOPOLOGY_ASSERTS 0
 #endif
-#ifndef PD_STRICT_INVOLVED_IDS
-#define PD_STRICT_INVOLVED_IDS 1
-#endif
 #include <array>
 #include <iostream>
 #include <fstream>
@@ -525,41 +522,28 @@ public :
 	inline cellPtr involved_ptr_at(const std::size_t index)
 	{
 		if(index >= Involved.size()) return nullptr;
-#if PD_STRICT_INVOLVED_IDS
 		if(index >= InvolvedRefs.size())
 		{
-			std::cerr << "STRICT_INVOLVED_IDS: missing involved ref at index " << index << std::endl;
+			std::cerr << "INVOLVED_REFS: missing involved ref at index " << index << std::endl;
 			throw MyException();
 		}
 		const GeneratorRef& ref = InvolvedRefs[index];
 		cellPtr ptr = cell_ptr_from_ref(ref);
 		if(ptr == nullptr)
 		{
-			std::cerr << "STRICT_INVOLVED_IDS: null involved ptr for ref index " << static_cast<long long>(ref.index) << std::endl;
+			std::cerr << "INVOLVED_REFS: null involved ptr for ref index " << static_cast<long long>(ref.index) << std::endl;
 			throw MyException();
 		}
 		return ptr;
-#else
-		cellPtr ptr = nullptr;
-		const CellId id = involved_id_at(index);
-		if(id != kInvalidId) ptr = cell_ptr_from_id(id);
-		if(ptr == nullptr) ptr = Involved[index];
-		return ptr;
-#endif
 	}
 	inline CellId involved_id_at(const std::size_t index) const
 	{
 		if(index >= Involved.size()) return kInvalidId;
-#if PD_STRICT_INVOLVED_IDS
 		if(index >= InvolvedRefs.size()) return kInvalidId;
 		const GeneratorRef& ref = InvolvedRefs[index];
 		if(ref.kind != GeneratorKind::point) return kInvalidId;
 		if(ref.index >= points.size()) return kInvalidId;
 		return static_cast<CellId>(ref.index);
-#else
-		if(index < InvolvedIds.size() && InvolvedIds[index] != kInvalidId) return InvolvedIds[index];
-		return cell_id_or_invalid(Involved[index]);
-#endif
 	}
 	inline cellPtr involved_front_ptr()
 	{
