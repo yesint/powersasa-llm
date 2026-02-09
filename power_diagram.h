@@ -1156,7 +1156,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							clear_replaced();
 							if(identicalPoint!=nullptr)
 							{	
-								push_cell_my_vertex(*involved_front, identicalPoint->myVertices.front());
+								vertexPtr identical_representative = nullptr;
+								if(!identicalPoint->myVerticesIds.empty())
+									identical_representative = vertex_ptr_from_id(identicalPoint->myVerticesIds.front());
+								if(identical_representative == nullptr && !identicalPoint->myVertices.empty())
+									identical_representative = identicalPoint->myVertices.front();
+								if(identical_representative != nullptr)
+									push_cell_my_vertex(*involved_front, identical_representative);
 								break;
 							}
 								else
@@ -1930,7 +1936,7 @@ private:
 				_unused.push_back(static_cast<int>(get_vertex_id(*unused_vertex)));
 				cellPtr involved_front = involved_front_ptr();
 				if(involved_front == nullptr) throw MyException();
-				_currentmyVertices.reserve(involved_front->myVertices.size());
+				_currentmyVertices.reserve(involved_front->myVerticesIds.size());
 				for(const VertexId vid : involved_front->myVerticesIds)
 					_currentmyVertices.push_back(static_cast<int>(vid));
 				std::size_t involved_prefix = 0;
@@ -1969,7 +1975,7 @@ private:
 				if(restored == nullptr) restored = vertices.data()+_unused[i];
 				unused[i]=restored;
 			}
-				for(unsigned int i=0;i<involved_front->myVertices.size();i++)
+				for(unsigned int i=0;i<involved_front->myVerticesIds.size();i++)
 				{
 					vertexPtr restored = nullptr;
 					if(_currentmyVertices[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_currentmyVertices[i]));
