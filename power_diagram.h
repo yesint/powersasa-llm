@@ -198,6 +198,7 @@ private:
 	std::vector<vertexPtr> Invalids;//old vertices that are removed reloaded
 	std::vector<cellPtr> Involved; // all cells which are involved
 	std::vector<CellId> InvolvedIds; // mirrored IDs for Involved
+	std::vector<GeneratorRef> InvolvedRefs; // mirrored refs for Involved (point or side)
 	std::vector< EdgeEnds> planes;//used for connecting new vertices, stores "open ends"
 	enum class ReplaceState
 	{
@@ -380,9 +381,12 @@ public :
 	{
 #if PD_ENABLE_TOPOLOGY_ASSERTS
 		if(Involved.size() != InvolvedIds.size()) throw MyException();
+		if(Involved.size() != InvolvedRefs.size()) throw MyException();
 		for(std::size_t i=0;i<Involved.size();++i)
 		{
 			if(InvolvedIds[i] != cell_id_or_invalid(Involved[i])) throw MyException();
+			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
+			if(InvolvedRefs[i].kind != ref.kind || InvolvedRefs[i].index != ref.index) throw MyException();
 		}
 		if(Replaced.size() != ReplacedIds.size()) throw MyException();
 		for(std::size_t i=0;i<Replaced.size();++i)
@@ -496,26 +500,45 @@ public :
 	{
 		Involved.clear();
 		InvolvedIds.clear();
+		InvolvedRefs.clear();
 		validate_transient_mirror_invariants();
 	}
 	inline void sync_involved_ids_from_ptrs()
 	{
 		InvolvedIds.resize(Involved.size(), kInvalidId);
+		InvolvedRefs.resize(Involved.size(), GeneratorRef());
 		for(std::size_t i=0;i<Involved.size();++i)
-			InvolvedIds[i] = cell_id_or_invalid(Involved[i]);
+		{
+			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
+			InvolvedRefs[i] = ref;
+			InvolvedIds[i] = (ref.kind == GeneratorKind::point) ? static_cast<CellId>(ref.index) : kInvalidId;
+		}
 		validate_transient_mirror_invariants();
 	}
 	inline void push_involved(const cellPtr ptr)
 	{
 		Involved.push_back(ptr);
 		InvolvedIds.push_back(cell_id_or_invalid(ptr));
+		InvolvedRefs.push_back(generator_ref_or_invalid(ptr));
 		validate_transient_mirror_invariants();
 	}
 	inline cellPtr involved_ptr_at(const std::size_t index)
 	{
 		if(index >= Involved.size()) return nullptr;
 #if PD_STRICT_INVOLVED_IDS
-		return cell_ptr_from_id(involved_id_at(index));
+		if(index >= InvolvedRefs.size())
+		{
+			std::cerr << "STRICT_INVOLVED_IDS: missing involved ref at index " << index << std::endl;
+			throw MyException();
+		}
+		const GeneratorRef& ref = InvolvedRefs[index];
+		cellPtr ptr = cell_ptr_from_ref(ref);
+		if(ptr == nullptr)
+		{
+			std::cerr << "STRICT_INVOLVED_IDS: null involved ptr for ref index " << static_cast<long long>(ref.index) << std::endl;
+			throw MyException();
+		}
+		return ptr;
 #else
 		cellPtr ptr = nullptr;
 		const CellId id = involved_id_at(index);
@@ -528,8 +551,11 @@ public :
 	{
 		if(index >= Involved.size()) return kInvalidId;
 #if PD_STRICT_INVOLVED_IDS
-		if(index >= InvolvedIds.size()) return kInvalidId;
-		return InvolvedIds[index];
+		if(index >= InvolvedRefs.size()) return kInvalidId;
+		const GeneratorRef& ref = InvolvedRefs[index];
+		if(ref.kind != GeneratorKind::point) return kInvalidId;
+		if(ref.index >= points.size()) return kInvalidId;
+		return static_cast<CellId>(ref.index);
 #else
 		if(index < InvolvedIds.size() && InvolvedIds[index] != kInvalidId) return InvolvedIds[index];
 		return cell_id_or_invalid(Involved[index]);
