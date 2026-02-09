@@ -1828,7 +1828,7 @@ private:
 			}
 			else
 			{
-				if(replaced_vertex-&vertices.front()<nRevertVertices)
+				if(get_vertex_id(*replaced_vertex)<nRevertVertices)
 					Invalids.push_back(replaced_vertex);
 				replaced_vertex->disconnect();//vertex has no connection any more.  we delete it later
 				++replaced_idx;
@@ -1840,7 +1840,7 @@ private:
 
 		else
 			for(vertexPtr replaced_vertex : Replaced)
-				if(replaced_vertex-&vertices[0]>=nRevertVertices)
+				if(get_vertex_id(*replaced_vertex)>=nRevertVertices)
 					unused.push_back(replaced_vertex);
 					else
 						for(const cellPtr generator : replaced_vertex->generators)
