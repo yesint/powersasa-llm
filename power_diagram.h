@@ -1417,8 +1417,8 @@ private:
 		{
 				if(fromPoint>0)
 					Involved.clear();
-				for(typename std::vector<cell >::iterator it=points.begin()+fromPoint;it!=points.end();++it)
-					clear_cell_my_vertices(*it);
+				for(std::size_t point_idx=static_cast<std::size_t>(fromPoint);point_idx<points.size();++point_idx)
+					clear_cell_my_vertices(points[point_idx]);
 
 
 		for(unsigned int vi=fromVertex;vi<_nVertices;++vi)
