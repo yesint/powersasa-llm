@@ -1626,16 +1626,17 @@ private:
 			const_vertexPtr it=&vertices[vertex_index];
 			if(!(it->invalid))
 				if(it->generators[dimension-1]->isReal(*this))
-					for(typename std::array <vertexPtr,dimension+1>::const_iterator it2=it->endPoints.begin()+(hasVirtualGenerators(it))*3;it2!=it->endPoints.end();++it2)
+					for(int endpoint_idx=(hasVirtualGenerators(it))*3;endpoint_idx<=dimension;++endpoint_idx)
 					{
-						if((*it2)-&(*it)>0)
+						vertexPtr endpoint = it->endPoints[endpoint_idx];
+						if(endpoint-it>0)
 						{
 							if(it->powerValue>0)
 							{
-								const int branch=it2-it->endPoints.begin();
-								const PDFloat& v3=(*it2)->powerValue;
+								const int branch=endpoint_idx;
+								const PDFloat& v3=endpoint->powerValue;
 								const PDFloat& v2=it->powerValue;
-								const PDFloat& v1=it->generators[branch==0]->power(2*it->position-(*it2)->position);
+								const PDFloat& v1=it->generators[branch==0]->power(2*it->position-endpoint->position);
 								const PDFloat quot=2*(v1+v3-2*v2);
 								//const PDFloat rootsq=sqr(v1-v3)-4*quot*v2;
 								const PDFloat rootsq=(v1-v3)*(v1-v3)-4*quot*v2;
@@ -1648,7 +1649,7 @@ private:
 								const PDFloat sol1=min+rootquot;
 								const PDFloat sol2=min-rootquot;
 								if(sol1>0&&sol1<1)
-									if((*it2)->powerValue>0)
+									if(endpoint->powerValue>0)
 									{
 											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
 											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
@@ -1662,12 +1663,12 @@ private:
 										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
 										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
 									}
-								}else if((*it2)->powerValue>0)
+								}else if(endpoint->powerValue>0)
 							{
-								const int branch=it2-it->endPoints.begin();
-								const PDFloat& v3=(*it2)->powerValue;
+								const int branch=endpoint_idx;
+								const PDFloat& v3=endpoint->powerValue;
 								const PDFloat& v2=it->powerValue;
-								const PDFloat& v1=it->generators[branch==0]->power(2*it->position-(*it2)->position);
+								const PDFloat& v1=it->generators[branch==0]->power(2*it->position-endpoint->position);
 								const PDFloat quot=2*(v1+v3-2*v2);
 								//const PDFloat rootsq=sqr(v1-v3)-4*quot*v2;
 								const PDFloat rootsq=(v1-v3)*(v1-v3)-4*quot*v2;
