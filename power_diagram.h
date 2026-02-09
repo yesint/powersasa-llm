@@ -1735,25 +1735,29 @@ private:
 			_currentmyVertices.reserve(Involved.front()->myVertices.size());
 			_first.reserve(vertices.capacity());
 
-		for(const vertexPtr replaced_vertex : Replaced)
-			_replaced.push_back(replaced_vertex-&vertices.front());
-		for(const vertexPtr unused_vertex : unused)
-			_unused.push_back(unused_vertex-&vertices.front());
-			if(!Involved.front()->myVerticesIds.empty())
-			{
-				for(const VertexId vid : Involved.front()->myVerticesIds)
-					_currentmyVertices.push_back(static_cast<int>(vid));
-			}
-			else
-			{
-				for(const vertexPtr current_vertex : Involved.front()->myVertices)
-					_currentmyVertices.push_back(current_vertex-&vertices.front());
-			}
-			for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+(Involved.front()-&points.front());++it)
-			{
-				if(!it->myVerticesIds.empty()) _first.push_back(static_cast<int>(it->myVerticesIds.front()));
-				else _first.push_back(it->myVertices.front()-&vertices.front());
-			}
+			for(const vertexPtr replaced_vertex : Replaced)
+				_replaced.push_back(static_cast<int>(get_vertex_id(*replaced_vertex)));
+			for(const vertexPtr unused_vertex : unused)
+				_unused.push_back(static_cast<int>(get_vertex_id(*unused_vertex)));
+				if(!Involved.front()->myVerticesIds.empty())
+				{
+					for(const VertexId vid : Involved.front()->myVerticesIds)
+						_currentmyVertices.push_back(static_cast<int>(vid));
+				}
+				else
+				{
+					for(const vertexPtr current_vertex : Involved.front()->myVertices)
+						_currentmyVertices.push_back(static_cast<int>(get_vertex_id(*current_vertex)));
+				}
+				std::size_t involved_prefix = 0;
+				const CellId involved_front_id = cell_id_or_invalid(Involved.front());
+				if(involved_front_id != kInvalidId) involved_prefix = involved_front_id;
+				else involved_prefix = static_cast<std::size_t>(Involved.front()-&points.front());
+				for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+involved_prefix;++it)
+				{
+					if(!it->myVerticesIds.empty()) _first.push_back(static_cast<int>(it->myVerticesIds.front()));
+					else _first.push_back(static_cast<int>(get_vertex_id(*it->myVertices.front())));
+				}
 
 		vertices.reserve(2*vertices.capacity()+1);
 
