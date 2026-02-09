@@ -50,7 +50,8 @@ class VerticesFullException : public std::exception {};
 
 
 
-//return the nths natural number as if "without" would be missing (counting starts with zero)
+// Return the nth natural number of a sequence where one index ("without") is skipped.
+// Used to compare generator triples while omitting one generator position.
 inline int nth(const int n,const int without)
 {
 	return n+(without<=n);
@@ -58,6 +59,8 @@ inline int nth(const int n,const int without)
 template <class PDCoord, class PDFloat, class Pos_iterator, class Strength_iterator, const int dimension>
 void getBoundingBox(PDCoord& lowestCorner,PDCoord& highestCorner,const unsigned int& size,const Pos_iterator pos_begin,const Strength_iterator  strength_begin,const PDFloat additionalCubeSize=pow(2.0,1.0/dimension)-1)
 {
+	// Build a radius-aware axis-aligned box covering all weighted points.
+	// The optional inflation factor keeps the initial clipping cube safely outside the data.
 	if(size>0)
 	{
 		lowestCorner=*pos_begin;
@@ -210,10 +213,12 @@ public :
 		}
 		inline PDFloat power(const PDCoord& coord) const
 		{
+			// Power distance to this weighted site.
 			return (position-coord).squaredNorm()-r2;
 		}
 		inline bool isReal(const PowerDiagram<PDFloat,PDCoord,dimension>& This)
 		{
+			// Distinguish true input sites from temporary cube side generators.
 			return (this>=&This.getPoints()[0]&&this<&This.getPoints()[This.getPoints().size()]);
 		}
 	private:
@@ -221,6 +226,7 @@ public :
 	};
 	inline void AddToInvolved(cell& thit)
 	{
+		// Mark a cell as part of the local insertion neighborhood.
 		thit.visitedAs=Involved.size();
 		Involved.push_back(&thit);
 	}
@@ -238,6 +244,7 @@ public :
 
 	inline static PDFloat error(const PDFloat &f) 
 	{
+		// Scale machine epsilon to the magnitude of f with a non-zero floor.
 		if(f>std::numeric_limits<PDFloat>::min()/std::numeric_limits<PDFloat>::epsilon())
 			return f*(std::numeric_limits<PDFloat>::epsilon());
 		else if(f<-std::numeric_limits<PDFloat>::min()/std::numeric_limits<PDFloat>::epsilon())
@@ -252,6 +259,7 @@ public :
 template <class Pos_iterator, class Strength_iterator, class BondTo_iterator>
 static PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_iterator> create(unsigned int size, Pos_iterator pos_begin, Strength_iterator strength_begin, BondTo_iterator bondTo_begin)
 {
+	// Factory helper: derive bounding cube and return a fully parameterized construction object.
 	PDCoord highestCorner;
 	PDCoord lowestCorner;
 	{
@@ -264,6 +272,7 @@ static PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_
 template <typename Pos_iterator, typename Strength_iterator, typename BondTo_iterator>
 		PowerDiagram(PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_iterator> _params):center(0.5*(_params.highestCorner+_params.lowestCorner)),params(_params.runpar)
 		{
+			// Build initial clipping cube, insert all points, then derive optional adjacency/zero-point caches.
 			_nUnused=0;
 			insertionErrorScale=0;
 			nRevertPoints=0;
@@ -318,6 +327,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		void revert()
 		{
 			//if addmore was used this function can revert to the diagram without the added atoms
+			// Roll back topology and cached adjacency/zero-point state to the snapshot taken before addMore().
 			for(unsigned int vi=nRevertVertices;vi<_nVertices;++vi)
 				for(int gi=1;gi<=dimension;++gi)
 					if(vertices[vi].generators[gi]->isReal(*this))
@@ -376,6 +386,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	inline void recalculate(const Pos_iterator pos_it,const Strength_iterator strength_it,const unsigned int size)
 	//does standard deletion and calculation of Vertices, neighbour information, ...
 	{
+		// Rebuild the full diagram from scratch for updated coordinates/radii.
 		clearAllmyVertices();
 		clear_interna();
 		if(size>points.size())
@@ -438,6 +449,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	inline void addMore(const Pos_iterator pos_it,const Strength_iterator strength_it,const int _newSize)
 	//does standard deletion and calculation of Vertices, neighbour information, ...
 	{
+		// Incrementally insert additional points while preserving a revert snapshot.
 		const unsigned int gap=_newSize<points.size()?points.size()-_newSize:1;
 		const unsigned int newSize=_newSize<points.size()?points.size()+1:_newSize;
 		nRevertVertices=_nVertices;
@@ -538,6 +550,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 	void addMore(const PDCoord& pos,const PDFloat& radius,const int near)
 	{
+		// Single-point incremental insertion convenience wrapper.
 		addMore(&pos,&radius,near);
 	}
 
@@ -551,6 +564,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 	void clearAllmyVertices()
 	{
+		// Drop per-cell cached vertex/zero-point ownership lists.
 		for(cell& point : points)
 		{
 			point.myVertices.clear();
@@ -559,6 +573,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	}
 	void buildCube(const PDCoord& lowest,const PDCoord& highest)
 	{
+		// Initialize the outer clipping cube and its connectivity as the starting polytope.
 		_nVertices=1<<dimension;
 		sideGenerators.clear();
 		for(int i=0;i<2*dimension;i++)
@@ -609,6 +624,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	}
 	void buildVertices(const unsigned int& nPoints,const int from=0)
 	{
+		// Insert points one-by-one and maintain a consistent power-diagram vertex network.
 		//	try
 		{
 
@@ -796,8 +812,9 @@ if(std::abs(checkconst)>0.001)
 		_nUnused=0;
 
 	}
-		inline void findReplacedVertex(vertexPtr& This, PDFloat& value,const cell& insertionPoint)
-		{
+	inline void findReplacedVertex(vertexPtr& This, PDFloat& value,const cell& insertionPoint)
+	{
+		// Starting from a hint vertex, descend the local graph to a vertex most clearly dominated by insertionPoint.
 		if(value<0)
 			return;
 		PDFloat newValue;
@@ -874,9 +891,10 @@ if(std::abs(checkconst)>0.001)
 				}
 
 		}
-		inline ReplaceState finiteReplaced(vertex& This,const_cellPtr const& aCell)
-		{
-			This.rrv=This.powerdiff3D(aCell,This.generators[0]);
+	inline ReplaceState finiteReplaced(vertex& This,const_cellPtr const& aCell)
+	{
+		// Classify whether vertex This is replaced by aCell, persists, or is numerically ambiguous.
+		This.rrv=This.powerdiff3D(aCell,This.generators[0]);
 			if(above_power_err(This.rrv)) return ReplaceState::replaced;
 			if(below_neg_power_err(This.rrv)) return ReplaceState::persisting;
 			This.rrv=0;
@@ -939,9 +957,10 @@ std::cout<<std::endl;
 			else	return 1;
 		else	return 0;
 	}
-		cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=NULL)
-		{
-			if(hint==NULL)hint =&points[points.size()/2];
+	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=NULL)
+	{
+		// Greedy neighbor walk to find the cell with minimal power at pos inside the current cube.
+		if(hint==NULL)hint =&points[points.size()/2];
 			for(const cellPtr neighbour : hint->neighbours)
 			{
 				if(neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
@@ -951,7 +970,8 @@ std::cout<<std::endl;
 private:
 	vertexPtr getRepresentative(const const_cellPtr This)
 	{
-			if(This->myVertices.front()->isConnected()&&This->myVertices.front()->hasGenerator(This))
+		// Retrieve a connected representative vertex for This, falling back along bondTo if needed.
+		if(This->myVertices.front()->isConnected()&&This->myVertices.front()->hasGenerator(This))
 			{
 				return This->myVertices.front();
 			}
@@ -968,9 +988,10 @@ private:
 			return &vertices[0];
 		}
 	}
-		vertexPtr prepareInsertion(cell & This,vertexPtr hint=NULL)
-		{
-			if(__power_diagram_internal_timing__)t2-=clock();
+	vertexPtr prepareInsertion(cell & This,vertexPtr hint=NULL)
+	{
+		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
+		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
 			hint=getRepresentative(This.bondTo);
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
@@ -1013,8 +1034,9 @@ private:
 			return hint;
 		}
 
-		bool doInsertion(const vertexPtr& hint)
-		{
+	bool doInsertion(const vertexPtr& hint)
+	{
+		// Materialize insertion after prepareInsertion(): create new finite vertices, connect, and update caches.
 //			if(hint!=NULL)
 				{
 						if(__power_diagram_internal_timing__){const unsigned int zeit=clock();t3-=zeit;t4-=zeit;}
@@ -1033,6 +1055,7 @@ private:
 
 	void clear_interna()
 	{
+		// Reset per-insertion transient containers.
 		Replaced.clear();
 		Involved.clear();
 //		planes.clear();//should always be clean
@@ -1040,6 +1063,7 @@ private:
 
 	inline void insertFirst()
 	{
+		// Seed the diagram: assign the first real generator to all cube corners.
 		clear_interna();
 		for(int i=0;i<(1<<dimension);i++)
 			vertices[i].setPowerData(&points.front());
@@ -1050,6 +1074,7 @@ private:
 	}
 	void FillAllMyVertices(const int fromPoint=0,const int fromVertex=1<<dimension)
 	{
+		// Recompute per-cell vertex ownership lists from the current global vertex array.
 		{
 			if(fromPoint>0)
 				Involved.clear();
@@ -1094,6 +1119,7 @@ private:
 
 		void FillAllNeighbours()
 		{
+		// Recompute full cell adjacency from shared finite vertices.
 		for(cell& point : points)
 		{
 			point.neighbours.clear();
@@ -1118,6 +1144,7 @@ private:
 
 	void FillAllNeighboursOfInvolved()
 	{
+		// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
 		sort(Involved.begin(),Involved.end());
 		for(cellPtr involved_cell : Involved)
 		{
@@ -1149,6 +1176,7 @@ private:
 	}
 	void FillAllZeroPoints(	unsigned int fromVertex=(1<<dimension),const unsigned int fromZero=0)
 	{
+		// Recompute intersections where power value crosses zero along diagram edges.
 		zeros.erase(zeros.begin()+fromZero,zeros.end());
 		for(unsigned int vertex_index=fromVertex;vertex_index<this->_nVertices;++vertex_index)
 		{
@@ -1233,6 +1261,7 @@ private:
 
 		inline bool tryToBuildVertexOnEdge(const const_vertexPtr& This,const int& here)//,const cellPtr s1, const cellPtr s2,const cellPtr s3,const PDCoord& direction);
 		{
+			// Create one new finite vertex on a surviving edge between replaced and persisting regions.
 			//edge between This (replaced and finite) and that defined by generators s1,s2,s3 will get a vertex (of newest,s1,s2,s3)
 			{
 				vertexPtr builtVertex = NULL;
@@ -1262,9 +1291,10 @@ private:
 	//  void replace_a_vertex(vertex& old_vertex,const Cell& newGenerator);
 	//  void checkvertex(vertexIter& myvertex,Cell& newGenerator,std::vector<vertexIter>& replaced,std::vector <vertexIter>&surroundings,const vertexIter former);
 
-		bool FillReplacedPersistingAndInvolved(cell& This,vertexPtr start)
-		{
-			clear_interna();
+	bool FillReplacedPersistingAndInvolved(cell& This,vertexPtr start)
+	{
+		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
+		clear_interna();
 			Involved.push_back(&This);
 			const ReplaceState startState = finiteReplaced(*start,Involved.front());
 			if(startState==ReplaceState::ambiguous) return false;
@@ -1279,8 +1309,9 @@ private:
 			}
 			return true;
 		}
-		bool CreateFiniteVerticesFromReplaced()
-		{
+	bool CreateFiniteVerticesFromReplaced()
+	{
+		// For every replaced vertex, build the new finite vertices that lie on cut edges.
 		//best procedure for new vertices : knowledge : each new (finite) vertex MUST lie on
 		//exactly one old EXISTING edge which is NOT disappearing totally
 		//all possible edges are the ones coming out our "replaced" vertices
@@ -1311,6 +1342,7 @@ private:
 
 	inline void ConnectNewFinitesAmongThemselves3D()
 	{
+		// Wire newly created finite vertices using shared old-generator pairs as edge keys.
 		//we use an InvolvedSize*InvolvedSize-matrix (sparse) and fill in all new edges
 		//these are generated by the new Cell and two older Cells
 		//we identify vertices to be connected over an new edge by only the two old cells! (new one is everywhere)
@@ -1341,6 +1373,7 @@ private:
 	// const int GoAlongFace(const vertexIter& former, const vertexIter& current,const vertexIter& finish,const CellPtr& Generator1,const Ptr& Generator2,const int function(const int&))const;
 	void ReserveNewVertices()
 	{
+		// Grow vertex storage while preserving all pointer-based topology links.
 		std::vector<int> _replaced;
 		std::vector<int> _unused;
 		std::vector<int> _currentmyVertices;
@@ -1378,6 +1411,7 @@ private:
 	}
 	void UpdateUnused()
 	{
+		// Mark replaced vertices as invalid/unused and update per-cell myVertices ownership lists.
 		unused.resize(_nUnused);
 		//mark replaced as unused
 		for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();)
@@ -1418,6 +1452,7 @@ private:
 	}
 	void AssignRepresentativeVerticesToCells(const vertexPtr& aDefault) const
 	{
+		// Ensure each involved cell keeps at least one representative connected vertex after insertion.
 		//if there are no new vertices, the new cell is covered
 		if(Involved.front()->myVertices.empty())
 			Involved.front()->myVertices.push_back(aDefault);
@@ -1433,6 +1468,7 @@ private:
 
 	void SetInvolvedPersistingVisitedToZero() 
 	{
+		// Clear temporary rrv/visited marks used during local insertion traversal.
 		for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
 			(*it)->visitedAs=0;
 		for(typename std::vector<vertexPtr>::const_iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
@@ -1453,6 +1489,7 @@ public:
 template <class VectorSubtraction>
     inline /*static*/ PDCoord intersectionOfLineAndPlane3D(const VectorSubtraction& direction,const VectorSubtraction& supportVec,const VectorSubtraction& normal,const PDFloat& planeVal)
 	{
+		// Compute intersection of a line and power-bisector plane in shifted coordinates.
 		const PDFloat tmp=(normal.dot(direction));
 //		const PDFloat sqr=normal.squaredNorm();
 
@@ -1464,12 +1501,14 @@ template <class VectorSubtraction>
 
 inline const PDCoord getPowerCenterOf2(const cell *const g0,const cell *const g1)
 {
+	// Weighted midpoint on the bisector of two generators in power metric.
 	//0.5*(1+(Ra²-Rb²)/dist2)*(a_pos-b_pos)+a_pos
 	return (0.5*(1.+(g0->r2-g1->r2)/(g1->position-g0->position).squaredNorm()))*(g1->position-g0->position)+g0->position;
 }
 
 inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& supportVector,cell const* const& a, cell const* const& b)
 {
+	// Intersect a line with the power bisector plane of generators a and b.
 //	const PDCoord PlaneNormal=(b->position-a->position)/*/(a->position-b->position).norm()*/;
 //	const PDFloat PlaneValue=0.5*(PlaneNormal.squaredNorm()+(a->r2-b->r2)/*(a->position-b->position).norm()*/);
 	//PlaneNormal and PlaneValue are a factor of (a->position-b->position).norm() too big but they cancel each other out
@@ -1498,6 +1537,7 @@ struct zeroPoint
 	}
 	PDCoord getPos()const
 	{
+		// Evaluate the 3D position of this zero crossing along its source edge.
 		return (from->endPoints[branch]->position)*pos-from->position*(pos-1);
 	}
 	bool isValid()const{return ((!from->invalid)&&(!from->endPoints[branch]->invalid));}
@@ -1533,6 +1573,7 @@ struct vertex
 
 		inline bool Init(const const_vertexPtr& This,const int& keep,const PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
+			// Initialize a newly created finite vertex generated by cutting one edge.
 				this->setPowerData(owner.Involved.front());
 
 			for(int g=dimension;g>0;g--)
@@ -1550,6 +1591,7 @@ struct vertex
 
 inline PDCoord getPowerPointOnLine2(vertex const* const& persist)const
 {
+	// Linear interpolation point where the replacement score crosses zero on an edge.
 //	const PDCoord PlaneNormal=(b->position-a->position)/*/(a->position-b->position).norm()*/;
 //	const PDFloat PlaneValue=0.5*(PlaneNormal.squaredNorm()+(a->r2-b->r2)/*(a->position-b->position).norm()*/);
 	//PlaneNormal and PlaneValue are a factor of (a->position-b->position).norm() too big but they cancel each other out
@@ -1600,6 +1642,7 @@ private :
 
 	void refreshAfterRealloc(const vertex*const& copy)
 	{
+		// Rebase endpoint pointers after vertex vector reallocation.
 		for(int g=dimension;g>=0;g--)
 			if(this->generators[g]!=NULL&&(!this->generators[g]->myVertices.empty())&&this->generators[g]->myVertices.front()==copy)
 				this->generators[g]->myVertices.front()=this;
@@ -1612,6 +1655,7 @@ private :
 
 	inline void moveAddressNetworkUpdateOnly(const vertexPtr& whereTo)
 	{
+		// Move one vertex object to a new address and patch neighboring endpoint links.
 		if(this->endPoints[dimension]!=NULL)
 			(this->endPoints[dimension]->fastWhichis(this))=whereTo;
 		for(typename std::array<vertexPtr,dimension+1>::iterator it=endPoints.begin();it!=endPoints.begin()+dimension;++it)
@@ -1644,6 +1688,7 @@ private :
 
 		bool cornerToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
+			// Mark a corner vertex as replaced and continue replacement flood-fill through neighbors.
 			owner.Replaced.push_back(this);
 			for(typename std::array<cellPtr,dimension+1>::const_iterator it=this->generators.begin();it!=this->generators.end();++it)
 				if((*it)->visitedAs==0)
@@ -1662,6 +1707,7 @@ private :
 		}
 		bool finiteToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
+			// Mark a finite vertex as replaced and continue replacement flood-fill through neighbors.
 			owner.Replaced.push_back(this);
 			for(typename std::array<cellPtr,dimension+1>::const_iterator it=this->generators.begin();it!=this->generators.end();++it)
 				if((*it)->visitedAs==0)
@@ -1676,6 +1722,7 @@ private :
 		}
 		inline bool replaceCheck( PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
+			// Dispatch replacement test according to corner/non-corner vertex type.
 			if(this->isCorner())
 				return this->cornerReplaceCheck(owner);
 			return this->finiteReplaceCheck(owner);
@@ -1704,6 +1751,7 @@ private :
 		template <const int cornerInfo>
 		bool buildIn(PowerDiagram<PDFloat,PDCoord,dimension>*const& pd)const
 		{
+			// Build all required new vertices on outgoing edges whose far endpoint persists.
 			for(int g=dimension;g>=cornerInfo;g--)
 			{
 				if(this->endPoints[g]->rrv<=0)
@@ -1718,6 +1766,7 @@ private :
 
 	inline void registerForConnection3D(PowerDiagram<PDFloat,PDCoord,dimension>*const& owner)
 	{
+		// Register candidate edge endpoints so matching generator pairs can be connected.
 		owner->planes[generators[2]->visitedAs*owner->Involved.size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[3]);
 		owner->planes[generators[3]->visitedAs*owner->Involved.size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[2]);
 		owner->planes[generators[3]->visitedAs*owner->Involved.size()+generators[2]->visitedAs].storeOrConnect(this,endPoints[1]);
@@ -1731,6 +1780,7 @@ struct EdgeEnds
 	vertexPtr* b;
 	inline void storeOrConnect(const vertexPtr& pvertex, vertexPtr& itsEndPointStorage)
 	{
+		// First endpoint stores itself; second endpoint closes the pair and connects both vertices.
 		if(this->a==NULL)
 		{
 			this->a=pvertex;								//we store ourself
@@ -1745,6 +1795,7 @@ struct EdgeEnds
 	}
 	inline void connect(const vertexPtr pvertex, vertexPtr& itsEndPointStorage)
 	{
+		// Connect against a previously stored endpoint if one exists for this key.
 		if(this->a!=NULL)
 		{
 			itsEndPointStorage=this->a;//we connect ourself to the other
