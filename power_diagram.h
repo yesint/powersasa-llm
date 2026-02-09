@@ -812,14 +812,14 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									}
 								}
 
-							for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
+							for(std::size_t point_idx=0;point_idx<nRevertPoints;++point_idx)
 							{
-									const std::size_t point_idx = static_cast<std::size_t>(it - points.begin());
-									if(point_idx < old_bond_ids.size() && old_bond_ids[point_idx] != kInvalidId) set_bond_to_id(*it, old_bond_ids[point_idx]);
-									it->neighbours.assign(old_neighbour_ids[point_idx].size(), NULL);
-									it->neighboursIds = old_neighbour_ids[point_idx];
-									for(std::size_t neighbour_idx=0;neighbour_idx<it->neighboursIds.size();++neighbour_idx)
-										it->neighbours[neighbour_idx] = cell_ptr_from_id(it->neighboursIds[neighbour_idx]);
+									cell& point = points[point_idx];
+									if(point_idx < old_bond_ids.size() && old_bond_ids[point_idx] != kInvalidId) set_bond_to_id(point, old_bond_ids[point_idx]);
+									point.neighbours.assign(old_neighbour_ids[point_idx].size(), NULL);
+									point.neighboursIds = old_neighbour_ids[point_idx];
+									for(std::size_t neighbour_idx=0;neighbour_idx<point.neighboursIds.size();++neighbour_idx)
+										point.neighbours[neighbour_idx] = cell_ptr_from_id(point.neighboursIds[neighbour_idx]);
 							}
 					}
 				}
