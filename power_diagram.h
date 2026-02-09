@@ -1118,9 +1118,16 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								}
 
 
+								const VertexId fallback_replaced_id = replaced_id_at(0);
+								vertexPtr fallback_replaced = vertex_ptr_from_id(fallback_replaced_id);
 								for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
-									if(!Involved[involved_idx]->myVertices[0]->isConnected())
-										Involved[involved_idx]->myVertices[0]=Replaced[0];
+								{
+									cellPtr involved_cell = involved_ptr_at(involved_idx);
+									if(involved_cell == nullptr || involved_cell->myVerticesIds.empty()) continue;
+									vertexPtr representative = vertex_ptr_from_id(involved_cell->myVerticesIds[0]);
+									if(representative != nullptr && !representative->isConnected() && fallback_replaced != nullptr)
+										set_cell_my_vertex(*involved_cell, 0, fallback_replaced);
+								}
 
 
 								//set everything zero again
@@ -1850,7 +1857,9 @@ private:
 		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
 		clear_interna();
 			push_involved(&This);
-			const ReplaceState startState = finiteReplaced(*start,involved_front_ptr());
+			cellPtr involved_front = involved_front_ptr();
+			if(involved_front == nullptr) return false;
+			const ReplaceState startState = finiteReplaced(*start,involved_front);
 			if(startState==ReplaceState::ambiguous) return false;
 			if(startState==ReplaceState::replaced)
 			{
@@ -1872,7 +1881,8 @@ private:
 		//so we only try to create if an endPoint of a replaced vertex is not replaced (visitedAs ==-1)
 				for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 				{
-					vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+					const VertexId replaced_id = replaced_id_at(replaced_idx);
+					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
 					if(replaced_vertex == nullptr) continue;
 					int needed=0;
 					for(int g=dimension;g>=replaced_vertex->isCorner();g--)
@@ -2019,10 +2029,12 @@ private:
 		//mark replaced as unused
 		for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();)
 		{
-			vertexPtr replaced_vertex=replaced_ptr_at(replaced_idx);
+			const VertexId replaced_id = replaced_id_at(replaced_idx);
+			vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
 			if(replaced_vertex == nullptr)
 			{
-				set_replaced(replaced_idx, replaced_ptr_at(Replaced.size()-1));
+				const VertexId last_id = replaced_id_at(Replaced.size()-1);
+				set_replaced(replaced_idx, vertex_ptr_from_id(last_id));
 				pop_replaced();
 				continue;
 			}
@@ -2030,12 +2042,13 @@ private:
 			{
 				replaced_vertex->rrv=0;
 				//Replaced.erase(it);--it;//the corners are always part of diagram	
-				set_replaced(replaced_idx, replaced_ptr_at(Replaced.size()-1));
+				const VertexId last_id = replaced_id_at(Replaced.size()-1);
+				set_replaced(replaced_idx, vertex_ptr_from_id(last_id));
 				pop_replaced();
 			}
 			else
 			{
-				if(get_vertex_id(*replaced_vertex)<nRevertVertices)
+				if(replaced_id<nRevertVertices)
 					Invalids.push_back(replaced_vertex);
 				replaced_vertex->disconnect();//vertex has no connection any more.  we delete it later
 				++replaced_idx;
@@ -2044,7 +2057,8 @@ private:
 		if(nRevertVertices==0)
 			for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 			{
-				vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+				const VertexId replaced_id = replaced_id_at(replaced_idx);
+				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
 				if(replaced_vertex == nullptr) continue;
 				unused.push_back(replaced_vertex);
 			}
@@ -2052,9 +2066,10 @@ private:
 		else
 			for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 			{
-				vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+				const VertexId replaced_id = replaced_id_at(replaced_idx);
+				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
 				if(replaced_vertex == nullptr) continue;
-				if(get_vertex_id(*replaced_vertex)>=nRevertVertices)
+				if(replaced_id>=nRevertVertices)
 					unused.push_back(replaced_vertex);
 					else
 						for(const cellPtr generator : replaced_vertex->generators)
@@ -2073,34 +2088,20 @@ private:
 				cellPtr involved_front = involved_front_ptr();
 				if(involved_front == nullptr) return;
 				//if there are no new vertices, the new cell is covered
-				if(involved_front->myVertices.empty())
+				if(involved_front->myVerticesIds.empty())
 					push_cell_my_vertex(*involved_front, aDefault);
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
 				{
-					vertexPtr new_representative = nullptr;
-					if(!involved_front->myVerticesIds.empty())
-					{
-						new_representative = vertex_ptr_from_id(involved_front->myVerticesIds.front());
-					}
-					if(new_representative == nullptr)
-					{
-						new_representative = involved_front->myVertices.front();
-					}
+					vertexPtr new_representative = vertex_ptr_from_id(involved_front->myVerticesIds.front());
+					if(new_representative == nullptr) return;
 					for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
 					{
 						cellPtr involved_cell = involved_ptr_at(involved_idx);
 						if(involved_cell == nullptr) continue;
-						if(cell_id_or_invalid(involved_cell) == kInvalidId) continue;
-						vertexPtr representative = nullptr;
-						if(!involved_cell->myVerticesIds.empty())
-						{
-							representative = vertex_ptr_from_id(involved_cell->myVerticesIds.front());
-						}
-						if(representative == nullptr)
-						{
-							if(involved_cell->myVertices.empty()) continue;
-							representative = involved_cell->myVertices.front();
-						}
+						if(involved_id_at(involved_idx) == kInvalidId) continue;
+						if(involved_cell->myVerticesIds.empty()) continue;
+						vertexPtr representative = vertex_ptr_from_id(involved_cell->myVerticesIds.front());
+						if(representative == nullptr) continue;
 						if(!representative->isConnected())//if representing vertex has been erased
 							set_cell_my_vertex(*involved_cell, 0, new_representative);//we assign representative of new also to this one
 					}
@@ -2119,36 +2120,18 @@ private:
 			}
 			cellPtr involved_front = involved_front_ptr();
 			if(involved_front == nullptr) return;
-			if(!involved_front->myVerticesIds.empty())
+			for(const VertexId vid : involved_front->myVerticesIds)
 			{
-				for(const VertexId vid : involved_front->myVerticesIds)
+				vertexPtr vtx = vertex_ptr_from_id(vid);
+				if(vtx == nullptr) continue;
+				vtx->rrv=0;
+				if(!vtx->isCorner())
+					vtx->endPoints[0]->rrv=0;
+				else
 				{
-					vertexPtr vtx = vertex_ptr_from_id(vid);
-					if(vtx == nullptr) continue;
-					vtx->rrv=0;
-					if(!vtx->isCorner())
-						vtx->endPoints[0]->rrv=0;
-					else
-					{
-						vtx->endPoints[1]->rrv=0;
-						vtx->endPoints[2]->rrv=0;
-						vtx->endPoints[3]->rrv=0;
-					}
-				}
-			}
-			else
-			{
-				for(const vertexPtr vtx : involved_front->myVertices)
-				{
-					vtx->rrv=0;
-					if(!vtx->isCorner())
-						vtx->endPoints[0]->rrv=0;
-					else
-					{
-						vtx->endPoints[1]->rrv=0;
-						vtx->endPoints[2]->rrv=0;
-						vtx->endPoints[3]->rrv=0;
-					}
+					vtx->endPoints[1]->rrv=0;
+					vtx->endPoints[2]->rrv=0;
+					vtx->endPoints[3]->rrv=0;
 				}
 			}
 		}
