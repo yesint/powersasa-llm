@@ -1163,12 +1163,17 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								if(_nUnused==0)
 								{
 									//here comes the deletion ;)
-									_nVertices-=involved_front->myVertices.size()-unused.size()+_nUnused;
-									for(vertexPtr involved_vertex : involved_front->myVertices)
-										if(get_vertex_id(*involved_vertex)<(1<<dimension))
+									_nVertices-=involved_front->myVerticesIds.size()-unused.size()+_nUnused;
+									for(const VertexId involved_vid : involved_front->myVerticesIds)
+									{
+										vertexPtr involved_vertex = vertex_ptr_from_id(involved_vid);
+										if(involved_vertex == nullptr) continue;
+										if(involved_vid<(1u<<dimension))
 										{
 											_nVertices++;
-										}else involved_vertex->disconnect();
+										}
+										else involved_vertex->disconnect();
+									}
 								}
 
 								//delete new vertices built on unused (not needed because endpoints not constructed,yet)
@@ -2096,14 +2101,14 @@ private:
 				if(replaced_vertex == nullptr) continue;
 				if(replaced_id>=nRevertVertices)
 					unused.push_back(replaced_vertex);
-					else
-						for(const cellPtr generator : replaced_vertex->generators)
-							for(unsigned int i=0;i<generator->myVertices.size();i++)
-								if(generator->myVertices[i]==replaced_vertex)
-								{
-									erase_cell_my_vertex(*generator, i);
-									break;
-								}
+						else
+							for(const cellPtr generator : replaced_vertex->generators)
+								for(unsigned int i=0;i<generator->myVerticesIds.size();i++)
+									if(generator->myVerticesIds[i]==replaced_id)
+									{
+										erase_cell_my_vertex(*generator, i);
+										break;
+									}
 			}
 				_nUnused=unused.size();
 		}
