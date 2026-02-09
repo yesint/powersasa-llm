@@ -663,9 +663,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		getBoundingBox<PDCoord,PDFloat,PDCoord const*,PDFloat const*,dimension>(lowest,highest,size,&(*pos_it),&(*strength_it));
 		buildCube(lowest-center,highest-center);
 
-		if(params.radiiGiven)
-			{
-				for(unsigned int i=0;i<points.size();i++)
+			if(params.radiiGiven)
+				{
+				for(std::size_t i=0;i<points.size();i++)
 				{
 					points[i].position=(*(pos_it+i))-center;
 					points[i].r=(*(strength_it+i));
@@ -673,7 +673,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					points[i].visitedAs=0;
 				}
 
-						for(unsigned int i=points.size();i<size;i++)
+						for(std::size_t i=points.size();i<static_cast<std::size_t>(size);i++)
 						{
 							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
 							if(points.size() > 1) set_bond_to_id(points.back(), points.size()-2);
@@ -683,14 +683,14 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			}
 			else
 			{
-				for(unsigned int i=0;i<points.size();i++)
+				for(std::size_t i=0;i<points.size();i++)
 				{
 					points[i].position=(*(pos_it+i))-center;
 					points[i].r2=(*(strength_it+i));
 					points[i].r=sqrt(points[i].r2);
 					points[i].visitedAs=0;
 				}
-						for(unsigned int i=points.size();i<size;i++)
+						for(std::size_t i=points.size();i<static_cast<std::size_t>(size);i++)
 						{
 							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
 							if(points.size() > 1) set_bond_to_id(points.back(), points.size()-2);
