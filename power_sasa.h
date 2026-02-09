@@ -738,14 +738,21 @@ calc_sasa_single(const unsigned int iatom)
 		}
 	}
 
-	std::vector<typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex*> const &nodes = atom.myVertices;
-	typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1, *node2;
+	const std::size_t node_count = atom.myVerticesIds.empty() ? atom.myVertices.size() : atom.myVerticesIds.size();
+	const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1, *node2;
 	std::array<typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord,3>::cellPtr,4> gen1, gen2;
 	typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell *at;
 
-	for (j = 0; j < int(nodes.size()); ++j)
+	for (j = 0; j < static_cast<int>(node_count); ++j)
 	{
-		node1 = nodes[j];
+		node1 = nullptr;
+		if (!atom.myVerticesIds.empty())
+		{
+			const std::size_t vid = atom.myVerticesIds[j];
+			if (vid < pd_vertices.size()) node1 = &pd_vertices[vid];
+		}
+		if (node1 == nullptr && static_cast<std::size_t>(j) < atom.myVertices.size()) node1 = atom.myVertices[j];
+		if (node1 == nullptr) continue;
 		for (kn = 0; kn < 4; ++kn)
 		{
 			node2 = node1->endPoints[kn];
