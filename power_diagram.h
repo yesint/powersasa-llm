@@ -1516,15 +1516,15 @@ private:
 				}
 				else
 				{
-					for(typename std::vector<vertexPtr>::const_iterator it2=point.myVertices.begin();it2!=point.myVertices.end();++it2)
-						if(!(*it2)->isCorner())
+					for(const vertexPtr vertex_ptr : point.myVertices)
+						if(!vertex_ptr->isCorner())
 								for(int g=dimension;g>=0;g--)
-									if((*it2)->generators[g]->isReal(*this))
+									if(vertex_ptr->generators[g]->isReal(*this))
 									{
-										if((*it2)->generators[g]->visitedAs<current_cell_order&&(*it2)->generators[g]!=&point)
+										if(vertex_ptr->generators[g]->visitedAs<current_cell_order&&vertex_ptr->generators[g]!=&point)
 											{
-												push_cell_neighbour(point, (*it2)->generators[g]);
-												(*it2)->generators[g]->visitedAs=current_cell_order;
+												push_cell_neighbour(point, vertex_ptr->generators[g]);
+												vertex_ptr->generators[g]->visitedAs=current_cell_order;
 											}
 									}
 					}
@@ -1596,15 +1596,15 @@ private:
 				}
 				else
 				{
-					for(typename std::vector<vertexPtr>::const_iterator it2=involved_cell->myVertices.begin();it2!=involved_cell->myVertices.end();++it2)
+					for(const vertexPtr vertex_ptr : involved_cell->myVertices)
 					{
 						for(int g=dimension;g>=0;g--)
-							if((*it2)->generators[g]->isReal(*this))
+							if(vertex_ptr->generators[g]->isReal(*this))
 							{
-									if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=current_cell_order&&(*it2)->generators[g]!=involved_cell)
+									if(vertex_ptr->generators[g]->visitedAs!=0&&vertex_ptr->generators[g]->visitedAs<=current_cell_order&&vertex_ptr->generators[g]!=involved_cell)
 									{
-										push_cell_neighbour(*involved_cell, (*it2)->generators[g]);
-										(*it2)->generators[g]->visitedAs=current_cell_order+1;
+										push_cell_neighbour(*involved_cell, vertex_ptr->generators[g]);
+										vertex_ptr->generators[g]->visitedAs=current_cell_order+1;
 									}
 							}
 					}
