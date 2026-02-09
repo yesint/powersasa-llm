@@ -585,24 +585,27 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 				it->invalid=0;
 				it->rrv=0;
-				for(typename std::array <vertexPtr,dimension+1>::const_iterator it2=it->endPoints.begin()+it->isCorner();it2!=it->endPoints.end();++it2)
-				for(int g1=it->isCorner();g1<=dimension;g1++)
-				for(int g2=(*it2)->isCorner();g2<=dimension;g2++)
+				for(int endpoint_idx=it->isCorner();endpoint_idx<=dimension;++endpoint_idx)
 				{
-					if(it->generators[nth(0,g1)]==(*it2)->generators[nth(0,g2)]&&it->generators[nth(1,g1)]==(*it2)->generators[nth(1,g2)]&&it->generators[nth(2,g1)]==(*it2)->generators[nth(2,g2)])
+					vertexPtr endpoint = it->endPoints[endpoint_idx];
+					for(int g1=it->isCorner();g1<=dimension;g1++)
+					for(int g2=endpoint->isCorner();g2<=dimension;g2++)
 					{
-//						(*it)->endPoints[g1]=*it2;		//is already set 
-						(*it2)->endPoints[g2]=&(*it);
+						if(it->generators[nth(0,g1)]==endpoint->generators[nth(0,g2)]&&it->generators[nth(1,g1)]==endpoint->generators[nth(1,g2)]&&it->generators[nth(2,g1)]==endpoint->generators[nth(2,g2)])
+						{
+	//						(*it)->endPoints[g1]=*it2;		//is already set 
+							endpoint->endPoints[g2]=&(*it);
+						}
 					}
 				}
-					for(typename std::array<cellPtr,dimension+1>::iterator itg=it->generators.begin();itg!=it->generators.end();++itg)
-						if((*itg)->isReal(*this))
+					for(int g=0;g<=dimension;++g)
+						if(it->generators[g]->isReal(*this))
 						{
-							push_cell_my_vertex(*(*itg), &(*it));
-							if((*itg)->visitedAs==0)
+							push_cell_my_vertex(*it->generators[g], &(*it));
+							if(it->generators[g]->visitedAs==0)
 							{
-							(*itg)->visitedAs=-1;
-							Involved.push_back(*itg);
+							it->generators[g]->visitedAs=-1;
+							Involved.push_back(it->generators[g]);
 						}
 					}
 			}
