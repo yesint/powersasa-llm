@@ -336,6 +336,13 @@ public :
 	{
 		return (id == kInvalidId || id >= points.size()) ? NULL : &points[id];
 	}
+	inline const_cellPtr cell_ptr_from_ref_const(const GeneratorRef& ref) const
+	{
+		if (!ref.is_valid()) return NULL;
+		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
+		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
+		return NULL;
+	}
 	inline vertexPtr vertex_ptr_from_id(const VertexId id)
 	{
 		return (id == kInvalidId || id >= vertices.size()) ? NULL : &vertices[id];
@@ -1165,14 +1172,35 @@ std::cout<<std::endl;
 
 	bool hasVirtualGenerators(const const_vertexPtr& that)const
 	{
-		if(!(that->generators[dimension]>=&points[0]&&that->generators[dimension]<&points[points.size()]))
+		const GeneratorRef& ref = that->generatorRefs[dimension];
+		const const_cellPtr gptr = that->generators[dimension];
+		if (ref.is_valid())
+		{
+			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
+			if (ref_ptr == gptr)
+			{
+				return !(ref.kind == GeneratorKind::point && ref.index < points.size());
+			}
+		}
+		if(!(gptr>=&points[0]&&gptr<&points[points.size()]))
 			return 1;
 		else	return 0;
 	}
 	int nVirtualGenerators(const const_vertexPtr& that)const
 	{
-		if(!(that->generators[dimension]>=&points[0]&&that->generators[dimension]<&points[points.size()]))
-			if(!(that->generators[dimension]>=&points[0]&&that->generators[dimension]<&points[points.size()]))
+		const GeneratorRef& ref = that->generatorRefs[dimension];
+		const const_cellPtr gptr = that->generators[dimension];
+		bool dim_is_real = (gptr>=&points[0]&&gptr<&points[points.size()]);
+		if (ref.is_valid())
+		{
+			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
+			if (ref_ptr == gptr)
+			{
+				dim_is_real = (ref.kind == GeneratorKind::point && ref.index < points.size());
+			}
+		}
+		if(!dim_is_real)
+			if(!dim_is_real)
 				if(that->isCorner())
 					return 3;
 				else return 2;
