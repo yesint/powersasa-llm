@@ -36,10 +36,6 @@ If you have no license please contact SASA-support@kit.edu
 #include <memory>
 #include <vector>
 
-#define MAX_NB 20
-#define MAX_VX 12
-#define MAX_PNT 4
-#define MAX_COUNT 100
 //=============================================================
 
 namespace POWERSASA
@@ -62,6 +58,10 @@ class PowerSasa
 {
 public:
 	using PowerDiagramT = POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>;
+	static constexpr unsigned int kMaxNb = 20;
+	static constexpr unsigned int kMaxVx = 12;
+	static constexpr unsigned int kMaxPnt = 4;
+	static constexpr int kMaxCount = 100;
 
 	inline static PDFloat DRAD2() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	inline static PDFloat DANG() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
@@ -139,9 +139,9 @@ private:
 	inline void Init()
 	{
 		Resize_NA();
-		Resize_NB(MAX_NB);
-		Resize_VX(MAX_VX);
-		Resize_PNT(MAX_PNT);
+		Resize_NB(kMaxNb);
+		Resize_VX(kMaxVx);
+		Resize_PNT(kMaxPnt);
 	}
 	inline void Resize_NB(unsigned int nnb)
 	{
@@ -157,7 +157,7 @@ private:
 		knot.resize(nnb);
 		fknot.resize(nnb);
 #endif
-		std::size_t npnt = MAX_PNT;
+		std::size_t npnt = kMaxPnt;
 		if (!p.empty()) npnt = p[0].size();
 		const std::size_t nnb_old = p.size();
 		next.resize(nnb);
@@ -203,7 +203,7 @@ private:
 		if (withSasa) Sasa.resize(n,0);
 		if(withDSasa)
 		{
-			std::size_t nnb = MAX_NB;
+			std::size_t nnb = kMaxNb;
 			if (!DSasa_parts.empty() && !DSasa_parts.front().empty()) nnb = DSasa_parts.front().size();
 			const std::size_t n_old = DSasa.size();
 			DSasa.resize(n);
@@ -803,7 +803,7 @@ calc_sasa_single(const unsigned int iatom)
 		do                                 // main loop
 		{
 			++count;
-			if (count > MAX_COUNT)
+			if (count > kMaxCount)
 			{
 				std::cerr << "PowerSasa: Wrong contour" << std::endl;
 				throw PowerSasaException();
