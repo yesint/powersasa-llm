@@ -526,14 +526,24 @@ calc_sasa_single(const unsigned int iatom)
 	bool covered = true;
 	ok = true;
 	
-	for (std::size_t n = 0; n < atom.myVertices.size(); ++n)
+	const auto& pd_vertices = power_diagram->get_vertices();
+	const std::size_t my_vertex_count = atom.myVerticesIds.empty() ? atom.myVertices.size() : atom.myVerticesIds.size();
+	for (std::size_t n = 0; n < my_vertex_count; ++n)
 	{
-		if (std::fabs(atom.myVertices[n]->powerValue) < tol_pow)
+		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex* atom_vertex = nullptr;
+		if (!atom.myVerticesIds.empty())
+		{
+			const std::size_t vid = atom.myVerticesIds[n];
+			if (vid < pd_vertices.size()) atom_vertex = &pd_vertices[vid];
+		}
+		if (atom_vertex == nullptr && n < atom.myVertices.size()) atom_vertex = atom.myVertices[n];
+		if (atom_vertex == nullptr) continue;
+		if (std::fabs(atom_vertex->powerValue) < tol_pow)
 		{
 			std::cerr << "PowerSasa: Vertex power value is too close to zero" << std::endl;
 			throw PowerSasaException();
 		}
-		if (atom.myVertices[n]->powerValue > 0.0) covered = false;
+		if (atom_vertex->powerValue > 0.0) covered = false;
 	}
 
 	if (covered && !withVol) return;
