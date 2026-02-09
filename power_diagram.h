@@ -2298,6 +2298,7 @@ private :
 	inline void endPointsAndPositionOverwrite(const vertexPtr& endPoint,const PDCalc& pos)
 	{
 		endPoints[0]=endPoint;
+		endPointIds[0]=kInvalidId;
 		rrv=0;
 		invalid=0;
 		position=pos;
