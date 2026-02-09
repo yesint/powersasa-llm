@@ -1246,6 +1246,10 @@ private:
 	vertexPtr getRepresentative(const const_cellPtr This)
 	{
 		// Retrieve a connected representative vertex for This, falling back along bondTo if needed.
+		if(This == NULL)
+		{
+			return &vertices[0];
+		}
 		const std::size_t n_vertices = This->myVerticesIds.empty() ? This->myVertices.size() : This->myVerticesIds.size();
 		for(std::size_t i = 0; i < n_vertices; ++i)
 		{
@@ -1259,12 +1263,17 @@ private:
 				candidate = This->myVertices[i];
 			}
 			if(candidate != NULL && candidate->isConnected() && candidate->hasGenerator(This))
-			{
-				return candidate;
-			}
+				{
+					return candidate;
+				}
 		}
-		if(This->bondToId != kInvalidId) return getRepresentative(cell_ptr_from_id(This->bondToId));
-		if(!(This==&points[0]) && This->bondTo != NULL) return getRepresentative(This->bondTo);
+		if(This->bondToId != kInvalidId)
+		{
+			cellPtr const bond = cell_ptr_from_id(This->bondToId);
+			if(bond != NULL && bond != This) return getRepresentative(bond);
+		}
+		const CellId this_id = cell_id_or_invalid(This);
+		if(this_id != 0 && This->bondTo != NULL && This->bondTo != This) return getRepresentative(This->bondTo);
 		else
 		{
 			return &vertices[0];
