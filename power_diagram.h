@@ -259,6 +259,22 @@ public :
 	{
 		return static_cast<VertexId>(&my_vertex - vertices.data());
 	}
+	inline cell& cell_at(const CellId id)
+	{
+		return points[id];
+	}
+	inline const cell& cell_at(const CellId id) const
+	{
+		return points[id];
+	}
+	inline vertex& vertex_at(const VertexId id)
+	{
+		return vertices[id];
+	}
+	inline const vertex& vertex_at(const VertexId id) const
+	{
+		return vertices[id];
+	}
 	inline CellId cell_id_or_invalid(const cellPtr ptr) const
 	{
 		if (ptr == nullptr || points.empty()) return kInvalidId;
@@ -352,11 +368,11 @@ public :
 	}
 	inline cellPtr cell_ptr_from_id(const CellId id)
 	{
-		return (id == kInvalidId || id >= points.size()) ? nullptr : &points[id];
+		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
 	}
 	inline const_cellPtr cell_ptr_from_id_const(const CellId id) const
 	{
-		return (id == kInvalidId || id >= points.size()) ? nullptr : &points[id];
+		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
 	}
 	inline const_cellPtr cell_ptr_from_ref_const(const GeneratorRef& ref) const
 	{
@@ -367,7 +383,7 @@ public :
 	}
 	inline vertexPtr vertex_ptr_from_id(const VertexId id)
 	{
-		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertices[id];
+		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertex_at(id);
 	}
 	inline void set_bond_to(cell& a_cell, const cellPtr ptr)
 	{
@@ -409,9 +425,16 @@ public :
 	{
 		if(index >= Replaced.size()) return nullptr;
 		vertexPtr ptr = nullptr;
-		if(index < ReplacedIds.size()) ptr = vertex_ptr_from_id(ReplacedIds[index]);
+		const VertexId id = replaced_id_at(index);
+		if(id != kInvalidId) ptr = vertex_ptr_from_id(id);
 		if(ptr == nullptr) ptr = Replaced[index];
 		return ptr;
+	}
+	inline VertexId replaced_id_at(const std::size_t index) const
+	{
+		if(index >= Replaced.size()) return kInvalidId;
+		if(index < ReplacedIds.size() && ReplacedIds[index] != kInvalidId) return ReplacedIds[index];
+		return vertex_id_or_invalid(Replaced[index]);
 	}
 	inline void clear_involved()
 	{
@@ -433,9 +456,16 @@ public :
 	{
 		if(index >= Involved.size()) return nullptr;
 		cellPtr ptr = nullptr;
-		if(index < InvolvedIds.size()) ptr = cell_ptr_from_id(InvolvedIds[index]);
+		const CellId id = involved_id_at(index);
+		if(id != kInvalidId) ptr = cell_ptr_from_id(id);
 		if(ptr == nullptr) ptr = Involved[index];
 		return ptr;
+	}
+	inline CellId involved_id_at(const std::size_t index) const
+	{
+		if(index >= Involved.size()) return kInvalidId;
+		if(index < InvolvedIds.size() && InvolvedIds[index] != kInvalidId) return InvolvedIds[index];
+		return cell_id_or_invalid(Involved[index]);
 	}
 	inline cellPtr involved_front_ptr()
 	{
@@ -483,10 +513,10 @@ public :
 	}
 	inline zeroPoint const& get_zero(const ZeroId n) const { return zeros[n]; }
 	inline zeroPoint& get_zero(const ZeroId n) { return zeros[n]; }
-	inline vertex const& get_vertex(const VertexId n) const { return vertices[n]; }
-	inline vertex& get_vertex(const VertexId n) { return vertices[n]; }
-	inline cell const& get_cell(const CellId n) const { return points[n]; }
-	inline cell& get_cell(const CellId n) { return points[n]; }
+	inline vertex const& get_vertex(const VertexId n) const { return vertex_at(n); }
+	inline vertex& get_vertex(const VertexId n) { return vertex_at(n); }
+	inline cell const& get_cell(const CellId n) const { return cell_at(n); }
+	inline cell& get_cell(const CellId n) { return cell_at(n); }
 	inline cell const& get_generator(const GeneratorRef& ref) const
 	{
 		return (ref.kind == GeneratorKind::point) ? points[ref.index] : sideGenerators[ref.index];
