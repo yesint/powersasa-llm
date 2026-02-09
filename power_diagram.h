@@ -1303,7 +1303,7 @@ private:
 
 				const PDFloat oldr2=Involved.front()->r2;
 					if(params.with_warnings)
-						std::cout<<"Numerical Warning: Power of "<<Involved.front()-&points[0]+1<<" is reduced from "<<Involved.front()->r2;
+						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*Involved.front())+1<<" is reduced from "<<Involved.front()->r2;
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
 					for(typename std::vector<vertexPtr>::const_iterator it=Replaced.begin();it!=Replaced.end();++it)
@@ -1319,7 +1319,7 @@ private:
 				if(params.with_warnings)
 					std::cout<<" to "<<Involved.front()->r2<<" ( Change was "<<Involved.front()->r2-oldr2<<" )"<<std::endl;
 				done++;
-				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<Involved.front()-&points[0]<<" "<<Involved.front()->position+center<<std::endl;
+				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<get_cell_id(*Involved.front())<<" "<<Involved.front()->position+center<<std::endl;
 					throw MyException();}
 			}
 			return hint;
