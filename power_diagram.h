@@ -2112,9 +2112,10 @@ private:
 					if(new_representative == nullptr) return;
 					for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 					{
-						cellPtr involved_cell = involved_ptr_at(involved_idx);
+						const CellId involved_id = involved_id_at(involved_idx);
+						if(involved_id == kInvalidId) continue;
+						cellPtr involved_cell = cell_ptr_from_id(involved_id);
 						if(involved_cell == nullptr) continue;
-						if(involved_id_at(involved_idx) == kInvalidId) continue;
 						if(involved_cell->myVerticesIds.empty()) continue;
 						vertexPtr representative = vertex_ptr_from_id(involved_cell->myVerticesIds.front());
 						if(representative == nullptr) continue;
