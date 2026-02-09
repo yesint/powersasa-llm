@@ -117,18 +117,14 @@ public:
 	// Number of neighboring cells for atom iatom in the current power diagram.
 	unsigned int NumOfNeighbours(unsigned int iatom) const
 	{
-		return power_diagram->get_points()[iatom].neighbours.size();
+		return static_cast<unsigned int>(power_diagram->get_points()[iatom].neighboursIds.size());
 	}
 	// Convert local neighbour index to global atom index.
 	unsigned int AtomNo(unsigned int i_atom, unsigned int i_neighbour) const
 	{
 		const auto& points = power_diagram->get_points();
 		const auto& atom = points[i_atom];
-		if (!atom.neighboursIds.empty() && i_neighbour < atom.neighboursIds.size())
-		{
-			return static_cast<unsigned int>(atom.neighboursIds[i_neighbour]);
-		}
-		return static_cast<unsigned int>(power_diagram->get_cell_id(*atom.neighbours[i_neighbour]));
+		return static_cast<unsigned int>(atom.neighboursIds[i_neighbour]);
 	}
 
 	template<class Coordcontainer, class Floatcontainer, class Intcontainer>
@@ -481,19 +477,12 @@ calc_sasa_single(const unsigned int iatom)
 
 	std::vector<typename PowerDiagram3D::cell> const& atoms = power_diagram->get_points();
 	const typename PowerDiagram3D::cell& atom = atoms[iatom];
-	const int nnb = static_cast<int>(atom.neighbours.size());               // number of neighbors
+	const int nnb = static_cast<int>(atom.neighboursIds.size());               // number of neighbors
 	std::vector<CellId> neighbour_ids(static_cast<std::size_t>(nnb), PowerDiagram3D::kInvalidId);
 	for (int nb_idx = 0; nb_idx < nnb; ++nb_idx)
 	{
 		const std::size_t idx = static_cast<std::size_t>(nb_idx);
-		if (!atom.neighboursIds.empty() && idx < atom.neighboursIds.size())
-		{
-			neighbour_ids[idx] = atom.neighboursIds[idx];
-		}
-		if (neighbour_ids[idx] == PowerDiagram3D::kInvalidId && atom.neighbours[idx] != nullptr)
-		{
-			neighbour_ids[idx] = power_diagram->get_cell_id(*atom.neighbours[idx]);
-		}
+		if (idx < atom.neighboursIds.size()) neighbour_ids[idx] = atom.neighboursIds[idx];
 		if (neighbour_ids[idx] == PowerDiagram3D::kInvalidId)
 		{
 			std::cerr << "PowerSasa: Invalid neighbour link" << std::endl;
@@ -553,16 +542,12 @@ calc_sasa_single(const unsigned int iatom)
 	ok = true;
 	
 	const auto& pd_vertices = power_diagram->get_vertices();
-	const std::size_t my_vertex_count = atom.myVerticesIds.empty() ? atom.myVertices.size() : atom.myVerticesIds.size();
+	const std::size_t my_vertex_count = atom.myVerticesIds.size();
 	for (std::size_t n = 0; n < my_vertex_count; ++n)
 	{
 		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex* atom_vertex = nullptr;
-		if (!atom.myVerticesIds.empty())
-		{
-			const std::size_t vid = atom.myVerticesIds[n];
-			if (vid < pd_vertices.size()) atom_vertex = &pd_vertices[vid];
-		}
-		if (atom_vertex == nullptr && n < atom.myVertices.size()) atom_vertex = atom.myVertices[n];
+		const std::size_t vid = atom.myVerticesIds[n];
+		if (vid < pd_vertices.size()) atom_vertex = &pd_vertices[vid];
 		if (atom_vertex == nullptr) continue;
 		if (std::fabs(atom_vertex->powerValue) < tol_pow)
 		{
@@ -775,7 +760,7 @@ calc_sasa_single(const unsigned int iatom)
 		}
 	}
 
-	const std::size_t node_count = atom.myVerticesIds.empty() ? atom.myVertices.size() : atom.myVerticesIds.size();
+	const std::size_t node_count = atom.myVerticesIds.size();
 	const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1, *node2;
 	const auto generators_match = [](const typename PowerDiagram3D::GeneratorRef& a, const typename PowerDiagram3D::GeneratorRef& b) -> bool
 	{
@@ -785,22 +770,10 @@ calc_sasa_single(const unsigned int iatom)
 	for (j = 0; j < static_cast<int>(node_count); ++j)
 	{
 		node1 = nullptr;
-		if (!atom.myVerticesIds.empty())
-		{
-			const std::size_t vid = atom.myVerticesIds[j];
-			if (vid < pd_vertices.size()) node1 = &pd_vertices[vid];
-		}
-		if (node1 == nullptr && static_cast<std::size_t>(j) < atom.myVertices.size()) node1 = atom.myVertices[j];
+		const std::size_t vid = atom.myVerticesIds[j];
+		if (vid < pd_vertices.size()) node1 = &pd_vertices[vid];
 		if (node1 == nullptr) continue;
-		VertexId node1_id = PowerDiagram3D::kInvalidId;
-		if (!atom.myVerticesIds.empty())
-		{
-			node1_id = atom.myVerticesIds[j];
-		}
-		if (node1_id == PowerDiagram3D::kInvalidId)
-		{
-			node1_id = power_diagram->get_vertex_id(*node1);
-		}
+		VertexId node1_id = atom.myVerticesIds[j];
 		for (kn = 0; kn < 4; ++kn)
 		{
 					node2 = node1->endPoints[kn];

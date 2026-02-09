@@ -208,8 +208,6 @@ public :
 			PDFloat r;
 			PDFloat r2;
 			using zeroPointPtr = zeroPoint*;
-			std::vector<cellPtr> neighbours;
-			std::vector<vertexPtr> myVertices;
 			CellId bondToId;
 			std::vector<CellId> neighboursIds;
 			std::vector<VertexId> myVerticesIds;
@@ -217,12 +215,10 @@ public :
 
 			inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power):visitedAs(0),position(pos),r(root),r2(power),bondToId(kInvalidId)
 			{
-				myVertices.reserve(12);
 				myVerticesIds.reserve(12);
 			}
 			inline cell(PDCoord const& pos,const PDFloat& str):visitedAs(0),position(pos),r(str),r2(str*str),bondToId(kInvalidId)
 			{
-				myVertices.reserve(12);
 				myVerticesIds.reserve(12);
 			}
 		inline PDFloat power(const PDCoord& coord) const
@@ -337,12 +333,10 @@ public :
 	inline void sync_cell_link_mirrors(cell& a_cell)
 	{
 		if(a_cell.bondToId >= points.size()) a_cell.bondToId = kInvalidId;
-		a_cell.neighbours.resize(a_cell.neighboursIds.size(), nullptr);
 		for(std::size_t i=0;i<a_cell.neighboursIds.size();++i)
-			a_cell.neighbours[i] = cell_ptr_from_id(a_cell.neighboursIds[i]);
-		a_cell.myVertices.resize(a_cell.myVerticesIds.size(), nullptr);
+			if(a_cell.neighboursIds[i] >= points.size()) a_cell.neighboursIds[i] = kInvalidId;
 		for(std::size_t i=0;i<a_cell.myVerticesIds.size();++i)
-			a_cell.myVertices[i] = vertex_ptr_from_id(a_cell.myVerticesIds[i]);
+			if(a_cell.myVerticesIds[i] >= vertices.size()) a_cell.myVerticesIds[i] = kInvalidId;
 	}
 	inline void sync_vertex_link_mirrors(vertex& a_vertex) const
 	{
@@ -383,16 +377,10 @@ public :
 	inline void validate_cell_mirror_invariants(const cell& a_cell) const
 	{
 #if PD_ENABLE_TOPOLOGY_ASSERTS
-		if(a_cell.myVertices.size() != a_cell.myVerticesIds.size()) throw MyException();
-		for(std::size_t i=0;i<a_cell.myVertices.size();++i)
-		{
-			if(a_cell.myVerticesIds[i] != vertex_id_or_invalid(a_cell.myVertices[i])) throw MyException();
-		}
-		if(a_cell.neighbours.size() != a_cell.neighboursIds.size()) throw MyException();
-		for(std::size_t i=0;i<a_cell.neighbours.size();++i)
-		{
-			if(a_cell.neighboursIds[i] != cell_id_or_invalid(a_cell.neighbours[i])) throw MyException();
-		}
+		for(std::size_t i=0;i<a_cell.myVerticesIds.size();++i)
+			if(a_cell.myVerticesIds[i] != kInvalidId && a_cell.myVerticesIds[i] >= vertices.size()) throw MyException();
+		for(std::size_t i=0;i<a_cell.neighboursIds.size();++i)
+			if(a_cell.neighboursIds[i] != kInvalidId && a_cell.neighboursIds[i] >= points.size()) throw MyException();
 		if(a_cell.bondToId != kInvalidId && a_cell.bondToId >= points.size()) throw MyException();
 #endif
 	}
@@ -542,63 +530,51 @@ public :
 	}
 	inline void clear_cell_my_vertices(cell& a_cell)
 	{
-		a_cell.myVertices.clear();
 		a_cell.myVerticesIds.clear();
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void push_cell_my_vertex(cell& a_cell, const vertexPtr ptr)
 	{
-		a_cell.myVertices.push_back(ptr);
 		a_cell.myVerticesIds.push_back(vertex_id_or_invalid(ptr));
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void pop_cell_my_vertex(cell& a_cell)
 	{
-		a_cell.myVertices.pop_back();
 		a_cell.myVerticesIds.pop_back();
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void set_cell_my_vertex(cell& a_cell, const std::size_t index, const vertexPtr ptr)
 	{
-		a_cell.myVertices[index] = ptr;
 		a_cell.myVerticesIds[index] = vertex_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void erase_cell_my_vertex(cell& a_cell, const std::size_t index)
 	{
-		a_cell.myVertices.erase(a_cell.myVertices.begin() + index);
 		a_cell.myVerticesIds.erase(a_cell.myVerticesIds.begin() + index);
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void clear_cell_neighbours(cell& a_cell)
 	{
-		a_cell.neighbours.clear();
 		a_cell.neighboursIds.clear();
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void push_cell_neighbour(cell& a_cell, const cellPtr ptr)
 	{
-		a_cell.neighbours.push_back(ptr);
 		a_cell.neighboursIds.push_back(cell_id_or_invalid(ptr));
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void set_cell_neighbour(cell& a_cell, const std::size_t index, const cellPtr ptr)
 	{
-		a_cell.neighbours[index] = ptr;
 		a_cell.neighboursIds[index] = cell_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void assign_cell_neighbours_from_ids(cell& a_cell, const std::vector<CellId>& neighbour_ids)
 	{
 		a_cell.neighboursIds = neighbour_ids;
-		a_cell.neighbours.assign(neighbour_ids.size(), nullptr);
-		for(std::size_t i=0;i<neighbour_ids.size();++i)
-			a_cell.neighbours[i] = cell_ptr_from_id(neighbour_ids[i]);
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void erase_cell_neighbour(cell& a_cell, const std::size_t index)
 	{
-		a_cell.neighbours.erase(a_cell.neighbours.begin() + index);
 		a_cell.neighboursIds.erase(a_cell.neighboursIds.begin() + index);
 		validate_cell_mirror_invariants(a_cell);
 	}
@@ -1713,7 +1689,7 @@ private:
 					cellPtr involved_cell = involved_ptr_at(involved_idx);
 					if(involved_cell == nullptr) continue;
 					std::size_t neighbour_idx=0;
-						while(neighbour_idx<involved_cell->neighbours.size())
+						while(neighbour_idx<involved_cell->neighboursIds.size())
 						{
 							cellPtr neighbour = (neighbour_idx < involved_cell->neighboursIds.size())
 								? cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx])
@@ -2344,10 +2320,7 @@ private :
 				if(this->generators[g]!=nullptr
 					&&(!this->generators[g]->myVerticesIds.empty())
 					&&this->generators[g]->myVerticesIds.front()==copy_id)
-				{
-					this->generators[g]->myVertices.front()=this;
 					this->generators[g]->myVerticesIds.front()=copy_id;
-				}
 		for(int g=0;g<=dimension;++g)
 		{
 				if(endPoints[g]!=nullptr)
