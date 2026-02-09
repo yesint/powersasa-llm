@@ -2022,7 +2022,7 @@ private:
 		vertices.reserve(2*vertices.capacity()+1);
 
 		for(unsigned int i=0;i<_nVertices;++i)
-			vertices[i].refreshAfterRealloc(oldMemoryPointer+i);
+			vertices[i].refreshAfterRealloc(oldMemoryPointer+i, i);
 			vertices.resize(vertices.capacity());
 
 			for(unsigned int i=0;i<ReplacedIds.size();i++)
@@ -2332,11 +2332,13 @@ private :
 		position=pos;
 	}
 
-		void refreshAfterRealloc(const vertex*const& copy)
+		void refreshAfterRealloc(const vertex*const& copy, const VertexId copy_id)
 		{
 			// Rebase endpoint pointers after vertex vector reallocation.
 			for(int g=dimension;g>=0;g--)
-				if(this->generators[g]!=nullptr&&(!this->generators[g]->myVertices.empty())&&this->generators[g]->myVertices.front()==copy)
+				if(this->generators[g]!=nullptr
+					&&(!this->generators[g]->myVerticesIds.empty())
+					&&this->generators[g]->myVerticesIds.front()==copy_id)
 					this->generators[g]->myVertices.front()=this;
 		for(int g=0;g<=dimension;++g)
 		{
