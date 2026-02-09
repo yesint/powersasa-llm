@@ -810,14 +810,8 @@ calc_sasa_single(const unsigned int iatom)
 					{
 						node2_id = power_diagram->get_vertex_id(*node2);
 					}
-					if (node2_id != PowerDiagram3D::kInvalidId && node1_id != PowerDiagram3D::kInvalidId)
-					{
-						if (node2_id > node1_id) continue;
-					}
-					else
-					{
-						if (node2 > node1) continue;
-					}
+					if (node2_id == PowerDiagram3D::kInvalidId || node1_id == PowerDiagram3D::kInvalidId) continue;
+					if (node2_id > node1_id) continue;
 					if (node1->powerValue > 0.0 || node2->powerValue > 0.0) continue;
 				bool node2_contains_atom = false;
 				for (int kg = 0; kg < 4; ++kg)
