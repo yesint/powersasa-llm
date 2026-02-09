@@ -183,7 +183,7 @@ private:
 	unsigned int nRevertVertices;
 	unsigned int nRevertZeros;
 	unsigned int nRevertPoints;
-	int cornerOwners[1<<dimension];
+	std::array<CellId,1<<dimension> cornerOwners{};
 
 	PDFloat powerErr;
 	PDFloat insertionErrorScale;
@@ -499,11 +499,12 @@ static PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_
 }
 template <typename Pos_iterator, typename Strength_iterator, typename BondTo_iterator>
 		PowerDiagram(PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_iterator> _params):center(0.5*(_params.highestCorner+_params.lowestCorner)),params(_params.runpar)
-		{
-			// Build initial clipping cube, insert all points, then derive optional adjacency/zero-point caches.
-			_nUnused=0;
-			insertionErrorScale=0;
-			nRevertPoints=0;
+			{
+				// Build initial clipping cube, insert all points, then derive optional adjacency/zero-point caches.
+				_nUnused=0;
+				insertionErrorScale=0;
+				cornerOwners.fill(kInvalidId);
+				nRevertPoints=0;
 		nRevertZeros=0;
 		nRevertVertices=(1<<dimension);
 		Replaced.reserve(64);
@@ -583,7 +584,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			points.erase(points.begin()+nRevertPoints,points.end());
 			for(int c=0;c<(1<<dimension);c++)
 			{
-				const CellId owner_id = (cornerOwners[c] < 0) ? kInvalidId : static_cast<CellId>(cornerOwners[c]);
+				const CellId owner_id = cornerOwners[c];
 				cellPtr owner_ptr = cell_ptr_from_id(owner_id);
 				if(owner_ptr == nullptr) owner_ptr = points.data();
 				vertices[c].generators[0]=owner_ptr;
@@ -628,12 +629,12 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						involved_cell->myZeroPoints.pop_back();
 				zeros.erase(zeros.begin()+nRevertZeros,zeros.end());
 			}
-		nRevertPoints=0;
-		nRevertVertices=0;
-			for(int c=0;c<(1<<dimension);c++)
-				cornerOwners[c]=0;
-			sync_all_link_mirrors();
-		}
+			nRevertPoints=0;
+			nRevertVertices=0;
+				for(int c=0;c<(1<<dimension);c++)
+					cornerOwners[c]=kInvalidId;
+				sync_all_link_mirrors();
+			}
 	template <class Pos_iterator, class Strength_iterator>
 	inline void recalculate(const Pos_iterator pos_it,const Strength_iterator strength_it,const unsigned int size)
 	//does standard deletion and calculation of Vertices, neighbour information, ...
@@ -739,10 +740,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						? vertices[vi].generatorRefs[g]
 						: generator_ref_or_invalid(vertices[vi].generators[g]);
 			for(int c=0;c<(1<<dimension);c++)
-			{
-				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
-				cornerOwners[c]=(owner_id == kInvalidId) ? 0 : static_cast<int>(owner_id);
-			}
+				cornerOwners[c]=cell_id_or_invalid(vertices[c].generators[0]);
 			const const_cellPtr old_points_data=points.data();
 			points.reserve(newSize);
 			const bool points_reallocated = (points.data()!= old_points_data);
