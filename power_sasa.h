@@ -772,7 +772,8 @@ calc_sasa_single(const unsigned int iatom)
 		if (np[i] <= 0) continue;
 		if (np[i] % 2 != 0)
 		{
-			std::cerr << "PowerSasa: odd number of crossing between circles of "<<iatom<<" and "<<atom.neighbours[i]-&atoms[0] << std::endl;
+			std::cerr << "PowerSasa: odd number of crossing between circles of " << iatom
+				<< " and " << AtomNo(iatom, static_cast<unsigned int>(i)) << std::endl;
 			throw PowerSasaException();
 		}
 		Get_Ang(np[i], p[i], e[i], sintheta[i], costheta[i], ang[i]);
