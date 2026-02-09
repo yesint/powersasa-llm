@@ -984,21 +984,21 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								_nUnused=unused.size();	
 
 							//reconnect replaced with persisting
-							for(typename std::vector<vertexPtr>::const_iterator it=Replaced.begin();it!=Replaced.end();++it)
-							for(typename std::array<vertexPtr,dimension+1>::const_iterator it2=(*it)->endPoints.begin()+(*it)->isCorner();it2!=(*it)->endPoints.end();++it2)
-			 				if((*it2)->rrv<=0)
-							{
-								(*it2)->rrv=0;
-								for(int g1=(*it)->isCorner();g1<=dimension;g1++)
-								for(int g2=(*it2)->isCorner();g2<=dimension;g2++)
+								for(const vertexPtr replaced_vertex : Replaced)
+								for(typename std::array<vertexPtr,dimension+1>::const_iterator it2=replaced_vertex->endPoints.begin()+replaced_vertex->isCorner();it2!=replaced_vertex->endPoints.end();++it2)
+				 				if((*it2)->rrv<=0)
 								{
-									if((*it)->generators[nth(0,g1)]==(*it2)->generators[nth(0,g2)]&&(*it)->generators[nth(1,g1)]==(*it2)->generators[nth(1,g2)]&&(*it)->generators[nth(2,g1)]==(*it2)->generators[nth(2,g2)])	
+									(*it2)->rrv=0;
+									for(int g1=replaced_vertex->isCorner();g1<=dimension;g1++)
+									for(int g2=(*it2)->isCorner();g2<=dimension;g2++)
 									{
-										(*it)->endPoints[g1]=*it2;
-										(*it2)->endPoints[g2]=*it;
+										if(replaced_vertex->generators[nth(0,g1)]==(*it2)->generators[nth(0,g2)]&&replaced_vertex->generators[nth(1,g1)]==(*it2)->generators[nth(1,g2)]&&replaced_vertex->generators[nth(2,g1)]==(*it2)->generators[nth(2,g2)])	
+										{
+											replaced_vertex->endPoints[g1]=*it2;
+											(*it2)->endPoints[g2]=replaced_vertex;
+										}
 									}
 								}
-							}
 
 
 								for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
@@ -1354,12 +1354,12 @@ private:
 						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*Involved.front())+1<<" is reduced from "<<Involved.front()->r2;
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
-					for(typename std::vector<vertexPtr>::const_iterator it=Replaced.begin();it!=Replaced.end();++it)
-					{
-					(*it)->rrv=0;
-					for(int g=(*it)->isCorner();g<=dimension;g++)
-						(*it)->endPoints[g]->rrv=0;
-				}
+						for(const vertexPtr replaced_vertex : Replaced)
+						{
+						replaced_vertex->rrv=0;
+						for(int g=replaced_vertex->isCorner();g<=dimension;g++)
+							replaced_vertex->endPoints[g]->rrv=0;
+					}
 				Replaced.clear();
 				This.r2-=pow(2.0,done)*(PowerDiagram<PDFloat,PDCoord,dimension>::powerErr);
 				if(This.r2>0)	This.r= sqrt(This.r2);
@@ -1535,52 +1535,52 @@ private:
 							++neighbour_idx;
 					}
 			}
-			for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
+			for(const cellPtr involved_cell : Involved)
 			{
 				int current_cell_order = 0;
-				const CellId current_cell_id = cell_id_or_invalid(*it);
+				const CellId current_cell_id = cell_id_or_invalid(involved_cell);
 				if(current_cell_id != kInvalidId)
 					current_cell_order = static_cast<int>(current_cell_id);
 				else
 				{
 					for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
-						if(&points[point_idx]==(*it))
+						if(&points[point_idx]==involved_cell)
 						{
 							current_cell_order = static_cast<int>(point_idx);
 							break;
 						}
 				}
-				if(!(*it)->myVerticesIds.empty())
+				if(!involved_cell->myVerticesIds.empty())
 				{
-					for(const VertexId vid : (*it)->myVerticesIds)
+					for(const VertexId vid : involved_cell->myVerticesIds)
 					{
 						vertexPtr vtx = vertex_ptr_from_id(vid);
 						if(vtx == NULL) continue;
-							for(int g=dimension;g>=0;g--)
-								if(vtx->generators[g]->isReal(*this))
+						for(int g=dimension;g>=0;g--)
+							if(vtx->generators[g]->isReal(*this))
+							{
+								if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=involved_cell)
 								{
-									if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=(*it))
-									{
-										push_cell_neighbour(*(*it), vtx->generators[g]);
-										vtx->generators[g]->visitedAs=current_cell_order+1;
-									}
+									push_cell_neighbour(*involved_cell, vtx->generators[g]);
+									vtx->generators[g]->visitedAs=current_cell_order+1;
 								}
-						}
+							}
+					}
 				}
 				else
 				{
-					for(typename std::vector<vertexPtr>::const_iterator it2=(*it)->myVertices.begin();it2!=(*it)->myVertices.end();++it2)
+					for(typename std::vector<vertexPtr>::const_iterator it2=involved_cell->myVertices.begin();it2!=involved_cell->myVertices.end();++it2)
 					{
-							for(int g=dimension;g>=0;g--)
-								if((*it2)->generators[g]->isReal(*this))
-								{
-										if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=current_cell_order&&(*it2)->generators[g]!=(*it))
-										{
-											push_cell_neighbour(*(*it), (*it2)->generators[g]);
-											(*it2)->generators[g]->visitedAs=current_cell_order+1;
-										}
-								}
-						}
+						for(int g=dimension;g>=0;g--)
+							if((*it2)->generators[g]->isReal(*this))
+							{
+									if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=current_cell_order&&(*it2)->generators[g]!=involved_cell)
+									{
+										push_cell_neighbour(*involved_cell, (*it2)->generators[g]);
+										(*it2)->generators[g]->visitedAs=current_cell_order+1;
+									}
+							}
+					}
 				}
 			}
 
@@ -1739,22 +1739,22 @@ private:
 		//exactly one old EXISTING edge which is NOT disappearing totally
 		//all possible edges are the ones coming out our "replaced" vertices
 		//so we only try to create if an endPoint of a replaced vertex is not replaced (visitedAs ==-1)
-			for(typename std::vector<vertexPtr>::const_iterator it=Replaced.begin();it!=Replaced.end();++it)
-			{
-				int needed=0;
-				for(int g=dimension;g>=(*it)->isCorner();g--)
-					if((*it)->endPoints[g]->rrv<=0)
-						needed++;
-				const int additionalNeeded=needed-static_cast<int>(_nUnused);
-				if(additionalNeeded>0&&nVertices()+additionalNeeded>vertices.capacity())
+				for(const vertexPtr replaced_vertex : Replaced)
+				{
+					int needed=0;
+					for(int g=dimension;g>=replaced_vertex->isCorner();g--)
+						if(replaced_vertex->endPoints[g]->rrv<=0)
+							needed++;
+					const int additionalNeeded=needed-static_cast<int>(_nUnused);
+					if(additionalNeeded>0&&nVertices()+additionalNeeded>vertices.capacity())
 				{
 					this->ReserveNewVertices();
 				}
 				bool ok=true;
-				if(!(*it)->isCorner())
-					ok=(*it)->template buildIn<0>(this);
+				if(!replaced_vertex->isCorner())
+					ok=replaced_vertex->template buildIn<0>(this);
 				else
-					ok=(*it)->template buildIn<1>(this);
+					ok=replaced_vertex->template buildIn<1>(this);
 				if(!ok)
 				{
 					return false;
