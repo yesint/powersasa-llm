@@ -315,13 +315,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	}
 	const std::vector<cell >& getPoints()const {return points;}
 
-	void revert()
-	{
-		//if addmore was used this function can revert to the diagram without the added atoms
-		for(typename std::vector<vertex > ::iterator it=vertices.begin()+nRevertVertices;it!=vertices.begin()+_nVertices;++it)
-			for(typename std::array<cellPtr,dimension+1>::iterator itg=it->generators.begin()+1;itg!=it->generators.end();++itg)
-			if((*itg)->isReal(*this))
-				(*itg)->myVertices.pop_back();
+		void revert()
+		{
+			//if addmore was used this function can revert to the diagram without the added atoms
+			for(unsigned int vi=nRevertVertices;vi<_nVertices;++vi)
+				for(int gi=1;gi<=dimension;++gi)
+					if(vertices[vi].generators[gi]->isReal(*this))
+						vertices[vi].generators[gi]->myVertices.pop_back();
 		_nVertices=nRevertVertices;
 		Involved.clear();
 		if(points.size()>nRevertPoints)
@@ -331,9 +331,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			vertices[c].generators[0]=cornerOwners[c]+&points[0];
 			vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
 		}
-		for(typename std::vector<vertexPtr > ::iterator iti=Invalids.begin();iti!=Invalids.end();++iti)
-		{
-			vertexPtr it=*iti;
+			for(vertexPtr it : Invalids)
+			{
 				it->invalid=0;
 				it->rrv=0;
 				for(typename std::array <vertexPtr,dimension+1>::const_iterator it2=it->endPoints.begin()+it->isCorner();it2!=it->endPoints.end();++it2)
@@ -356,7 +355,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							Involved.push_back(*itg);
 						}
 					}
-		}
+			}
 		Invalids.clear();
 		if(params.fill_neighbours)
 			FillAllNeighboursOfInvolved();
@@ -482,11 +481,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			if(rebuild.squaredNorm()>0)
 			{
 				clearAllmyVertices();
-				for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+_nVertices;++it)
-				{
-					it->invalid=0;
-					it->rrv=0;
-				}
+					for(unsigned int vi=0;vi<_nVertices;++vi)
+					{
+						vertices[vi].invalid=0;
+						vertices[vi].rrv=0;
+					}
 
 			{//createlike
 					for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
@@ -511,11 +510,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 				if(&points[0]!= oldstorage)
 				{
-					for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+_nVertices;++it)
-						for(typename std::array<cellPtr,dimension+1>::iterator itg=it->generators.begin();itg!=it->generators.end();++itg)
-							if(*itg>=oldstorage&&*itg<=oldstorage+nRevertPoints)
-							{
-								*itg=*itg-oldstorage+&points[0];
+						for(unsigned int vi=0;vi<_nVertices;++vi)
+							for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end();++itg)
+								if(*itg>=oldstorage&&*itg<=oldstorage+nRevertPoints)
+								{
+									*itg=*itg-oldstorage+&points[0];
 							}
 
 					for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
@@ -747,23 +746,23 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 
 if(!params.without_check){
-				PDFloat checkconst=0;
+					PDFloat checkconst=0;
 //				std::cout<<"checking diagram"<<std::endl;
-				for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+_nVertices;++it)
-					if(it->isConnected())
-						for(typename std::vector<cell >::iterator itp=points.begin();itp!=points.end();++itp)
-							if(itp->power(it->position)-it->powerValue<-checkconst)
-			if((&(*itp)!=it->generators[0])&&(&(*itp)!=it->generators[1])&&(&(*itp)!=it->generators[2])&&(&(*itp)!=it->generators[3]))
-					{checkconst=itp->power(it->position)-it->powerValue;
+					for(unsigned int vi=0;vi<_nVertices;++vi)
+						if(vertices[vi].isConnected())
+							for(cell& point : points)
+								if(point.power(vertices[vi].position)-vertices[vi].powerValue<-checkconst)
+			if((&point!=vertices[vi].generators[0])&&(&point!=vertices[vi].generators[1])&&(&point!=vertices[vi].generators[2])&&(&point!=vertices[vi].generators[3]))
+					{checkconst=point.power(vertices[vi].position)-vertices[vi].powerValue;
 		
-						std::cout<<"totaly wrong are "<<itp-points.begin()<<" "<<itp->power(it->position)<<" "<<it->generators[0]->power(it->position)<<" "<<it->generators[1]->power(it->position)<<"          "<<it->generators[0]->position[0]<<" "<<it->generators[0]->position[1]<<" "<<it->generators[0]->position[2]<<std::endl;
-std::cout<<it->generators[0]-&points[0]<<" "<<it->generators[1]-&points[0]<<" "<<it->generators[2]-&points[0]<<" "<<it->generators[3]-&points[0]<<std::endl;
-std::cout<<itp->power(it->endPoints[0]->position)<<" "<<itp->power(it->endPoints[1]->position)<<std::endl;
-std::cout<<it->generators[0]->power(it->endPoints[0]->position)<<" "<<it->generators[0]->power(it->endPoints[1]->position)<<std::endl;
-std::cout<<it->generators[1]->power(it->endPoints[0]->position)<<" "<<it->generators[1]->power(it->endPoints[1]->position)<<std::endl;
-std::cout<<it->position<<std::endl<<std::endl;
-std::cout<<it->endPoints[0]->position<<std::endl<<std::endl;
-std::cout<<it->endPoints[1]->position<<std::endl;
+						std::cout<<"totaly wrong are "<<(&point-&points[0])<<" "<<point.power(vertices[vi].position)<<" "<<vertices[vi].generators[0]->power(vertices[vi].position)<<" "<<vertices[vi].generators[1]->power(vertices[vi].position)<<"          "<<vertices[vi].generators[0]->position[0]<<" "<<vertices[vi].generators[0]->position[1]<<" "<<vertices[vi].generators[0]->position[2]<<std::endl;
+std::cout<<vertices[vi].generators[0]-&points[0]<<" "<<vertices[vi].generators[1]-&points[0]<<" "<<vertices[vi].generators[2]-&points[0]<<" "<<vertices[vi].generators[3]-&points[0]<<std::endl;
+std::cout<<point.power(vertices[vi].endPoints[0]->position)<<" "<<point.power(vertices[vi].endPoints[1]->position)<<std::endl;
+std::cout<<vertices[vi].generators[0]->power(vertices[vi].endPoints[0]->position)<<" "<<vertices[vi].generators[0]->power(vertices[vi].endPoints[1]->position)<<std::endl;
+std::cout<<vertices[vi].generators[1]->power(vertices[vi].endPoints[0]->position)<<" "<<vertices[vi].generators[1]->power(vertices[vi].endPoints[1]->position)<<std::endl;
+std::cout<<vertices[vi].position<<std::endl<<std::endl;
+std::cout<<vertices[vi].endPoints[0]->position<<std::endl<<std::endl;
+std::cout<<vertices[vi].endPoints[1]->position<<std::endl;
 	throw MyException();
 
 	}
@@ -863,15 +862,15 @@ if(std::abs(checkconst)>0.001)
 		if(params.with_warnings)
 			std::cout<<"warning : program slowed down because of too small accuracy"<<std::endl;
 		//...so the numerical problem wants to be tough? A fat lot we care!
-			for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+nVertices();++it)
-			if(it->isConnected())
-			{
-				if(it->powerdiff3D(it->generators[0],&insertionPoint)<value)
-			{
-				value=(it)->powerdiff3D((it)->generators[0],&insertionPoint);
-					This=&(*it);
+				for(unsigned int vi=0;vi<nVertices();++vi)
+				if(vertices[vi].isConnected())
+				{
+					if(vertices[vi].powerdiff3D(vertices[vi].generators[0],&insertionPoint)<value)
+				{
+					value=vertices[vi].powerdiff3D(vertices[vi].generators[0],&insertionPoint);
+						This=&vertices[vi];
+					}
 				}
-			}
 
 		}
 		inline ReplaceState finiteReplaced(vertex& This,const_cellPtr const& aCell)
@@ -939,28 +938,28 @@ std::cout<<std::endl;
 			else	return 1;
 		else	return 0;
 	}
-	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=NULL)
-	{
-		if(hint==NULL)hint =&points[points.size()/2];
-			for(typename std::vector<cellPtr>::const_iterator it=hint->neighbours.begin();it!=hint->neighbours.end();++it)
+		cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=NULL)
+		{
+			if(hint==NULL)hint =&points[points.size()/2];
+			for(const cellPtr neighbour : hint->neighbours)
 			{
-				if((*it)->power(pos)<hint->power(pos))return findCellInsideCube(pos,*it);
+				if(neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
 			}
-		return hint;
-	}
+			return hint;
+		}
 private:
 	vertexPtr getRepresentative(const const_cellPtr This)
 	{
-		if(This->myVertices.front()->isConnected()&&This->myVertices.front()->hasGenerator(This))
-		{
-			return This->myVertices.front();
-		}
-		else 
-			for(typename std::vector<vertexPtr>::const_iterator it=This->myVertices.begin()+1;it!=This->myVertices.end();++it)
+			if(This->myVertices.front()->isConnected()&&This->myVertices.front()->hasGenerator(This))
 			{
-				if((*it)->isConnected()&&(*it)->hasGenerator(This))
-					return *it;
+				return This->myVertices.front();
 			}
+			else 
+				for(std::size_t i=1;i<This->myVertices.size();++i)
+				{
+					if(This->myVertices[i]->isConnected()&&This->myVertices[i]->hasGenerator(This))
+						return This->myVertices[i];
+				}
 		
 		if(!(This==&points[0])) return getRepresentative(This->bondTo);
 		else 
