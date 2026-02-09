@@ -149,10 +149,10 @@ public:
 	struct vertex;
 	struct cell;
 	struct EdgeEnds;
-	typedef cell* cellPtr;
-	typedef cell const* const_cellPtr;
-	typedef vertex* vertexPtr;
-	typedef vertex const* const_vertexPtr;
+	using cellPtr = cell*;
+	using const_cellPtr = cell const*;
+	using vertexPtr = vertex*;
+	using const_vertexPtr = vertex const*;
 	using CellId = std::size_t;
 	using VertexId = std::size_t;
 	using ZeroId = std::size_t;
