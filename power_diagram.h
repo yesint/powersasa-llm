@@ -947,17 +947,17 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							if(done>100)
 								throw MyException();
 							//is this an Identical point problem?
-							{
-								PDFloat mindist=(Involved[1]->position-Involved.front()->position).squaredNorm();
-								cellPtr closest=Involved[1];
-								for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+2;it!=Involved.end();++it)
-									if(((*it)->position-Involved.front()->position).squaredNorm()<mindist)
-									{
-										mindist=((*it)->position-Involved.front()->position).squaredNorm();
-										closest=*it;
-									}
-									if(error(Involved.front()->r)>sqrt(mindist))
-									{
+								{
+									PDFloat mindist=(Involved[1]->position-Involved.front()->position).squaredNorm();
+									cellPtr closest=Involved[1];
+									for(std::size_t involved_idx=2;involved_idx<Involved.size();++involved_idx)
+										if((Involved[involved_idx]->position-Involved.front()->position).squaredNorm()<mindist)
+										{
+											mindist=(Involved[involved_idx]->position-Involved.front()->position).squaredNorm();
+											closest=Involved[involved_idx];
+										}
+										if(error(Involved.front()->r)>sqrt(mindist))
+										{
 										identicalPoint=closest;
 										if(params.with_warnings)
 										{
@@ -967,21 +967,21 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									}
 							}
 							//delete new vertices built directly into vertices (when unused has been empty)
-							if(_nUnused==0)
-							{
-								//here comes the deletion ;)
-								_nVertices-=Involved.front()->myVertices.size()-unused.size()+_nUnused;
-								for(typename std::vector<vertexPtr>::iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
-									if(get_vertex_id(*(*it))<(1<<dimension))
-									{
-										_nVertices++;
-									}else (*it)->disconnect();
-							}
+								if(_nUnused==0)
+								{
+									//here comes the deletion ;)
+									_nVertices-=Involved.front()->myVertices.size()-unused.size()+_nUnused;
+									for(vertexPtr involved_vertex : Involved.front()->myVertices)
+										if(get_vertex_id(*involved_vertex)<(1<<dimension))
+										{
+											_nVertices++;
+										}else involved_vertex->disconnect();
+								}
 
-							//delete new vertices built on unused (not needed because endpoints not constructed,yet)
-							for(typename std::vector<vertexPtr>::iterator it=unused.begin()+_nUnused;it!=unused.end();++it)
-								(*it)->disconnect();
-							_nUnused=unused.size();	
+								//delete new vertices built on unused (not needed because endpoints not constructed,yet)
+								for(std::size_t unused_idx=_nUnused;unused_idx<unused.size();++unused_idx)
+									unused[unused_idx]->disconnect();
+								_nUnused=unused.size();	
 
 							//reconnect replaced with persisting
 							for(typename std::vector<vertexPtr>::const_iterator it=Replaced.begin();it!=Replaced.end();++it)
@@ -1001,19 +1001,19 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							}
 
 
-							for(typename std::vector<cellPtr>::iterator it=Involved.begin()+1;it!=Involved.end();++it)
-								if(!(*it)->myVertices[0]->isConnected())
-									(*it)->myVertices[0]=Replaced[0];
+								for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
+									if(!Involved[involved_idx]->myVertices[0]->isConnected())
+										Involved[involved_idx]->myVertices[0]=Replaced[0];
 
 
-							//set everything zero again
-							SetInvolvedPersistingVisitedToZero();
-							clear_cell_my_vertices(*Involved.front());
-						 	for(typename std::vector<vertexPtr>::iterator it=Replaced.begin();it!=Replaced.end();++it)
-							{
-			  					(*it)->rrv=0;
-								(*it)->invalid=0;
-							}
+								//set everything zero again
+								SetInvolvedPersistingVisitedToZero();
+								clear_cell_my_vertices(*Involved.front());
+							 	for(vertexPtr replaced_vertex : Replaced)
+								{
+				  					replaced_vertex->rrv=0;
+									replaced_vertex->invalid=0;
+								}
 
 							Replaced.clear();
 							if(identicalPoint!=NULL)
