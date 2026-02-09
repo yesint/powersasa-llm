@@ -208,7 +208,6 @@ public :
 			PDFloat r;
 			PDFloat r2;
 			using zeroPointPtr = zeroPoint*;
-			cellPtr bondTo;
 			std::vector<cellPtr> neighbours;
 			std::vector<vertexPtr> myVertices;
 			CellId bondToId;
@@ -216,12 +215,12 @@ public :
 			std::vector<VertexId> myVerticesIds;
 			std::vector<int> myZeroPoints;
 
-			inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power,const cellPtr bond):visitedAs(0),position(pos),r(root),r2(power),bondTo(bond),bondToId(kInvalidId)
+			inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power,const cellPtr /*bond*/):visitedAs(0),position(pos),r(root),r2(power),bondToId(kInvalidId)
 			{
 				myVertices.reserve(12);
 				myVerticesIds.reserve(12);
 			}
-			inline cell(PDCoord const& pos,const PDFloat& str,const cellPtr bond):visitedAs(0),position(pos),r(str),r2(str*str),bondTo(bond),bondToId(kInvalidId)
+			inline cell(PDCoord const& pos,const PDFloat& str,const cellPtr /*bond*/):visitedAs(0),position(pos),r(str),r2(str*str),bondToId(kInvalidId)
 			{
 				myVertices.reserve(12);
 				myVerticesIds.reserve(12);
@@ -337,7 +336,7 @@ public :
 	}
 	inline void sync_cell_link_mirrors(cell& a_cell) const
 	{
-		a_cell.bondToId = cell_id_or_invalid(a_cell.bondTo);
+		if(a_cell.bondToId >= points.size()) a_cell.bondToId = kInvalidId;
 		a_cell.neighboursIds.resize(a_cell.neighbours.size(), kInvalidId);
 		for (std::size_t i = 0; i < a_cell.neighbours.size(); ++i)
 		{
@@ -398,7 +397,7 @@ public :
 		{
 			if(a_cell.neighboursIds[i] != cell_id_or_invalid(a_cell.neighbours[i])) throw MyException();
 		}
-		if(a_cell.bondToId != cell_id_or_invalid(a_cell.bondTo)) throw MyException();
+		if(a_cell.bondToId != kInvalidId && a_cell.bondToId >= points.size()) throw MyException();
 #endif
 	}
 	inline void validate_all_cell_mirror_invariants() const
@@ -442,14 +441,12 @@ public :
 	}
 	inline void set_bond_to(cell& a_cell, const cellPtr ptr)
 	{
-		a_cell.bondTo = ptr;
 		a_cell.bondToId = cell_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void set_bond_to_id(cell& a_cell, const CellId id)
 	{
-		a_cell.bondToId = id;
-		a_cell.bondTo = cell_ptr_from_id(id);
+		a_cell.bondToId = (id < points.size()) ? id : kInvalidId;
 		validate_cell_mirror_invariants(a_cell);
 	}
 	inline void clear_replaced()
