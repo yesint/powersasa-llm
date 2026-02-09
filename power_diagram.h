@@ -360,15 +360,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		if(params.fill_neighbours)
 			FillAllNeighboursOfInvolved();
 
-		if(params.fill_zeroPoints)
-		{
-			for(typename std::vector<cellPtr>::const_iterator it=Involved.begin();it!=Involved.end();++it)
-				for(typename std::vector<int>::const_reverse_iterator itz=(*it)->myZeroPoints.rbegin();itz!=(*it)->myZeroPoints.rend();++itz)
-					if((*itz)>nRevertZeros)
-						(*it)->myZeroPoints.pop_back();
-					else break;
-			zeros.erase(zeros.begin()+nRevertZeros,zeros.end());
-		}
+			if(params.fill_zeroPoints)
+			{
+				for(const cellPtr involved_cell : Involved)
+					while(!involved_cell->myZeroPoints.empty()&&involved_cell->myZeroPoints.back()>static_cast<int>(nRevertZeros))
+						involved_cell->myZeroPoints.pop_back();
+				zeros.erase(zeros.begin()+nRevertZeros,zeros.end());
+			}
 		nRevertPoints=0;
 		nRevertVertices=0;
 		for(int c=0;c<(1<<dimension);c++)
@@ -785,77 +783,80 @@ if(std::abs(checkconst)>0.001)
 			else{/*no vertices*/}
 		}
 
-		//delete waste that was produced, but during cleanup, never move waste (unvalidating "unused" pointer)
-		std::sort(unused.begin(),unused.end());
-		for(typename std::vector<vertexPtr>::const_reverse_iterator it=unused.rbegin();it!=unused.rend();++it)
-		{
-			if((*it)!=&vertices[_nVertices-1])
-				vertices[--_nVertices].moveAddressNetworkUpdateOnly(*it);
-			else {--_nVertices;}
-		}
+			//delete waste that was produced, but during cleanup, never move waste (unvalidating "unused" pointer)
+			std::sort(unused.begin(),unused.end());
+			for(int i=static_cast<int>(unused.size())-1;i>=0;--i)
+			{
+				if(unused[i]!=&vertices[_nVertices-1])
+					vertices[--_nVertices].moveAddressNetworkUpdateOnly(unused[i]);
+				else {--_nVertices;}
+			}
 
 		unused.clear();
 		_nUnused=0;
 
 	}
-	inline void findReplacedVertex(vertexPtr& This, PDFloat& value,const cell& insertionPoint)
-	{
+		inline void findReplacedVertex(vertexPtr& This, PDFloat& value,const cell& insertionPoint)
+		{
 		if(value<0)
 			return;
 		PDFloat newValue;
 		PDFloat smallVal=std::numeric_limits<PDFloat>::max();//something larger than value
 		//look at the neighbours
-		for(typename std::array<vertexPtr,dimension+1>::const_iterator it=This->endPoints.begin()+This->isCorner();it!=This->endPoints.end();++it)
-		{
-			//each powerdiff value defines a plane between insertionPoint and current cell (generator0) approach the direction perpendicular to that plane in direction of insertion point !
-			newValue=(*it)->powerdiff3D((*it)->generators[0],&insertionPoint);
-		 	if(newValue<value)
+			for(int idx=This->isCorner();idx<=dimension;++idx)
 			{
-				value=newValue;
-				This=*it;
-				if(value<0)return;
-				it=This->endPoints.begin()-(!This->isCorner());
+				//each powerdiff value defines a plane between insertionPoint and current cell (generator0) approach the direction perpendicular to that plane in direction of insertion point !
+				vertexPtr endpoint=This->endPoints[idx];
+				newValue=endpoint->powerdiff3D(endpoint->generators[0],&insertionPoint);
+			 	if(newValue<value)
+				{
+					value=newValue;
+					This=endpoint;
+					if(value<0)return;
+					idx=This->isCorner()-1;
+				}
+				else if(newValue==value)
+					smallVal=newValue;
 			}
-			else if(newValue==value)
-				smallVal=newValue;
-		}
 		if((smallVal!=value))
 			return;
 		smallVal=std::numeric_limits<PDFloat>::max();
 		//found value is not definitely the best one
 		//try hard to be sure not beeing in a local minimum (second neighbour)
-		for(typename std::array<vertexPtr,dimension+1>::iterator itg=This->endPoints.begin()+This->isCorner();itg!=This->endPoints.end();++itg)
-			for(typename std::array<vertexPtr,dimension+1>::iterator itg2=(*itg)->endPoints.begin()+(*itg)->isCorner();itg2!=(*itg)->endPoints.end();++itg2)
-				if((*itg2)!=This)
-				{
-					newValue=(*itg2)->powerdiff3D((*itg2)->generators[0],&insertionPoint);
-					if(newValue<value)
+			for(int g=This->isCorner();g<=dimension;++g)
+				for(int g2=This->endPoints[g]->isCorner();g2<=dimension;++g2)
+					if(This->endPoints[g]->endPoints[g2]!=This)
 					{
-						value=newValue;
-						This=*itg2;
-						return findReplacedVertex(This,value,insertionPoint);
-					}
-					else if(newValue==value)
+						vertexPtr candidate=This->endPoints[g]->endPoints[g2];
+						newValue=candidate->powerdiff3D(candidate->generators[0],&insertionPoint);
+						if(newValue<value)
+						{
+							value=newValue;
+							This=candidate;
+							return findReplacedVertex(This,value,insertionPoint);
+						}
+						else if(newValue==value)
 						smallVal=newValue;
 				}
 		if((smallVal!=value))
 			return;
 		smallVal=std::numeric_limits<PDFloat>::max();
 		//second was also close... third neighbour...
-		for(typename std::array<vertexPtr,dimension+1>::iterator itg=This->endPoints.begin()+This->isCorner();itg!=This->endPoints.end();++itg)
-			for(typename std::array<vertexPtr,dimension+1>::iterator itg2=(*itg)->endPoints.begin()+(*itg)->isCorner();itg2!=(*itg)->endPoints.end();++itg2)
-				if((*itg2)!=This)
-					for(typename std::array<vertexPtr,dimension+1>::iterator itg3=(*itg2)->endPoints.begin()+(*itg2)->isCorner();itg3!=(*itg2)->endPoints.end();++itg3)
-						if((*itg3)!=(*itg)&&(*itg3)!=This)
-						{
-							newValue=(*itg3)->powerdiff3D((*itg3)->generators[0],&insertionPoint);
-							if(newValue<value)
+			for(int g=This->isCorner();g<=dimension;++g)
+				for(int g2=This->endPoints[g]->isCorner();g2<=dimension;++g2)
+					if(This->endPoints[g]->endPoints[g2]!=This)
+						for(int g3=This->endPoints[g]->endPoints[g2]->isCorner();g3<=dimension;++g3)
+							if(This->endPoints[g]->endPoints[g2]->endPoints[g3]!=This->endPoints[g]&&This->endPoints[g]->endPoints[g2]->endPoints[g3]!=This)
 							{
-								value=(*itg3)->powerdiff3D((*itg3)->generators[0],&insertionPoint);
-								This=*itg3;
-								return findReplacedVertex(This,value,insertionPoint);
-							}else if(newValue==value)
-								smallVal=newValue;
+								vertexPtr candidate=This->endPoints[g]->endPoints[g2]->endPoints[g3];
+								newValue=candidate->powerdiff3D(candidate->generators[0],&insertionPoint);
+								if(newValue<value)
+								{
+									value=candidate->powerdiff3D(candidate->generators[0],&insertionPoint);
+									This=candidate;
+									return findReplacedVertex(This,value,insertionPoint);
+								}else if(newValue==value)
+									smallVal=newValue;
 						}
 		if(smallVal!=value)
 			return;
@@ -1056,13 +1057,13 @@ private:
 				it->myVertices.clear();
 
 
-		for(typename std::vector<vertex >::iterator it=vertices.begin()+fromVertex;it!=vertices.begin()+_nVertices;++it)
-		if(!(it->invalid))
+		for(unsigned int vi=fromVertex;vi<_nVertices;++vi)
+		if(!(vertices[vi].invalid))
 		{
-			if(!(hasVirtualGenerators(&*it)))
-				for(typename std::array<cellPtr,dimension+1>::iterator itg=it->generators.begin();itg!=it->generators.end();++itg)
+			if(!(hasVirtualGenerators(&vertices[vi])))
+				for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end();++itg)
 				{
-					(*itg)->myVertices.push_back(&(*it));
+					(*itg)->myVertices.push_back(&vertices[vi]);
 					if(fromPoint>0)
 						if((*itg)->visitedAs==0)
 						{
@@ -1070,10 +1071,10 @@ private:
 							Involved.push_back(*itg);
 						}
 				}
-				else if(!it->isCorner())
-					for(typename std::array<cellPtr,dimension+1>::iterator itg=it->generators.begin();itg!=it->generators.end()&&(!((*itg)-&sideGenerators[0]>=0&&(*itg)-&sideGenerators[0]<2*dimension));++itg)
+				else if(!vertices[vi].isCorner())
+					for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end()&&(!((*itg)-&sideGenerators[0]>=0&&(*itg)-&sideGenerators[0]<2*dimension));++itg)
 					{
-						(*itg)->myVertices.push_back(&(*it));
+						(*itg)->myVertices.push_back(&vertices[vi]);
 						if(fromPoint>0)
 							if((*itg)->visitedAs==0)
 							{
@@ -1149,10 +1150,12 @@ private:
 	void FillAllZeroPoints(	unsigned int fromVertex=(1<<dimension),const unsigned int fromZero=0)
 	{
 		zeros.erase(zeros.begin()+fromZero,zeros.end());
-		for(typename std::vector<vertex >::const_iterator it=vertices.begin()+fromVertex;it!=vertices.begin()+this->_nVertices;++it)
+		for(unsigned int vertex_index=fromVertex;vertex_index<this->_nVertices;++vertex_index)
+		{
+			const_vertexPtr it=&vertices[vertex_index];
 			if(!(it->invalid))
 				if(it->generators[dimension-1]->isReal(*this))
-					for(typename std::array <vertexPtr,dimension+1>::const_iterator it2=it->endPoints.begin()+(hasVirtualGenerators(&*it))*3;it2!=it->endPoints.end();++it2)
+					for(typename std::array <vertexPtr,dimension+1>::const_iterator it2=it->endPoints.begin()+(hasVirtualGenerators(it))*3;it2!=it->endPoints.end();++it2)
 					{
 						if((*it2)-&(*it)>0)
 						{
@@ -1176,19 +1179,19 @@ private:
 								if(sol1>0&&sol1<1)
 									if((*it2)->powerValue>0)
 									{
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[it-vertices.begin()],branch));
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[it-vertices.begin()],branch));
-									}
+											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
+											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+										}
+										else
+											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
+									else if(sol2>0&&sol2<1)
+										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
 									else
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[it-vertices.begin()],branch));
-								else if(sol2>0&&sol2<1)
-									zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[it-vertices.begin()],branch));
-								else
-								{//the covered zeros
-									zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[it-vertices.begin()],branch));
-									zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[it-vertices.begin()],branch));
-								}
-							}else if((*it2)->powerValue>0)
+									{//the covered zeros
+										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
+										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+									}
+								}else if((*it2)->powerValue>0)
 							{
 								const int branch=it2-it->endPoints.begin();
 								const PDFloat& v3=(*it2)->powerValue;
@@ -1206,12 +1209,12 @@ private:
 								const PDFloat sol1=min+rootquot;
 								const PDFloat sol2=min-rootquot;
 								if(sol1>0&&sol1<1)
-									zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[it-vertices.begin()],branch));
-								else
-									zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[it-vertices.begin()],branch));
+										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
+									else
+										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+								}
 							}
 						}
-					}
                     /*
 					else //vertex on edge of cube dont have connections through spheres
 					{
@@ -1219,7 +1222,8 @@ private:
 					}
                     */
 
-			for(unsigned int i=fromZero;i<zeros.size();i++)
+		}
+		for(unsigned int i=fromZero;i<zeros.size();i++)
 			{
 				zeros[i].generators[0]->myZeroPoints.push_back(i);
 				zeros[i].generators[1]->myZeroPoints.push_back(i);
