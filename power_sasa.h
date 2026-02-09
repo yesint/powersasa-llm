@@ -476,6 +476,7 @@ calc_sasa_single(const unsigned int iatom)
 	bool ok;
 	using PowerDiagram3D = typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>;
 	using CellId = typename PowerDiagram3D::CellId;
+	using VertexId = typename PowerDiagram3D::VertexId;
 	using GeneratorKind = typename PowerDiagram3D::GeneratorKind;
 
 	std::vector<typename PowerDiagram3D::cell> const& atoms = power_diagram->get_points();
@@ -780,11 +781,33 @@ calc_sasa_single(const unsigned int iatom)
 		}
 		if (node1 == nullptr && static_cast<std::size_t>(j) < atom.myVertices.size()) node1 = atom.myVertices[j];
 		if (node1 == nullptr) continue;
+		VertexId node1_id = PowerDiagram3D::kInvalidId;
+		if (!atom.myVerticesIds.empty())
+		{
+			node1_id = atom.myVerticesIds[j];
+		}
+		if (node1_id == PowerDiagram3D::kInvalidId)
+		{
+			node1_id = power_diagram->get_vertex_id(*node1);
+		}
 		for (kn = 0; kn < 4; ++kn)
 		{
-				node2 = node1->endPoints[kn];
-				if (node2 > node1) continue;
-				if (node1->powerValue > 0.0 || node2->powerValue > 0.0) continue;
+					node2 = node1->endPoints[kn];
+					if (node2 == nullptr) continue;
+					VertexId node2_id = node1->endPointIds[kn];
+					if (node2_id == PowerDiagram3D::kInvalidId)
+					{
+						node2_id = power_diagram->get_vertex_id(*node2);
+					}
+					if (node2_id != PowerDiagram3D::kInvalidId && node1_id != PowerDiagram3D::kInvalidId)
+					{
+						if (node2_id > node1_id) continue;
+					}
+					else
+					{
+						if (node2 > node1) continue;
+					}
+					if (node1->powerValue > 0.0 || node2->powerValue > 0.0) continue;
 				bool node2_contains_atom = false;
 				for (int kg = 0; kg < 4; ++kg)
 				{
