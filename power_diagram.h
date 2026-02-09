@@ -261,7 +261,23 @@ public :
 		if (ptr < first || ptr >= last) return kInvalidId;
 		return static_cast<CellId>(ptr - first);
 	}
+	inline CellId cell_id_or_invalid(const const_cellPtr ptr) const
+	{
+		if (ptr == NULL || points.empty()) return kInvalidId;
+		const cell* const first = points.data();
+		const cell* const last = first + points.size();
+		if (ptr < first || ptr >= last) return kInvalidId;
+		return static_cast<CellId>(ptr - first);
+	}
 	inline VertexId vertex_id_or_invalid(const vertexPtr ptr) const
+	{
+		if (ptr == NULL || vertices.empty()) return kInvalidId;
+		const vertex* const first = vertices.data();
+		const vertex* const last = first + vertices.size();
+		if (ptr < first || ptr >= last) return kInvalidId;
+		return static_cast<VertexId>(ptr - first);
+	}
+	inline VertexId vertex_id_or_invalid(const const_vertexPtr ptr) const
 	{
 		if (ptr == NULL || vertices.empty()) return kInvalidId;
 		const vertex* const first = vertices.data();
@@ -413,10 +429,10 @@ public :
 	}
 	inline GeneratorRef get_point_ref(const CellId index) const { return GeneratorRef(GeneratorKind::point, index); }
 	inline GeneratorRef get_side_ref(const std::size_t index) const { return GeneratorRef(GeneratorKind::side, index); }
-	        unsigned int get_point_num ( cell const & my_cell )
-	        {
-	            return (&my_cell - &points[0]);
-	        }
+		        unsigned int get_point_num ( cell const & my_cell )
+		        {
+		            return static_cast<unsigned int>(get_cell_id(my_cell));
+		        }
 	std::vector< vertex> const & get_vertices() const { return vertices; }
 
 	std::vector< zeroPoint> const & get_zeroPoints() const { return zeros; }
@@ -1170,31 +1186,29 @@ std::cout<<std::endl;
 	inline int nPoints()const{return points.size();}
 	inline unsigned int const& nVertices() const {return _nVertices;}
 
-	bool hasVirtualGenerators(const const_vertexPtr& that)const
-	{
-		const GeneratorRef& ref = that->generatorRefs[dimension];
-		const const_cellPtr gptr = that->generators[dimension];
-		if (ref.is_valid())
+		bool hasVirtualGenerators(const const_vertexPtr& that)const
+		{
+			const GeneratorRef& ref = that->generatorRefs[dimension];
+			const const_cellPtr gptr = that->generators[dimension];
+			if (ref.is_valid())
 		{
 			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
 			if (ref_ptr == gptr)
 			{
-				return !(ref.kind == GeneratorKind::point && ref.index < points.size());
+					return !(ref.kind == GeneratorKind::point && ref.index < points.size());
+				}
 			}
+			return (cell_id_or_invalid(gptr) == kInvalidId);
 		}
-		if(!(gptr>=&points[0]&&gptr<&points[points.size()]))
-			return 1;
-		else	return 0;
-	}
-	int nVirtualGenerators(const const_vertexPtr& that)const
-	{
-		const GeneratorRef& ref = that->generatorRefs[dimension];
-		const const_cellPtr gptr = that->generators[dimension];
-		bool dim_is_real = (gptr>=&points[0]&&gptr<&points[points.size()]);
-		if (ref.is_valid())
+		int nVirtualGenerators(const const_vertexPtr& that)const
 		{
-			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
-			if (ref_ptr == gptr)
+			const GeneratorRef& ref = that->generatorRefs[dimension];
+			const const_cellPtr gptr = that->generators[dimension];
+			bool dim_is_real = (cell_id_or_invalid(gptr) != kInvalidId);
+			if (ref.is_valid())
+			{
+				const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
+				if (ref_ptr == gptr)
 			{
 				dim_is_real = (ref.kind == GeneratorKind::point && ref.index < points.size());
 			}
@@ -1363,13 +1377,13 @@ private:
 							(*itg)->visitedAs=-1;
 							Involved.push_back(*itg);
 						}
-				}
+					}
 					else if(!vertices[vi].isCorner())
-						for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end()&&(!((*itg)-&sideGenerators[0]>=0&&(*itg)-&sideGenerators[0]<2*dimension));++itg)
+						for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end()&&(generator_ref_or_invalid(*itg).kind != GeneratorKind::side);++itg)
 						{
-							push_cell_my_vertex(*(*itg), &vertices[vi]);
-							if(fromPoint>0)
-								if((*itg)->visitedAs==0)
+								push_cell_my_vertex(*(*itg), &vertices[vi]);
+								if(fromPoint>0)
+									if((*itg)->visitedAs==0)
 							{
 								(*itg)->visitedAs=-1;
 								Involved.push_back(*itg);
@@ -1793,15 +1807,15 @@ private:
 	{
 		// Ensure each involved cell keeps at least one representative connected vertex after insertion.
 			//if there are no new vertices, the new cell is covered
-			if(Involved.front()->myVertices.empty())
-				push_cell_my_vertex(*Involved.front(), aDefault);
-			else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
-				for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
-					if(((*it)>&points[0])&&((*it)<&points[points.size()]))
-{
-					if(!(*it)->myVertices.front()->isConnected())//if representing vertex has been erased
-						set_cell_my_vertex(*(*it), 0, Involved.front()->myVertices.front());//we assign representative of new also to this one
-}else{/*std::cout<<"can never happen"<<std::endl; exit(1);*/}
+				if(Involved.front()->myVertices.empty())
+					push_cell_my_vertex(*Involved.front(), aDefault);
+				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
+					for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
+						if(cell_id_or_invalid(*it) != kInvalidId)
+	{
+						if(!(*it)->myVertices.front()->isConnected())//if representing vertex has been erased
+							set_cell_my_vertex(*(*it), 0, Involved.front()->myVertices.front());//we assign representative of new also to this one
+	}else{/*std::cout<<"can never happen"<<std::endl; exit(1);*/}
 
 	}
 
