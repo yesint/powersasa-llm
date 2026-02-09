@@ -1627,7 +1627,10 @@ private:
 					for(int endpoint_idx=(hasVirtualGenerators(it))*3;endpoint_idx<=dimension;++endpoint_idx)
 					{
 						vertexPtr endpoint = it->endPoints[endpoint_idx];
-						if(endpoint-it>0)
+						if(endpoint == nullptr) continue;
+						VertexId endpoint_id = it->endPointIds[endpoint_idx];
+						if(endpoint_id == kInvalidId) endpoint_id = get_vertex_id(*endpoint);
+						if((endpoint_id != kInvalidId && endpoint_id > vertex_index) || (endpoint_id == kInvalidId && endpoint-it>0))
 						{
 							if(it->powerValue>0)
 							{
