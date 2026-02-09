@@ -1931,21 +1931,22 @@ private:
 					{
 						new_representative = Involved.front()->myVertices.front();
 					}
-					for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
+					for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
 					{
-						if(cell_id_or_invalid(*it) == kInvalidId) continue;
+						cellPtr involved_cell = Involved[involved_idx];
+						if(cell_id_or_invalid(involved_cell) == kInvalidId) continue;
 						vertexPtr representative = NULL;
-						if(!(*it)->myVerticesIds.empty())
+						if(!involved_cell->myVerticesIds.empty())
 						{
-							representative = vertex_ptr_from_id((*it)->myVerticesIds.front());
+							representative = vertex_ptr_from_id(involved_cell->myVerticesIds.front());
 						}
 						if(representative == NULL)
 						{
-							if((*it)->myVertices.empty()) continue;
-							representative = (*it)->myVertices.front();
+							if(involved_cell->myVertices.empty()) continue;
+							representative = involved_cell->myVertices.front();
 						}
 						if(!representative->isConnected())//if representing vertex has been erased
-							set_cell_my_vertex(*(*it), 0, new_representative);//we assign representative of new also to this one
+							set_cell_my_vertex(*involved_cell, 0, new_representative);//we assign representative of new also to this one
 					}
 				}
 
@@ -1954,8 +1955,8 @@ private:
 		void SetInvolvedPersistingVisitedToZero() 
 		{
 			// Clear temporary rrv/visited marks used during local insertion traversal.
-			for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
-				(*it)->visitedAs=0;
+			for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
+				Involved[involved_idx]->visitedAs=0;
 			if(!Involved.front()->myVerticesIds.empty())
 			{
 				for(const VertexId vid : Involved.front()->myVerticesIds)
@@ -1975,16 +1976,16 @@ private:
 			}
 			else
 			{
-				for(typename std::vector<vertexPtr>::const_iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
+				for(const vertexPtr vtx : Involved.front()->myVertices)
 				{
-					(*it)->rrv=0;
-					if(!(*it)->isCorner())
-						(*it)->endPoints[0]->rrv=0;
+					vtx->rrv=0;
+					if(!vtx->isCorner())
+						vtx->endPoints[0]->rrv=0;
 					else
 					{
-						(*it)->endPoints[1]->rrv=0;
-						(*it)->endPoints[2]->rrv=0;
-						(*it)->endPoints[3]->rrv=0;
+						vtx->endPoints[1]->rrv=0;
+						vtx->endPoints[2]->rrv=0;
+						vtx->endPoints[3]->rrv=0;
 					}
 				}
 			}
