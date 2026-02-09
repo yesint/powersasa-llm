@@ -858,20 +858,17 @@ if(std::abs(checkconst)>0.001)
 		if(params.with_warnings)
 			std::cout<<"warning : program slowed down because of too small accuracy"<<std::endl;
 		//...so the numerical problem wants to be tough? A fat lot we care!
-		vertexPtr result=NULL;
-		for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+nVertices();++it)
-		if(it->isConnected())
-		{
-			if(it->powerdiff3D(it->generators[0],&insertionPoint)<value)
+			for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+nVertices();++it)
+			if(it->isConnected())
+			{
+				if(it->powerdiff3D(it->generators[0],&insertionPoint)<value)
 			{
 				value=(it)->powerdiff3D((it)->generators[0],&insertionPoint);
-				This=&(*it);
+					This=&(*it);
+				}
 			}
-		}
-		if(result!=NULL)
-			This=result;
 
-	}
+		}
 		inline ReplaceState finiteReplaced(vertex& This,const_cellPtr const& aCell)
 		{
 			This.rrv=This.powerdiff3D(aCell,This.generators[0]);
@@ -1090,8 +1087,8 @@ private:
 		}
 	}
 
-	void FillAllNeighbours()
-	{int neighbours=0;
+		void FillAllNeighbours()
+		{
 		for(typename std::vector<cell>::iterator it=points.begin();it!=points.end();++it)
 		{
 			it->neighbours.clear();
@@ -1104,10 +1101,10 @@ private:
 						if((*it2)->generators[g]->isReal(*this))
 						{
 							if((*it2)->generators[g]->visitedAs<it-points.begin()&&(*it2)->generators[g]!=&(*it))
-							{neighbours++;
-								it->neighbours.push_back((*it2)->generators[g]);
-								(*it2)->generators[g]->visitedAs=it-points.begin();
-							}
+								{
+									it->neighbours.push_back((*it2)->generators[g]);
+									(*it2)->generators[g]->visitedAs=it-points.begin();
+								}
 						}
 
 		for(typename std::vector<cell >::iterator it=points.begin();it!=points.end();++it)
