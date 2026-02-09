@@ -1406,11 +1406,11 @@ private:
 		// Seed the diagram: assign the first real generator to all cube corners.
 		clear_interna();
 		for(int i=0;i<(1<<dimension);i++)
-			vertices[i].setPowerData(&points[0]);
+			vertices[i].setPowerData(points.data());
 		for(int i=0;i<(1<<dimension);i++)
-			vertices[i].generators[0]=&points[0];
+			vertices[i].generators[0]=points.data();
 			for(int i=0;i<(1<<dimension);i++)
-				push_cell_my_vertex(points.front(), &vertices[i]);
+				push_cell_my_vertex(points[0], &vertices[i]);
 		}
 	void FillAllMyVertices(const int fromPoint=0,const int fromVertex=1<<dimension)
 	{
