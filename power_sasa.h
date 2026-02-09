@@ -501,7 +501,19 @@ calc_sasa_single(const unsigned int iatom)
 
 	if (nnb == 0)
 	{
- 		if(power_diagram->get_vertices()[0].generators[0]==&atom)
+		const auto& first_vertex = power_diagram->get_vertices()[0];
+		using GeneratorKind = typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>::GeneratorKind;
+		bool is_owner = false;
+		const auto& gref = first_vertex.generatorRefs[0];
+		if (gref.is_valid() && gref.kind == GeneratorKind::point && gref.index == iatom)
+		{
+			is_owner = true;
+		}
+		else if (first_vertex.generators[0] == &atom)
+		{
+			is_owner = true;
+		}
+		if (is_owner)
 		{
 			if (withSasa)Sasa[iatom] = 4*3.1415926535897932384626433832795*RAD2;
 			if(withVol)Vol[iatom] = 4*3.1415926535897932384626433832795*0.33333333333333333333333333333333*RAD*RAD2;
