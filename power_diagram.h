@@ -411,6 +411,13 @@ public :
 		for(const cell& a_cell : points) validate_cell_mirror_invariants(a_cell);
 #endif
 	}
+	inline void validate_phase_mirror_invariants() const
+	{
+#if PD_ENABLE_TOPOLOGY_ASSERTS
+		validate_transient_mirror_invariants();
+		validate_all_cell_mirror_invariants();
+#endif
+	}
 	inline cellPtr cell_ptr_from_id(const CellId id)
 	{
 		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
@@ -818,6 +825,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				for(int c=0;c<(1<<dimension);c++)
 					cornerOwners[c]=kInvalidId;
 				sync_all_link_mirrors();
+				validate_phase_mirror_invariants();
 			}
 	template <class Pos_iterator, class Strength_iterator>
 	inline void recalculate(const Pos_iterator pos_it,const Strength_iterator strength_it,const unsigned int size)
@@ -1586,6 +1594,7 @@ private:
 					UpdateUnused();
 					AssignRepresentativeVerticesToCells(hint);
 					SetInvolvedPersistingVisitedToZero();
+					validate_phase_mirror_invariants();
 						if(__power_diagram_internal_timing__)t3+=clock();
 				}
 			return true;
