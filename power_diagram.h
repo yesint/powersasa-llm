@@ -31,6 +31,7 @@ If you have no license please contact SASA-support@kit.edu
 #include <vector>
 #include <deque>
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <ctime>
 //#include "basic_vector_calc.h"
@@ -152,6 +153,19 @@ public:
 	typedef cell const* const_cellPtr;
 	typedef vertex* vertexPtr;
 	typedef vertex const* const_vertexPtr;
+	using CellId = std::size_t;
+	using VertexId = std::size_t;
+	using ZeroId = std::size_t;
+	inline static constexpr std::size_t kInvalidId = std::numeric_limits<std::size_t>::max();
+	enum class GeneratorKind { point, side };
+	struct GeneratorRef
+	{
+		GeneratorKind kind;
+		std::size_t index;
+		constexpr GeneratorRef() : kind(GeneratorKind::point), index(kInvalidId) {}
+		constexpr GeneratorRef(const GeneratorKind kind_, const std::size_t index_) : kind(kind_), index(index_) {}
+		constexpr bool is_valid() const { return index != kInvalidId; }
+	};
 	PDCoord center;
 	PDFloat maxr2;
 private:
@@ -226,10 +240,34 @@ public :
 	clock_t t1,t2,t3,t4,t5,t6;
 	cell const & get_point(const int n) const { return points[n]; }
 	std::vector< cell > const & get_points() const { return points; }
-        unsigned int get_point_num ( cell const & my_cell )
-        {
-            return (&my_cell - &points[0]);
-        }
+	inline CellId get_cell_id(const cell& my_cell) const
+	{
+		return static_cast<CellId>(&my_cell - &points[0]);
+	}
+	inline VertexId get_vertex_id(const vertex& my_vertex) const
+	{
+		return static_cast<VertexId>(&my_vertex - &vertices[0]);
+	}
+	inline zeroPoint const& get_zero(const ZeroId n) const { return zeros[n]; }
+	inline zeroPoint& get_zero(const ZeroId n) { return zeros[n]; }
+	inline vertex const& get_vertex(const VertexId n) const { return vertices[n]; }
+	inline vertex& get_vertex(const VertexId n) { return vertices[n]; }
+	inline cell const& get_cell(const CellId n) const { return points[n]; }
+	inline cell& get_cell(const CellId n) { return points[n]; }
+	inline cell const& get_generator(const GeneratorRef& ref) const
+	{
+		return (ref.kind == GeneratorKind::point) ? points[ref.index] : sideGenerators[ref.index];
+	}
+	inline cell& get_generator(const GeneratorRef& ref)
+	{
+		return (ref.kind == GeneratorKind::point) ? points[ref.index] : sideGenerators[ref.index];
+	}
+	inline GeneratorRef get_point_ref(const CellId index) const { return GeneratorRef(GeneratorKind::point, index); }
+	inline GeneratorRef get_side_ref(const std::size_t index) const { return GeneratorRef(GeneratorKind::side, index); }
+	        unsigned int get_point_num ( cell const & my_cell )
+	        {
+	            return (&my_cell - &points[0]);
+	        }
 	std::vector< vertex> const & get_vertices() const { return vertices; }
 
 	std::vector< zeroPoint> const & get_zeroPoints() const { return zeros; }
