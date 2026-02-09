@@ -502,6 +502,39 @@ public :
 		}
 		validate_transient_mirror_invariants();
 	}
+	inline void sort_involved_by_ref()
+	{
+		if(InvolvedRefs.size() != Involved.size()) throw MyException();
+		std::vector<std::size_t> order(Involved.size());
+		for(std::size_t i=0;i<order.size();++i) order[i] = i;
+		auto ref_rank = [](const GeneratorRef& ref) -> int
+		{
+			if(!ref.is_valid()) return 2;
+			return (ref.kind == GeneratorKind::point) ? 0 : 1;
+		};
+		std::sort(order.begin(), order.end(),
+			[&](const std::size_t a, const std::size_t b)
+			{
+				const GeneratorRef& ra = InvolvedRefs[a];
+				const GeneratorRef& rb = InvolvedRefs[b];
+				const int ka = ref_rank(ra);
+				const int kb = ref_rank(rb);
+				if(ka != kb) return ka < kb;
+				return ra.index < rb.index;
+			});
+		std::vector<cellPtr> sorted_ptrs;
+		std::vector<GeneratorRef> sorted_refs;
+		sorted_ptrs.reserve(Involved.size());
+		sorted_refs.reserve(InvolvedRefs.size());
+		for(const std::size_t idx : order)
+		{
+			sorted_refs.push_back(InvolvedRefs[idx]);
+			sorted_ptrs.push_back(cell_ptr_from_ref(sorted_refs.back()));
+		}
+		Involved.swap(sorted_ptrs);
+		InvolvedRefs.swap(sorted_refs);
+		validate_transient_mirror_invariants();
+	}
 	inline void push_involved(const cellPtr ptr)
 	{
 		Involved.push_back(ptr);
@@ -1688,18 +1721,10 @@ private:
 			point.visitedAs=0;
 	}
 
-			void FillAllNeighboursOfInvolved()
+		void FillAllNeighboursOfInvolved()
 			{
 				// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
-				sort(Involved.begin(),Involved.end(),
-					[this](const cellPtr a, const cellPtr b)
-					{
-						const CellId a_id = cell_id_or_invalid(a);
-						const CellId b_id = cell_id_or_invalid(b);
-						if(a_id != kInvalidId && b_id != kInvalidId) return a_id < b_id;
-						return a < b;
-					});
-				sync_involved_refs_from_ptrs();
+				sort_involved_by_ref();
 				for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
 				{
 					cellPtr involved_cell = involved_ptr_at(involved_idx);
