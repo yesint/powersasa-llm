@@ -706,6 +706,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			nRevertVertices=_nVertices;
 			nRevertZeros=zeros.size();
 			nRevertPoints=points.size();
+			std::vector<CellId> old_bond_ids(nRevertPoints, kInvalidId);
+			for(std::size_t i=0;i<nRevertPoints;++i)
+				old_bond_ids[i] = (points[i].bondToId != kInvalidId) ? points[i].bondToId : cell_id_or_invalid(points[i].bondTo);
 			for(int c=0;c<(1<<dimension);c++)
 			{
 				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
@@ -752,10 +755,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					}
 
 				{//createlike
-						for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
-							if(it->bondToId != kInvalidId) set_bond_to_id(*it, it->bondToId);
-							else if(it->bondTo != NULL) set_bond_to(*it, it->bondTo-oldstorage+&points[0]);
-					buildCube(vertices.begin()->position-2*rebuild,vertices[(1<<dimension)-1].position+2*rebuild);
+						for(unsigned int i=0;i<nRevertPoints;++i)
+							if(old_bond_ids[i] != kInvalidId) set_bond_to_id(points[i], old_bond_ids[i]);
+						buildCube(vertices.begin()->position-2*rebuild,vertices[(1<<dimension)-1].position+2*rebuild);
 
 
 
@@ -782,13 +784,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									*itg=*itg-oldstorage+&points[0];
 							}
 
-						for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
-						{
-								if(it->bondToId != kInvalidId) set_bond_to_id(*it, it->bondToId);
-								else if(it->bondTo != NULL) set_bond_to(*it, it->bondTo-oldstorage+&points[0]);
-								for(typename std::vector<cellPtr>::iterator itn=it->neighbours.begin();itn!=it->neighbours.end();++itn)
-									(*itn)+=&points[0]-oldstorage;
-						}
+							for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
+							{
+									const std::size_t point_idx = static_cast<std::size_t>(it - points.begin());
+									if(point_idx < old_bond_ids.size() && old_bond_ids[point_idx] != kInvalidId) set_bond_to_id(*it, old_bond_ids[point_idx]);
+									for(typename std::vector<cellPtr>::iterator itn=it->neighbours.begin();itn!=it->neighbours.end();++itn)
+										(*itn)+=&points[0]-oldstorage;
+							}
 				}
 			}
 		}
