@@ -128,7 +128,7 @@ public:
 		{
 			return static_cast<unsigned int>(atom.neighboursIds[i_neighbour]);
 		}
-		return static_cast<unsigned int>(atom.neighbours[i_neighbour] - &points[0]);
+		return static_cast<unsigned int>(power_diagram->get_cell_id(*atom.neighbours[i_neighbour]));
 	}
 
 	template<class Coordcontainer, class Floatcontainer, class Intcontainer>
@@ -474,13 +474,38 @@ calc_sasa_single(const unsigned int iatom)
 
 	int i, j, kn;
 	bool ok;
+	using PowerDiagram3D = typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>;
+	using CellId = typename PowerDiagram3D::CellId;
 
-	std::vector <typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell >
-		const &atoms = power_diagram->get_points();
-	const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell	 &atom = atoms[iatom];
-	std::vector<typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cellPtr> 
-		const &nbs = atom.neighbours;
-	const int nnb = static_cast<int>(nbs.size());               // number of neighbors
+	std::vector<typename PowerDiagram3D::cell> const& atoms = power_diagram->get_points();
+	const typename PowerDiagram3D::cell& atom = atoms[iatom];
+	const int nnb = static_cast<int>(atom.neighbours.size());               // number of neighbors
+	std::vector<CellId> neighbour_ids(static_cast<std::size_t>(nnb), PowerDiagram3D::kInvalidId);
+	for (int nb_idx = 0; nb_idx < nnb; ++nb_idx)
+	{
+		const std::size_t idx = static_cast<std::size_t>(nb_idx);
+		if (!atom.neighboursIds.empty() && idx < atom.neighboursIds.size())
+		{
+			neighbour_ids[idx] = atom.neighboursIds[idx];
+		}
+		if (neighbour_ids[idx] == PowerDiagram3D::kInvalidId && atom.neighbours[idx] != nullptr)
+		{
+			neighbour_ids[idx] = power_diagram->get_cell_id(*atom.neighbours[idx]);
+		}
+		if (neighbour_ids[idx] == PowerDiagram3D::kInvalidId)
+		{
+			std::cerr << "PowerSasa: Invalid neighbour link" << std::endl;
+			throw PowerSasaException();
+		}
+	}
+	auto neighbour = [&](const int idx) -> const typename PowerDiagram3D::cell&
+	{
+		return power_diagram->get_cell(neighbour_ids[static_cast<std::size_t>(idx)]);
+	};
+	auto neighbour_mut = [&](const int idx) -> typename PowerDiagram3D::cell&
+	{
+		return power_diagram->get_cell(neighbour_ids[static_cast<std::size_t>(idx)]);
+	};
 	PDCoord const &pos = atom.position;       // my coordinates
 
 	if (static_cast<std::size_t>(nnb) >= np.size())
@@ -560,8 +585,8 @@ calc_sasa_single(const unsigned int iatom)
 			volnb[i] = 0.0;
 			fknot[i] = 0;
 		}
-		nbs[i]->visitedAs = i;
-		rel_pos = nbs[i]->position - pos;       // vector to neighbor
+		neighbour_mut(i).visitedAs = i;
+		rel_pos = neighbour(i).position - pos;       // vector to neighbor
 		dist = rel_pos.norm();                  // distance to neighbor
 		if (dist == 0)
 		{
@@ -569,8 +594,8 @@ calc_sasa_single(const unsigned int iatom)
 			throw PowerSasaException();
 		}
 		costheta[i] = 1.0;                      // will be overwritten
-		nb_RAD = nbs[i]->r;                     // neighbor RADius
-		nb_RAD2[i] = nbs[i]->r2;                // neighbor RADius^2
+		nb_RAD = neighbour(i).r;                     // neighbor RADius
+		nb_RAD2[i] = neighbour(i).r2;                // neighbor RADius^2
 		np[i] = 0;				// initialize number of points
 		nt[i] = 0;                              // ?????
 
@@ -946,7 +971,7 @@ calc_sasa_single(const unsigned int iatom)
 		for (j = 0; j < nnb; ++j)
 		{
 			if (j == i) continue;
-			pw_j = (nbs[j]->position - cc).squaredNorm() - nb_RAD2[j];
+				pw_j = (neighbour(j).position - cc).squaredNorm() - nb_RAD2[j];
 			        if (pw_j <= pw_i)
 				{
 					ok = false;
@@ -996,7 +1021,7 @@ calc_sasa_single(const unsigned int iatom)
 
 	for (i = 0; i < nnb; ++i)       // over neighbors, set zero again (only necessary if an expansion of power diagram is planned)
 	{
-		nbs[i]->visitedAs = 0;
+		neighbour_mut(i).visitedAs = 0;
 	}
 	return;
 }
