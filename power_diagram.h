@@ -191,7 +191,7 @@ private:
 	PDFloat powerErr;
 	PDFloat insertionErrorScale;
 	std::vector<VertexId> ReplacedIds;//old vertices that are removed (by ID)
-	std::vector<vertexPtr> Invalids;//old vertices that are removed reloaded
+	std::vector<VertexId> Invalids;//old vertices that are removed reloaded
 	std::vector<GeneratorRef> InvolvedRefs; // all cells which are involved (point or side refs)
 	std::vector< EdgeEnds> planes;//used for connecting new vertices, stores "open ends"
 	enum class ReplaceState
@@ -749,8 +749,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				vertices[c].generators[0]=owner_ptr;
 				vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
 			}
-			for(vertexPtr it : Invalids)
+			for(const VertexId invalid_id : Invalids)
 			{
+				vertexPtr it = vertex_ptr_from_id(invalid_id);
+				if(it == nullptr) continue;
 				it->invalid=0;
 				it->rrv=0;
 				for(int endpoint_idx=it->isCorner();endpoint_idx<=dimension;++endpoint_idx)
@@ -2045,8 +2047,8 @@ private:
 			}
 			else
 			{
-				if(replaced_id<nRevertVertices)
-					Invalids.push_back(replaced_vertex);
+					if(replaced_id<nRevertVertices)
+						Invalids.push_back(replaced_id);
 				replaced_vertex->disconnect();//vertex has no connection any more.  we delete it later
 				++replaced_idx;
 			}
