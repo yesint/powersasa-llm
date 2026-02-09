@@ -1995,9 +1995,9 @@ private:
 
 			for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
 			{
-				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
-				if(replaced_vertex == nullptr) _replaced.push_back(-1);
-				else _replaced.push_back(static_cast<int>(get_vertex_id(*replaced_vertex)));
+				const VertexId replaced_id = replaced_id_at(replaced_idx);
+				if(replaced_id == kInvalidId) throw MyException();
+				_replaced.push_back(static_cast<int>(replaced_id));
 			}
 			for(const vertexPtr unused_vertex : unused)
 				_unused.push_back(static_cast<int>(get_vertex_id(*unused_vertex)));
@@ -2030,7 +2030,7 @@ private:
 
 			for(unsigned int i=0;i<ReplacedIds.size();i++)
 			{
-				set_replaced_id(i, (_replaced[i] >= 0) ? static_cast<VertexId>(_replaced[i]) : kInvalidId);
+				set_replaced_id(i, static_cast<VertexId>(_replaced[i]));
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
