@@ -33,6 +33,7 @@ If you have no license please contact SASA-support@kit.edu
 #include <cmath>
 #include <iostream>
 #include "power_diagram.h"
+#include <memory>
 #include <vector>
 
 #define MAX_NB 20
@@ -60,6 +61,8 @@ template <class PDFloat, class PDCoord>      // floating type and vector type
 class PowerSasa 
 {
 public:
+	using PowerDiagramT = POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>;
+
 	inline static PDFloat DRAD2() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	inline static PDFloat DANG() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	inline static PDFloat pi() { return static_cast<PDFloat> (3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342) ;} //everything const, will be optimized away.
@@ -106,16 +109,17 @@ public:
 	template<class Coordcontainer, class Floatcontainer, class Intcontainer>
 	PowerSasa(Coordcontainer const& coords, Floatcontainer const& radii, Intcontainer const& bond_to,
 		const bool with_Sasa, const bool with_dSasa, const bool with_Vol, const bool with_dVol) :
-		withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol), power_diagram(0)
+		power_diagram(std::make_unique<PowerDiagramT>(
+			PowerDiagramT::create(coords.size(), coords.begin(), radii.begin(), bond_to.begin())
+			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).withoutCheck(1))),
+		withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol)
 	{
-		power_diagram = new POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord,3>(POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord,3>::create(coords.size(),coords.begin(),radii.begin(),bond_to.begin())
-			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).withoutCheck(1));
 		Init();
 	}
 	template<class Coordcontainer, class Floatcontainer>
 	PowerSasa(Coordcontainer const& coords, Floatcontainer const& radii,
 			const bool with_Sasa=1, const bool with_dSasa=0, const bool with_Vol=0, const bool with_dVol=0) :
-			power_diagram(0), withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol)
+			power_diagram(nullptr), withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol)
 	{
 		std::vector<int> bond_to;
 		bond_to.reserve(coords.size());
@@ -124,19 +128,13 @@ public:
 		{
 			bond_to.push_back(i-1);
 		}
-		power_diagram = new POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord,3>(POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord,3>::create(coords.size(),coords.begin(),radii.begin(),bond_to.begin())
-		        .with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).without_Check(1));
+		power_diagram = std::make_unique<PowerDiagramT>(
+			PowerDiagramT::create(coords.size(), coords.begin(), radii.begin(), bond_to.begin())
+			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).without_Check(1));
 		Init();
 	}
 
-	virtual ~PowerSasa() 
-	{
-		if (power_diagram != 0)
-		{
-			delete power_diagram;
-			power_diagram = 0;
-		}
-	}
+	virtual ~PowerSasa() = default;
 private:
 	inline void Init()
 	{
@@ -230,7 +228,7 @@ private:
 			const PDFloat & sintheta, const PDFloat & costheta, std::vector<PDFloat> & ang);
         inline void Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 			const std::vector<int> & p, const PDCoord & e);
-	POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3> *power_diagram;
+	std::unique_ptr<PowerDiagramT> power_diagram;
 	
 	const bool withSasa;
 	const bool withDSasa;
