@@ -913,16 +913,16 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				const int j=(ii>>d)%2?ii-(1<<d):ii+(1<<d);
 				vertices[i].endPoints[d+1]=&vertices[j];
 			}
-		for(int i=0;i<(1<<dimension);i++)
-		{//:TODO: direct sort or faster?
-			for(int g=dimension-1;g>0;g--)
-				for(int j=g;j>0;j--)
-					if(&vertices[i].generators[j+1]-&vertices[i].generators[j]>0)
+			for(int i=0;i<(1<<dimension);i++)
+			{//:TODO: direct sort or faster?
+				for(int g=dimension-1;g>0;g--)
+					for(int j=g;j>0;j--)
 					{
+						// Adjacent elements in the same array always have increasing addresses.
 						std::swap(vertices[i].generators[j],vertices[i].generators[j+1]);
 						std::swap(vertices[i].endPoints[j],vertices[i].endPoints[j+1]);
 					}
-		}
+			}
 		for(int d=1;d<=dimension;d++)//n
 		{
 			push_cell_my_vertex(*vertices[0].generators[d], vertices.data());
