@@ -1704,19 +1704,9 @@ private:
 				{
 					cellPtr involved_cell = involved_ptr_at(involved_idx);
 					if(involved_cell == nullptr) continue;
-					int current_cell_order = 0;
-					const CellId current_cell_id = cell_id_or_invalid(involved_cell);
-				if(current_cell_id != kInvalidId)
-					current_cell_order = static_cast<int>(current_cell_id);
-				else
-				{
-					for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
-						if(&points[point_idx]==involved_cell)
-						{
-							current_cell_order = static_cast<int>(point_idx);
-							break;
-						}
-				}
+					const CellId current_cell_id = involved_id_at(involved_idx);
+					if(current_cell_id == kInvalidId) continue;
+					const int current_cell_order = static_cast<int>(current_cell_id);
 				for(const VertexId vid : involved_cell->myVerticesIds)
 				{
 					vertexPtr vtx = vertex_ptr_from_id(vid);
