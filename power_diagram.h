@@ -720,13 +720,17 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		if(params.fill_neighbours)
 			FillAllNeighboursOfInvolved();
 
-			if(params.fill_zeroPoints)
-			{
-				for(const cellPtr involved_cell : Involved)
-					while(!involved_cell->myZeroPoints.empty()&&involved_cell->myZeroPoints.back()>static_cast<int>(nRevertZeros))
-						involved_cell->myZeroPoints.pop_back();
-				zeros.erase(zeros.begin()+nRevertZeros,zeros.end());
-			}
+				if(params.fill_zeroPoints)
+				{
+					for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+					{
+						cellPtr involved_cell = involved_ptr_at(involved_idx);
+						if(involved_cell == nullptr) continue;
+						while(!involved_cell->myZeroPoints.empty()&&involved_cell->myZeroPoints.back()>static_cast<int>(nRevertZeros))
+							involved_cell->myZeroPoints.pop_back();
+					}
+					zeros.erase(zeros.begin()+nRevertZeros,zeros.end());
+				}
 			nRevertPoints=0;
 			nRevertVertices=0;
 				for(int c=0;c<(1<<dimension);c++)
@@ -1670,10 +1674,12 @@ private:
 						return a < b;
 					});
 				sync_involved_ids_from_ptrs();
-				for(cellPtr involved_cell : Involved)
+				for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
 				{
-				std::size_t neighbour_idx=0;
-					while(neighbour_idx<involved_cell->neighbours.size())
+					cellPtr involved_cell = involved_ptr_at(involved_idx);
+					if(involved_cell == nullptr) continue;
+					std::size_t neighbour_idx=0;
+						while(neighbour_idx<involved_cell->neighbours.size())
 					{
 						cellPtr neighbour = involved_cell->neighbours[neighbour_idx];
 						if(!involved_cell->neighboursIds.empty() && neighbour_idx < involved_cell->neighboursIds.size())
@@ -1687,10 +1693,12 @@ private:
 							++neighbour_idx;
 					}
 			}
-			for(const cellPtr involved_cell : Involved)
-			{
-				int current_cell_order = 0;
-				const CellId current_cell_id = cell_id_or_invalid(involved_cell);
+				for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+				{
+					cellPtr involved_cell = involved_ptr_at(involved_idx);
+					if(involved_cell == nullptr) continue;
+					int current_cell_order = 0;
+					const CellId current_cell_id = cell_id_or_invalid(involved_cell);
 				if(current_cell_id != kInvalidId)
 					current_cell_order = static_cast<int>(current_cell_id);
 				else
@@ -1736,9 +1744,13 @@ private:
 				}
 			}
 
-		for(cellPtr involved_cell : Involved)
-			involved_cell->visitedAs=0;
-	}
+			for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+			{
+				cellPtr involved_cell = involved_ptr_at(involved_idx);
+				if(involved_cell == nullptr) continue;
+				involved_cell->visitedAs=0;
+			}
+		}
 	void FillAllZeroPoints(	unsigned int fromVertex=(1<<dimension),const unsigned int fromZero=0)
 	{
 		// Recompute intersections where power value crosses zero along diagram edges.
