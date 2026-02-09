@@ -188,8 +188,10 @@ private:
 	PDFloat powerErr;
 	PDFloat insertionErrorScale;
 	std::vector<vertexPtr> Replaced;//old vertices that are removed
+	std::vector<VertexId> ReplacedIds;//mirrored IDs for Replaced
 	std::vector<vertexPtr> Invalids;//old vertices that are removed reloaded
 	std::vector<cellPtr> Involved; // all cells which are involved
+	std::vector<CellId> InvolvedIds; // mirrored IDs for Involved
 	std::vector< EdgeEnds> planes;//used for connecting new vertices, stores "open ends"
 	enum class ReplaceState
 	{
@@ -244,7 +246,7 @@ public :
 	{
 		// Mark a cell as part of the local insertion neighborhood.
 		thit.visitedAs=Involved.size();
-		Involved.push_back(&thit);
+		push_involved(&thit);
 	}
 	clock_t t1,t2,t3,t4,t5,t6;
 	cell const & get_point(const int n) const { return points[n]; }
@@ -376,6 +378,68 @@ public :
 	{
 		a_cell.bondToId = id;
 		a_cell.bondTo = cell_ptr_from_id(id);
+	}
+	inline void clear_replaced()
+	{
+		Replaced.clear();
+		ReplacedIds.clear();
+	}
+	inline void sync_replaced_ids_from_ptrs()
+	{
+		ReplacedIds.resize(Replaced.size(), kInvalidId);
+		for(std::size_t i=0;i<Replaced.size();++i)
+			ReplacedIds[i] = vertex_id_or_invalid(Replaced[i]);
+	}
+	inline void push_replaced(const vertexPtr ptr)
+	{
+		Replaced.push_back(ptr);
+		ReplacedIds.push_back(vertex_id_or_invalid(ptr));
+	}
+	inline void set_replaced(const std::size_t index, const vertexPtr ptr)
+	{
+		Replaced[index] = ptr;
+		ReplacedIds[index] = vertex_id_or_invalid(ptr);
+	}
+	inline void pop_replaced()
+	{
+		Replaced.pop_back();
+		ReplacedIds.pop_back();
+	}
+	inline vertexPtr replaced_ptr_at(const std::size_t index)
+	{
+		if(index >= Replaced.size()) return nullptr;
+		vertexPtr ptr = nullptr;
+		if(index < ReplacedIds.size()) ptr = vertex_ptr_from_id(ReplacedIds[index]);
+		if(ptr == nullptr) ptr = Replaced[index];
+		return ptr;
+	}
+	inline void clear_involved()
+	{
+		Involved.clear();
+		InvolvedIds.clear();
+	}
+	inline void sync_involved_ids_from_ptrs()
+	{
+		InvolvedIds.resize(Involved.size(), kInvalidId);
+		for(std::size_t i=0;i<Involved.size();++i)
+			InvolvedIds[i] = cell_id_or_invalid(Involved[i]);
+	}
+	inline void push_involved(const cellPtr ptr)
+	{
+		Involved.push_back(ptr);
+		InvolvedIds.push_back(cell_id_or_invalid(ptr));
+	}
+	inline cellPtr involved_ptr_at(const std::size_t index)
+	{
+		if(index >= Involved.size()) return nullptr;
+		cellPtr ptr = nullptr;
+		if(index < InvolvedIds.size()) ptr = cell_ptr_from_id(InvolvedIds[index]);
+		if(ptr == nullptr) ptr = Involved[index];
+		return ptr;
+	}
+	inline cellPtr involved_front_ptr()
+	{
+		return involved_ptr_at(0);
 	}
 	inline void clear_cell_my_vertices(cell& a_cell)
 	{
@@ -583,7 +647,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						if(vertices[vi].generators[gi]->isReal(*this))
 							pop_cell_my_vertex(*vertices[vi].generators[gi]);
 		_nVertices=nRevertVertices;
-		Involved.clear();
+		clear_involved();
 		if(points.size()>nRevertPoints)
 			points.erase(points.begin()+nRevertPoints,points.end());
 			for(int c=0;c<(1<<dimension);c++)
@@ -618,7 +682,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							if(it->generators[g]->visitedAs==0)
 							{
 							it->generators[g]->visitedAs=-1;
-							Involved.push_back(it->generators[g]);
+							push_involved(it->generators[g]);
 						}
 					}
 			}
@@ -1038,7 +1102,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									replaced_vertex->invalid=0;
 								}
 
-							Replaced.clear();
+							clear_replaced();
 							if(identicalPoint!=nullptr)
 							{	
 								push_cell_my_vertex(*Involved.front(), identicalPoint->myVertices.front());
@@ -1389,7 +1453,7 @@ private:
 						for(int g=replaced_vertex->isCorner();g<=dimension;g++)
 							replaced_vertex->endPoints[g]->rrv=0;
 					}
-				Replaced.clear();
+				clear_replaced();
 				This.r2-=pow(2.0,done)*(PowerDiagram<PDFloat,PDCoord,dimension>::powerErr);
 				if(This.r2>0)	This.r= sqrt(This.r2);
 				else 		This.r=-sqrt(-This.r2);
@@ -1424,8 +1488,8 @@ private:
 	void clear_interna()
 	{
 		// Reset per-insertion transient containers.
-		Replaced.clear();
-		Involved.clear();
+		clear_replaced();
+		clear_involved();
 //		planes.clear();//should always be clean
 	}
 
@@ -1445,7 +1509,7 @@ private:
 		// Recompute per-cell vertex ownership lists from the current global vertex array.
 		{
 				if(fromPoint>0)
-					Involved.clear();
+					clear_involved();
 				for(std::size_t point_idx=static_cast<std::size_t>(fromPoint);point_idx<points.size();++point_idx)
 					clear_cell_my_vertices(points[point_idx]);
 
@@ -1462,7 +1526,7 @@ private:
 								if(generator->visitedAs==0)
 							{
 								generator->visitedAs=-1;
-								Involved.push_back(generator);
+								push_involved(generator);
 							}
 						}
 						else if(!vertices[vi].isCorner())
@@ -1475,7 +1539,7 @@ private:
 										if(generator->visitedAs==0)
 								{
 									generator->visitedAs=-1;
-									Involved.push_back(generator);
+									push_involved(generator);
 								}
 						}
 					else
@@ -1550,6 +1614,7 @@ private:
 						if(a_id != kInvalidId && b_id != kInvalidId) return a_id < b_id;
 						return a < b;
 					});
+				sync_involved_ids_from_ptrs();
 				for(cellPtr involved_cell : Involved)
 				{
 				std::size_t neighbour_idx=0;
@@ -1754,8 +1819,8 @@ private:
 	{
 		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
 		clear_interna();
-			Involved.push_back(&This);
-			const ReplaceState startState = finiteReplaced(*start,Involved.front());
+			push_involved(&This);
+			const ReplaceState startState = finiteReplaced(*start,involved_front_ptr());
 			if(startState==ReplaceState::ambiguous) return false;
 			if(startState==ReplaceState::replaced)
 			{
@@ -1775,8 +1840,10 @@ private:
 		//exactly one old EXISTING edge which is NOT disappearing totally
 		//all possible edges are the ones coming out our "replaced" vertices
 		//so we only try to create if an endPoint of a replaced vertex is not replaced (visitedAs ==-1)
-				for(const vertexPtr replaced_vertex : Replaced)
+				for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 				{
+					vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+					if(replaced_vertex == nullptr) continue;
 					int needed=0;
 					for(int g=dimension;g>=replaced_vertex->isCorner();g--)
 						if(replaced_vertex->endPoints[g]->rrv<=0)
@@ -1839,29 +1906,35 @@ private:
 		const_vertexPtr const oldMemoryPointer=vertices.data();
 			_replaced.reserve(Replaced.size());
 			_unused.reserve(unused.size());
-			_currentmyVertices.reserve(Involved.front()->myVertices.size());
 			_first.reserve(vertices.capacity());
 
-			for(const vertexPtr replaced_vertex : Replaced)
-				_replaced.push_back(static_cast<int>(get_vertex_id(*replaced_vertex)));
+			for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
+			{
+				vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+				if(replaced_vertex == nullptr) _replaced.push_back(-1);
+				else _replaced.push_back(static_cast<int>(get_vertex_id(*replaced_vertex)));
+			}
 			for(const vertexPtr unused_vertex : unused)
 				_unused.push_back(static_cast<int>(get_vertex_id(*unused_vertex)));
-				if(!Involved.front()->myVerticesIds.empty())
+				cellPtr involved_front = involved_front_ptr();
+				if(involved_front == nullptr) throw MyException();
+				_currentmyVertices.reserve(involved_front->myVertices.size());
+				if(!involved_front->myVerticesIds.empty())
 				{
-					for(const VertexId vid : Involved.front()->myVerticesIds)
+					for(const VertexId vid : involved_front->myVerticesIds)
 						_currentmyVertices.push_back(static_cast<int>(vid));
 				}
 				else
 				{
-					for(const vertexPtr current_vertex : Involved.front()->myVertices)
+					for(const vertexPtr current_vertex : involved_front->myVertices)
 						_currentmyVertices.push_back(static_cast<int>(get_vertex_id(*current_vertex)));
 				}
 				std::size_t involved_prefix = 0;
-				const CellId involved_front_id = cell_id_or_invalid(Involved.front());
+				const CellId involved_front_id = cell_id_or_invalid(involved_front);
 				if(involved_front_id != kInvalidId) involved_prefix = involved_front_id;
 				else
 					for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
-						if(&points[point_idx]==Involved.front())
+						if(&points[point_idx]==involved_front)
 						{
 							involved_prefix = point_idx;
 							break;
@@ -1883,8 +1956,8 @@ private:
 			{
 				vertexPtr restored = nullptr;
 				if(_replaced[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_replaced[i]));
-				if(restored == nullptr) restored = vertices.data()+_replaced[i];
-				Replaced[i]=restored;
+				if(restored == nullptr && _replaced[i] >= 0) restored = vertices.data()+_replaced[i];
+				set_replaced(i, restored);
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
@@ -1893,12 +1966,12 @@ private:
 				if(restored == nullptr) restored = vertices.data()+_unused[i];
 				unused[i]=restored;
 			}
-				for(unsigned int i=0;i<Involved.front()->myVertices.size();i++)
+				for(unsigned int i=0;i<involved_front->myVertices.size();i++)
 				{
 					vertexPtr restored = nullptr;
 					if(_currentmyVertices[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_currentmyVertices[i]));
 					if(restored == nullptr) restored = vertices.data()+_currentmyVertices[i];
-					set_cell_my_vertex(*Involved.front(), i, restored);
+					set_cell_my_vertex(*involved_front, i, restored);
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
@@ -1916,13 +1989,19 @@ private:
 		//mark replaced as unused
 		for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();)
 		{
-			vertexPtr replaced_vertex=Replaced[replaced_idx];
+			vertexPtr replaced_vertex=replaced_ptr_at(replaced_idx);
+			if(replaced_vertex == nullptr)
+			{
+				set_replaced(replaced_idx, replaced_ptr_at(Replaced.size()-1));
+				pop_replaced();
+				continue;
+			}
 			if(replaced_vertex->isCorner())
 			{
 				replaced_vertex->rrv=0;
 				//Replaced.erase(it);--it;//the corners are always part of diagram	
-				Replaced[replaced_idx]=Replaced.back();
-				Replaced.pop_back();
+				set_replaced(replaced_idx, replaced_ptr_at(Replaced.size()-1));
+				pop_replaced();
 			}
 			else
 			{
@@ -1933,11 +2012,18 @@ private:
 			}
 		}
 		if(nRevertVertices==0)
-			for(vertexPtr replaced_vertex : Replaced)
+			for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
+			{
+				vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+				if(replaced_vertex == nullptr) continue;
 				unused.push_back(replaced_vertex);
+			}
 
 		else
-			for(vertexPtr replaced_vertex : Replaced)
+			for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
+			{
+				vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+				if(replaced_vertex == nullptr) continue;
 				if(get_vertex_id(*replaced_vertex)>=nRevertVertices)
 					unused.push_back(replaced_vertex);
 					else
@@ -1948,28 +2034,32 @@ private:
 									erase_cell_my_vertex(*generator, i);
 									break;
 								}
+			}
 				_nUnused=unused.size();
 		}
 			void AssignRepresentativeVerticesToCells(const vertexPtr& aDefault)
 		{
 			// Ensure each involved cell keeps at least one representative connected vertex after insertion.
+				cellPtr involved_front = involved_front_ptr();
+				if(involved_front == nullptr) return;
 				//if there are no new vertices, the new cell is covered
-				if(Involved.front()->myVertices.empty())
-					push_cell_my_vertex(*Involved.front(), aDefault);
+				if(involved_front->myVertices.empty())
+					push_cell_my_vertex(*involved_front, aDefault);
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
 				{
 					vertexPtr new_representative = nullptr;
-					if(!Involved.front()->myVerticesIds.empty())
+					if(!involved_front->myVerticesIds.empty())
 					{
-						new_representative = vertex_ptr_from_id(Involved.front()->myVerticesIds.front());
+						new_representative = vertex_ptr_from_id(involved_front->myVerticesIds.front());
 					}
 					if(new_representative == nullptr)
 					{
-						new_representative = Involved.front()->myVertices.front();
+						new_representative = involved_front->myVertices.front();
 					}
 					for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
 					{
-						cellPtr involved_cell = Involved[involved_idx];
+						cellPtr involved_cell = involved_ptr_at(involved_idx);
+						if(involved_cell == nullptr) continue;
 						if(cell_id_or_invalid(involved_cell) == kInvalidId) continue;
 						vertexPtr representative = nullptr;
 						if(!involved_cell->myVerticesIds.empty())
@@ -1992,10 +2082,16 @@ private:
 		{
 			// Clear temporary rrv/visited marks used during local insertion traversal.
 			for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
-				Involved[involved_idx]->visitedAs=0;
-			if(!Involved.front()->myVerticesIds.empty())
 			{
-				for(const VertexId vid : Involved.front()->myVerticesIds)
+				cellPtr involved_cell = involved_ptr_at(involved_idx);
+				if(involved_cell == nullptr) continue;
+				involved_cell->visitedAs=0;
+			}
+			cellPtr involved_front = involved_front_ptr();
+			if(involved_front == nullptr) return;
+			if(!involved_front->myVerticesIds.empty())
+			{
+				for(const VertexId vid : involved_front->myVerticesIds)
 				{
 					vertexPtr vtx = vertex_ptr_from_id(vid);
 					if(vtx == nullptr) continue;
@@ -2012,7 +2108,7 @@ private:
 			}
 			else
 			{
-				for(const vertexPtr vtx : Involved.front()->myVertices)
+				for(const vertexPtr vtx : involved_front->myVertices)
 				{
 					vtx->rrv=0;
 					if(!vtx->isCorner())
@@ -2240,7 +2336,7 @@ private :
 			bool cornerToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 			{
 				// Mark a corner vertex as replaced and continue replacement flood-fill through neighbors.
-				owner.Replaced.push_back(this);
+				owner.push_replaced(this);
 				for(int g=0;g<=dimension;++g)
 					if(this->generators[g]->visitedAs==0)
 						owner.AddToInvolved(*this->generators[g]);
@@ -2259,7 +2355,7 @@ private :
 			bool finiteToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 			{
 				// Mark a finite vertex as replaced and continue replacement flood-fill through neighbors.
-				owner.Replaced.push_back(this);
+				owner.push_replaced(this);
 			for(int g=0;g<=dimension;++g)
 				if(this->generators[g]->visitedAs==0)
 					owner.AddToInvolved(*this->generators[g]);
