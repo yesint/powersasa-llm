@@ -1082,8 +1082,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					for(int j=g;j>0;j--)
 					{
 						// Adjacent elements in the same array always have increasing addresses.
-						std::swap(vertices[i].generators[j],vertices[i].generators[j+1]);
-						std::swap(vertices[i].endPoints[j],vertices[i].endPoints[j+1]);
+						swap_vertex_link_slots(vertices[i], j, j+1);
 					}
 			}
 		for(int d=1;d<=dimension;d++)//n
