@@ -573,11 +573,14 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		Involved.clear();
 		if(points.size()>nRevertPoints)
 			points.erase(points.begin()+nRevertPoints,points.end());
-		for(int c=0;c<(1<<dimension);c++)
-		{
-			vertices[c].generators[0]=cornerOwners[c]+&points[0];
-			vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
-		}
+			for(int c=0;c<(1<<dimension);c++)
+			{
+				const CellId owner_id = (cornerOwners[c] < 0) ? kInvalidId : static_cast<CellId>(cornerOwners[c]);
+				cellPtr owner_ptr = cell_ptr_from_id(owner_id);
+				if(owner_ptr == NULL) owner_ptr = &points[0];
+				vertices[c].generators[0]=owner_ptr;
+				vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
+			}
 			for(vertexPtr it : Invalids)
 			{
 				it->invalid=0;
@@ -694,12 +697,15 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		// Incrementally insert additional points while preserving a revert snapshot.
 		const unsigned int gap=_newSize<points.size()?points.size()-_newSize:1;
 		const unsigned int newSize=_newSize<points.size()?points.size()+1:_newSize;
-		nRevertVertices=_nVertices;
-		nRevertZeros=zeros.size();
-		nRevertPoints=points.size();
-		for(int c=0;c<(1<<dimension);c++)
-			cornerOwners[c]=vertices[c].generators[0]-&points[0];
-		const const_cellPtr oldstorage=&points[0];
+			nRevertVertices=_nVertices;
+			nRevertZeros=zeros.size();
+			nRevertPoints=points.size();
+			for(int c=0;c<(1<<dimension);c++)
+			{
+				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
+				cornerOwners[c]=(owner_id == kInvalidId) ? 0 : static_cast<int>(owner_id);
+			}
+			const const_cellPtr oldstorage=&points[0];
 		points.reserve(newSize);
 		if(params.radiiGiven)
 			{
