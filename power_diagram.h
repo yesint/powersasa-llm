@@ -423,6 +423,23 @@ public :
 	{
 		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertex_at(id);
 	}
+	inline void set_vertex_generator(vertex& a_vertex, const int slot, const cellPtr ptr)
+	{
+		a_vertex.generators[slot] = ptr;
+		a_vertex.generatorRefs[slot] = generator_ref_or_invalid(ptr);
+	}
+	inline void set_vertex_endpoint(vertex& a_vertex, const int slot, const vertexPtr ptr)
+	{
+		a_vertex.endPoints[slot] = ptr;
+		a_vertex.endPointIds[slot] = vertex_id_or_invalid(ptr);
+	}
+	inline void swap_vertex_link_slots(vertex& a_vertex, const int a, const int b)
+	{
+		std::swap(a_vertex.generators[a], a_vertex.generators[b]);
+		std::swap(a_vertex.generatorRefs[a], a_vertex.generatorRefs[b]);
+		std::swap(a_vertex.endPoints[a], a_vertex.endPoints[b]);
+		std::swap(a_vertex.endPointIds[a], a_vertex.endPointIds[b]);
+	}
 	inline void set_bond_to(cell& a_cell, const cellPtr ptr)
 	{
 		a_cell.bondToId = cell_id_or_invalid(ptr);
@@ -976,7 +993,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								{
 									const GeneratorRef& ref = old_vertex_generator_refs[vi][g];
 									cellPtr restored_generator = cell_ptr_from_ref(ref);
-									if(restored_generator != nullptr) vertices[vi].generators[g] = restored_generator;
+									if(restored_generator != nullptr) set_vertex_generator(vertices[vi], g, restored_generator);
 								}
 
 								for(std::size_t point_idx=0;point_idx<nRevertPoints;++point_idx)
@@ -1507,18 +1524,8 @@ private:
 			cellPtr const bond = cell_ptr_from_id(This->bondToId);
 			if(bond != nullptr && bond != This) return getRepresentative(bond);
 		}
-		const CellId this_id = cell_id_or_invalid(This);
-		if(this_id != 0)
-		{
-			cellPtr const bond = cell_ptr_from_id(This->bondToId);
-			if(bond != nullptr && bond != This) return getRepresentative(bond);
-		}
-		else
-		{
 			return vertices.data();
 		}
-		return vertices.data();
-	}
 	vertexPtr prepareInsertion(cell & This,vertexPtr hint=nullptr)
 	{
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
@@ -1667,9 +1674,7 @@ private:
 			for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
 			{
 				cell& point = points[point_idx];
-				int current_cell_order = static_cast<int>(point_idx);
-				const CellId current_cell_id = cell_id_or_invalid(&point);
-				if(current_cell_id != kInvalidId) current_cell_order = static_cast<int>(current_cell_id);
+				const int current_cell_order = static_cast<int>(point_idx);
 				for(const VertexId vid : point.myVerticesIds)
 				{
 					vertexPtr vtx = vertex_ptr_from_id(vid);
