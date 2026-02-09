@@ -1393,50 +1393,100 @@ private:
 				clear_cell_neighbours(point);
 				point.visitedAs=-1;
 			}
-		for(typename std::vector<cell >::iterator it=points.begin();it!=points.end();++it)
-			for(typename std::vector<vertexPtr>::const_iterator it2=it->myVertices.begin();it2!=it->myVertices.end();++it2)
-				if(!(*it2)->isCorner())
-					for(int g=dimension;g>=0;g--)
-						if((*it2)->generators[g]->isReal(*this))
-						{
-								if((*it2)->generators[g]->visitedAs<it-points.begin()&&(*it2)->generators[g]!=&(*it))
-									{
-										push_cell_neighbour(*it, (*it2)->generators[g]);
-										(*it2)->generators[g]->visitedAs=it-points.begin();
-									}
-						}
+			for(typename std::vector<cell >::iterator it=points.begin();it!=points.end();++it)
+			{
+				if(!it->myVerticesIds.empty())
+				{
+					for(const VertexId vid : it->myVerticesIds)
+					{
+						vertexPtr vtx = vertex_ptr_from_id(vid);
+						if(vtx == NULL || vtx->isCorner()) continue;
+						for(int g=dimension;g>=0;g--)
+							if(vtx->generators[g]->isReal(*this))
+							{
+								if(vtx->generators[g]->visitedAs<it-points.begin()&&vtx->generators[g]!=&(*it))
+								{
+									push_cell_neighbour(*it, vtx->generators[g]);
+									vtx->generators[g]->visitedAs=it-points.begin();
+								}
+							}
+					}
+				}
+				else
+				{
+					for(typename std::vector<vertexPtr>::const_iterator it2=it->myVertices.begin();it2!=it->myVertices.end();++it2)
+						if(!(*it2)->isCorner())
+							for(int g=dimension;g>=0;g--)
+								if((*it2)->generators[g]->isReal(*this))
+								{
+									if((*it2)->generators[g]->visitedAs<it-points.begin()&&(*it2)->generators[g]!=&(*it))
+										{
+											push_cell_neighbour(*it, (*it2)->generators[g]);
+											(*it2)->generators[g]->visitedAs=it-points.begin();
+										}
+								}
+				}
+			}
 
 		for(cell& point : points)
 			point.visitedAs=0;
 	}
 
-	void FillAllNeighboursOfInvolved()
-	{
-		// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
-		sort(Involved.begin(),Involved.end());
-		for(cellPtr involved_cell : Involved)
+		void FillAllNeighboursOfInvolved()
 		{
-			std::size_t neighbour_idx=0;
-				while(neighbour_idx<involved_cell->neighbours.size())
-				{
-					if(involved_cell->neighbours[neighbour_idx]->visitedAs==-1)
-						erase_cell_neighbour(*involved_cell, neighbour_idx);
-					else
-						++neighbour_idx;
-				}
-		}
-		for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
-			for(typename std::vector<vertexPtr>::const_iterator it2=(*it)->myVertices.begin();it2!=(*it)->myVertices.end();++it2)
+			// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
+			sort(Involved.begin(),Involved.end());
+			for(cellPtr involved_cell : Involved)
 			{
-				for(int g=dimension;g>=0;g--)
-					if((*it2)->generators[g]->isReal(*this))
+				std::size_t neighbour_idx=0;
+					while(neighbour_idx<involved_cell->neighbours.size())
 					{
-							if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=(*it)-&points.front()&&(*it2)->generators[g]!=(*it))
+						cellPtr neighbour = involved_cell->neighbours[neighbour_idx];
+						if(!involved_cell->neighboursIds.empty() && neighbour_idx < involved_cell->neighboursIds.size())
+						{
+							cellPtr id_neighbour = cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx]);
+							if(id_neighbour != NULL) neighbour = id_neighbour;
+						}
+						if(neighbour == NULL || neighbour->visitedAs==-1)
+							erase_cell_neighbour(*involved_cell, neighbour_idx);
+						else
+							++neighbour_idx;
+					}
+			}
+			for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
+			{
+				if(!(*it)->myVerticesIds.empty())
+				{
+					for(const VertexId vid : (*it)->myVerticesIds)
+					{
+						vertexPtr vtx = vertex_ptr_from_id(vid);
+						if(vtx == NULL) continue;
+						for(int g=dimension;g>=0;g--)
+							if(vtx->generators[g]->isReal(*this))
 							{
-								push_cell_neighbour(*(*it), (*it2)->generators[g]);
-								(*it2)->generators[g]->visitedAs=(*it)-&points.front()+1;
+								if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=(*it)-&points.front()&&vtx->generators[g]!=(*it))
+								{
+									push_cell_neighbour(*(*it), vtx->generators[g]);
+									vtx->generators[g]->visitedAs=(*it)-&points.front()+1;
+								}
 							}
 					}
+				}
+				else
+				{
+					for(typename std::vector<vertexPtr>::const_iterator it2=(*it)->myVertices.begin();it2!=(*it)->myVertices.end();++it2)
+					{
+						for(int g=dimension;g>=0;g--)
+							if((*it2)->generators[g]->isReal(*this))
+							{
+									if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=(*it)-&points.front()&&(*it2)->generators[g]!=(*it))
+									{
+										push_cell_neighbour(*(*it), (*it2)->generators[g]);
+										(*it2)->generators[g]->visitedAs=(*it)-&points.front()+1;
+									}
+							}
+					}
+				}
 			}
 
 		for(cellPtr involved_cell : Involved)
