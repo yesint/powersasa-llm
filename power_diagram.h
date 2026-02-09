@@ -1456,13 +1456,23 @@ private:
                     */
 
 		}
-		for(unsigned int i=fromZero;i<zeros.size();i++)
+			for(unsigned int i=fromZero;i<zeros.size();i++)
 			{
-				zeros[i].generators[0]->myZeroPoints.push_back(i);
-				zeros[i].generators[1]->myZeroPoints.push_back(i);
-				zeros[i].generators[2]->myZeroPoints.push_back(i);
+				sync_zero_link_mirrors(zeros[i]);
+				for(int g = 0; g < dimension; ++g)
+				{
+					const GeneratorRef& ref = zeros[i].generatorRefs[g];
+					if(ref.is_valid() && ref.kind == GeneratorKind::point && ref.index < points.size())
+					{
+						points[ref.index].myZeroPoints.push_back(i);
+					}
+					else if(zeros[i].generators[g] != NULL)
+					{
+						zeros[i].generators[g]->myZeroPoints.push_back(i);
+					}
+				}
 			}
-	}
+		}
 
 		inline bool tryToBuildVertexOnEdge(const const_vertexPtr& This,const int& here)//,const cellPtr s1, const cellPtr s2,const cellPtr s3,const PDCoord& direction);
 		{
