@@ -533,7 +533,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							++strength_it;
 							++bondTo_it;
 							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
-							points.push_back(cell(*pos_it-center,*strength_it,&points[bond_to]));
+							points.push_back(cell(*pos_it-center,*strength_it,nullptr));
 							set_bond_to_id(points.back(), bond_to);
 						}
 					}
@@ -547,7 +547,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							++strength_it;
 							++bondTo_it;
 							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
-							points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,&points[bond_to]));
+							points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,nullptr));
 							set_bond_to_id(points.back(), bond_to);
 						}
 					}
