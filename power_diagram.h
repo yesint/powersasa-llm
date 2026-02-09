@@ -675,7 +675,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 						for(unsigned int i=points.size();i<size;i++)
 						{
-							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),&points.back()));
+							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
 							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : nullptr);
 						}
 
@@ -691,7 +691,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				}
 						for(unsigned int i=points.size();i<size;i++)
 						{
-							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),&points.back()));
+							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
 							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : nullptr);
 						}
 				}
@@ -748,15 +748,19 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					for(unsigned int i=0;i<newSize-nRevertPoints;i++)
 					{
 						points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
-						set_bond_to(points.back(), (&points.back())-gap);
+						const std::size_t new_idx = points.size()-1;
+						if(new_idx >= gap) set_bond_to_id(points.back(), new_idx-gap);
+						else set_bond_to(points.back(), nullptr);
 					}
 				}
 				else
 				{
 					for(unsigned int i=0;i<newSize-nRevertPoints;i++)
 					{
-						points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),&points.back()));
-						set_bond_to(points.back(), (&points.back())-gap);
+						points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
+						const std::size_t new_idx = points.size()-1;
+						if(new_idx >= gap) set_bond_to_id(points.back(), new_idx-gap);
+						else set_bond_to(points.back(), nullptr);
 					}
 				}
 		{
