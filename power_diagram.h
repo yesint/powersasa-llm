@@ -534,7 +534,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							++bondTo_it;
 							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
 							points.push_back(cell(*pos_it-center,*strength_it,&points[bond_to]));
-							set_bond_to(points.back(), &points[bond_to]);
+							set_bond_to_id(points.back(), bond_to);
 						}
 					}
 					else
@@ -548,7 +548,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							++bondTo_it;
 							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
 							points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,&points[bond_to]));
-							set_bond_to(points.back(), &points[bond_to]);
+							set_bond_to_id(points.back(), bond_to);
 						}
 					}
 			}
@@ -676,7 +676,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						for(unsigned int i=points.size();i<size;i++)
 						{
 							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
-							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : nullptr);
+							if(points.size() > 1) set_bond_to_id(points.back(), points.size()-2);
+							else set_bond_to(points.back(), nullptr);
 						}
 
 			}
@@ -692,7 +693,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						for(unsigned int i=points.size();i<size;i++)
 						{
 							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
-							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : nullptr);
+							if(points.size() > 1) set_bond_to_id(points.back(), points.size()-2);
+							else set_bond_to(points.back(), nullptr);
 						}
 				}
 
