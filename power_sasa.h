@@ -78,7 +78,7 @@ public:
 	template<class Coordcontainer, class Floatcontainer>
 	void update_coords(Coordcontainer const& coords, Floatcontainer const& radii)
 	{
-		unsigned int n_old = power_diagram->get_points().size();
+		const std::size_t n_old = power_diagram->get_points().size();
 		power_diagram->recalculate(coords.begin(),radii.begin(),coords.size());
 		if (n_old < power_diagram->get_points().size()) Resize_NA();
 	}
@@ -102,7 +102,7 @@ public:
 	}
 	unsigned int AtomNo(unsigned int i_atom, unsigned int i_neighbour) const
 	{
-		return (unsigned int)(power_diagram->get_points()[i_atom].neighbours[i_neighbour]
+		return static_cast<unsigned int>(power_diagram->get_points()[i_atom].neighbours[i_neighbour]
 			- &power_diagram->get_points()[0]);
 	}
 
@@ -157,13 +157,13 @@ private:
 		knot.resize(nnb);
 		fknot.resize(nnb);
 #endif
-	      	unsigned int npnt = MAX_PNT;
-		if (p.size() > 0) npnt = p[0].size();
-		unsigned int nnb_old = p.size();
+		std::size_t npnt = MAX_PNT;
+		if (!p.empty()) npnt = p[0].size();
+		const std::size_t nnb_old = p.size();
 		next.resize(nnb);
 		p.resize(nnb);
 		ang.resize(nnb);
-		for (unsigned int i = nnb_old; i < nnb; ++i)
+		for (std::size_t i = nnb_old; i < nnb; ++i)
 		{
 			next[i].resize(npnt);
 			p[i].resize(npnt);
@@ -171,7 +171,7 @@ private:
 		}
 		if (withDSasa)
 		{
-		        for (unsigned int i = 0; i < DSasa_parts.size(); ++i) DSasa_parts[i].resize(nnb);
+			for (std::size_t i = 0; i < DSasa_parts.size(); ++i) DSasa_parts[i].resize(nnb);
 		}
 	}
         inline void Resize_VX(unsigned int nvx)
@@ -188,7 +188,7 @@ private:
 	}
 	inline void Resize_PNT(unsigned int npnt)
 	{
-		for (unsigned int i = 0; i < p.size(); ++i)
+		for (std::size_t i = 0; i < p.size(); ++i)
 		{
 			next[i].resize(npnt);
 			p[i].resize(npnt);
@@ -199,23 +199,23 @@ private:
 	}
 	inline void Resize_NA()
 	{
-		unsigned int n = power_diagram->get_points().size();
+		const std::size_t n = power_diagram->get_points().size();
 		if (withSasa) Sasa.resize(n,0);
 		if(withDSasa)
 		{
-			unsigned int nnb = MAX_NB;
-		        if(DSasa_parts.size()>0)if (DSasa_parts.front().size() > 0) nnb = DSasa_parts.front().size();
-		        unsigned int n_old = DSasa.size();
+			std::size_t nnb = MAX_NB;
+			if (!DSasa_parts.empty() && !DSasa_parts.front().empty()) nnb = DSasa_parts.front().size();
+			const std::size_t n_old = DSasa.size();
 			DSasa.resize(n);
 			DSasa_parts.resize(n);
-		        for (unsigned int i = n_old; i < n; ++i) DSasa_parts[i].resize(nnb);
+			for (std::size_t i = n_old; i < n; ++i) DSasa_parts[i].resize(nnb);
 			
 		}
 		if (withVol) Vol.resize(n,0);
 		if (withDVol) DVol.resize(n,PDCoord(0,0,0));
 
 		PDFloat maxr2 = 0.0;
-		for (unsigned int i = 0; i < n; ++i)
+		for (std::size_t i = 0; i < n; ++i)
 		{
 			if (power_diagram->get_points()[i].r2 > maxr2)
 			  maxr2 = power_diagram->get_points()[i].r2;
@@ -442,31 +442,32 @@ calc_sasa_single(const unsigned int iatom)
 
 // ----- some initialisations  --------------------
 
-	int i, j, kn, ok;
+	int i, j, kn;
+	bool ok;
 
 	std::vector <typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell >
 		const &atoms = power_diagram->get_points();
 	const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell	 &atom = atoms[iatom];
 	std::vector<typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cellPtr> 
 		const &nbs = atom.neighbours;
-	const int nnb = nbs.size();               // number of neighbors
+	const int nnb = static_cast<int>(nbs.size());               // number of neighbors
 	PDCoord const &pos = atom.position;       // my coordinates
 
-	if (nnb >= static_cast<int>(np.size()))
+	if (static_cast<std::size_t>(nnb) >= np.size())
 	{
 		Resize_NB(nnb);
 		//std::cerr << "Power Sasa: number of neighbors exeeds MAX_NB=" << MAX_NB << std::endl;
 		//throw PowerSasaException();
 	}
 
-	if (withSasa != 0) Sasa[iatom] = 0.0;
-	if (withDSasa != 0){DSasa[iatom].setZero(); for (i = 0; i < nnb; ++i) DSasa_parts[iatom][i].setZero();}
-	if (withVol != 0) Vol[iatom] = 0.0;
-	if (withDVol != 0) DVol[iatom].setZero();
-	int do_sasa = (withSasa != 0 || withVol != 0) ? 1 : 0;
+	if (withSasa) Sasa[iatom] = 0.0;
+	if (withDSasa){DSasa[iatom].setZero(); for (i = 0; i < nnb; ++i) DSasa_parts[iatom][i].setZero();}
+	if (withVol) Vol[iatom] = 0.0;
+	if (withDVol) DVol[iatom].setZero();
+	const bool do_sasa = withSasa || withVol;
 
-	PDFloat RAD  = atom.r;
-	PDFloat RAD2 = atom.r2;
+	const PDFloat RAD  = atom.r;
+	const PDFloat RAD2 = atom.r2;
 
 	if (nnb == 0)
 	{
@@ -480,23 +481,23 @@ calc_sasa_single(const unsigned int iatom)
 
 // check that the Power values are not close to zero
 
-	int covered = 1;
-	ok = 1;
+	bool covered = true;
+	ok = true;
 	
-	for (unsigned int n = 0; n < atom.myVertices.size(); ++n)
+	for (std::size_t n = 0; n < atom.myVertices.size(); ++n)
 	{
 		if (std::fabs(atom.myVertices[n]->powerValue) < tol_pow)
 		{
 			std::cerr << "PowerSasa: Vertex power value is too close to zero" << std::endl;
 			throw PowerSasaException();
 		}
-		if (atom.myVertices[n]->powerValue > 0.0) covered = 0;
+		if (atom.myVertices[n]->powerValue > 0.0) covered = false;
 	}
 
 #ifdef ATOMVOL
-	if (covered == 1 && withVol == 0) return;
+	if (covered && !withVol) return;
 #else
-	if (covered == 1) return;
+	if (covered) return;
 #endif
 
 //----- get angles and other properties of neighbors -----
@@ -507,7 +508,7 @@ calc_sasa_single(const unsigned int iatom)
 	for (i = 0; i < nnb; ++i)       // over neighbors
 	{	  
 #ifdef ATOMVOL
-		if (withVol != 0)
+		if (withVol)
 		{
 			volnb[i] = 0.0;
 			fknot[i] = 0;
@@ -559,8 +560,8 @@ calc_sasa_single(const unsigned int iatom)
 
 	if (n_apart == nnb) // no contributing neighbours
 	{
-		if (withSasa != 0) Sasa[iatom] = 4.0 * pi() * RAD2;
-		if (withVol != 0)  Vol[iatom] = (4.0/3.0) * pi() * RAD * RAD2;
+		if (withSasa) Sasa[iatom] = 4.0 * pi() * RAD2;
+		if (withVol)  Vol[iatom] = (4.0/3.0) * pi() * RAD * RAD2;
 		return; 
 	}
 	
@@ -840,21 +841,21 @@ calc_sasa_single(const unsigned int iatom)
 				ip2 = br_p[ivx][0];
 			}
 
-			if (withDSasa != 0) {
-				ds1 = 0.5 * RAD * phi * 
-					( 1.0 + (nb_RAD2[ic1] - RAD2)/(nb_dist[ic1] * nb_dist[ic1]) );
-				ds2 = RAD2 / nb_dist[ic1];
-				DSasa_parts[iatom][ic1]+= ds1 * e[ic1] - ds2 * (*pt - *pt0).cross(e[ic1]);
-			}
+				if (withDSasa) {
+					ds1 = 0.5 * RAD * phi * 
+						( 1.0 + (nb_RAD2[ic1] - RAD2)/(nb_dist[ic1] * nb_dist[ic1]) );
+					ds2 = RAD2 / nb_dist[ic1];
+					DSasa_parts[iatom][ic1]+= ds1 * e[ic1] - ds2 * (*pt - *pt0).cross(e[ic1]);
+				}
 
-			if (withVol != 0 || withDVol != 0) {
-				vv = (pos + RAD * (*pt0)).cross(pos + RAD * (*pt));
-				scone = sintheta[ic1]*sintheta[ic1]*(phi - sin(phi));
-			}
-			
-			if (withVol != 0)
-			{
-				vol2 += costheta[ic1]*scone;
+				if (withVol || withDVol) {
+					vv = (pos + RAD * (*pt0)).cross(pos + RAD * (*pt));
+					scone = sintheta[ic1]*sintheta[ic1]*(phi - sin(phi));
+				}
+				
+				if (withVol)
+				{
+					vol2 += costheta[ic1]*scone;
 #ifdef ATOMVOL
 				if (fknot[ic1] == 0)
 				{
@@ -868,10 +869,10 @@ calc_sasa_single(const unsigned int iatom)
 #endif
 			}
 			
-			if (withDVol != 0)
-			{
-				DVol[iatom]-= 0.5 * (vv + (RAD2*scone) * e[ic1]);
-			}
+				if (withDVol)
+				{
+					DVol[iatom]-= 0.5 * (vv + (RAD2*scone) * e[ic1]);
+				}
 
 
 		} while (pt != p_ini);
@@ -888,7 +889,7 @@ calc_sasa_single(const unsigned int iatom)
 	{
 		if (np[i] != 0 || nt[i] != 0) continue;
 
-		ok = 1;
+			ok = true;
 		cc = pos + (RAD*costheta[i])*e[i];
 		pw_i = -sintheta[i]*sintheta[i]*RAD2;
 
@@ -896,11 +897,11 @@ calc_sasa_single(const unsigned int iatom)
 		{
 			if (j == i) continue;
 			pw_j = (nbs[j]->position - cc).squaredNorm() - nb_RAD2[j];
-		        if (pw_j <= pw_i)
-			{
-				ok = 0;
-				break;
-			}
+			        if (pw_j <= pw_i)
+				{
+					ok = false;
+					break;
+				}
 		}
 		if (ok)
 		{
@@ -909,19 +910,19 @@ calc_sasa_single(const unsigned int iatom)
 				sasa_ia += 2.0 * pi() * (1.0 + costheta[i]);
 				if (sasa_ia > 4.0*pi()) sasa_ia -= 4.0*pi();
 			}
-			if (withDSasa != 0)
-			{
-				DSasa_parts[iatom][i]=( RAD*pi() * (1.0 + (nb_RAD2[i] - RAD2)/(nb_dist[i]*nb_dist[i])) ) * e[i];
+				if (withDSasa)
+				{
+					DSasa_parts[iatom][i]=( RAD*pi() * (1.0 + (nb_RAD2[i] - RAD2)/(nb_dist[i]*nb_dist[i])) ) * e[i];
+				}
+				if (withVol || withDVol) scone = sintheta[i]*sintheta[i] * 2.0*pi();
+				if (withVol)   vol2 += costheta[i] * scone;
+				if (withDVol)  DVol[iatom] = DVol[iatom] - (0.5*RAD2*scone) * e[i];
 			}
-			if (withVol != 0 || withDVol != 0) scone = sintheta[i]*sintheta[i] * 2.0*pi();
-			if (withVol != 0)   vol2 += costheta[i] * scone;
-			if (withDVol != 0)  DVol[iatom] = DVol[iatom] - (0.5*RAD2*scone) * e[i];
+
 		}
 
-	}
-
-	if (withSasa != 0) Sasa[iatom] = RAD2 * sasa_ia;
-	if (withDSasa != 0)
+	if (withSasa) Sasa[iatom] = RAD2 * sasa_ia;
+	if (withDSasa)
 	{
 		for (i = 0; i < nnb; ++i)
 		{
@@ -930,7 +931,7 @@ calc_sasa_single(const unsigned int iatom)
 	}
 
 #ifdef ATOMVOL
-	if (withVol != 0)
+	if (withVol)
 	{
 		for (i = 0; i < nnb; ++i)
 		{
@@ -938,7 +939,7 @@ calc_sasa_single(const unsigned int iatom)
 		}
 	}
 #endif
-	if (withVol != 0)   Vol[iatom] = RAD*RAD2*sasa_ia/3.0 + RAD*RAD2*vol2/6.0 + vol3/6.0;
+	if (withVol)   Vol[iatom] = RAD*RAD2*sasa_ia/3.0 + RAD*RAD2*vol2/6.0 + vol3/6.0;
 
 	for (i = 0; i < nnb; ++i)       // over neighbors, set zero again (only necessary if an expansion of power diagram is planned)
 	{
@@ -953,9 +954,9 @@ calc_sasa_single(const unsigned int iatom)
 template <class PDFloat, class PDCoord> void PowerSasa<PDFloat, PDCoord>::
 calc_sasa_all()
 {
-	for (unsigned int i = 0; i < power_diagram->get_points().size(); ++i)
+	for (std::size_t i = 0; i < power_diagram->get_points().size(); ++i)
 	{
-		calc_sasa_single(i);
+		calc_sasa_single(static_cast<unsigned int>(i));
 	}
 }
 
