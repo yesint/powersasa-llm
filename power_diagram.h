@@ -443,7 +443,7 @@ public :
 	}
 	inline const_cellPtr zeroPointGenerator(const zeroPoint& zp, const int g) const
 	{
-		if (g < 0 || g >= dimension) return NULL;
+		if (g < 0 || g >= dimension) return nullptr;
 		const GeneratorRef& ref = zp.generatorRefs[g];
 		if (ref.is_valid())
 		{
@@ -455,17 +455,17 @@ public :
 	inline bool zeroPointValid(const zeroPoint& zp) const
 	{
 		const const_vertexPtr from_ptr = zeroPointFrom(zp);
-		if (from_ptr == NULL) return false;
+		if (from_ptr == nullptr) return false;
 		const vertexPtr to_ptr = from_ptr->endPoints[zp.branch];
-		if (to_ptr == NULL) return false;
+		if (to_ptr == nullptr) return false;
 		return ((!from_ptr->invalid) && (!to_ptr->invalid));
 	}
 	inline PDCoord zeroPointPos(const zeroPoint& zp) const
 	{
 		const const_vertexPtr from_ptr = zeroPointFrom(zp);
-		if (from_ptr == NULL) throw MyException();
+		if (from_ptr == nullptr) throw MyException();
 		const vertexPtr to_ptr = from_ptr->endPoints[zp.branch];
-		if (to_ptr == NULL) throw MyException();
+		if (to_ptr == nullptr) throw MyException();
 		return (to_ptr->position) * zp.pos - from_ptr->position * (zp.pos - static_cast<PDFloat>(1.0));
 	}
 
@@ -525,8 +525,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 				if(params.radiiGiven)
 				{
-					points.push_back(cell(*pos_it-center,*strength_it,NULL));
-					set_bond_to(points.back(), NULL);
+					points.push_back(cell(*pos_it-center,*strength_it,nullptr));
+					set_bond_to(points.back(), nullptr);
 					for(unsigned int i=1;i<_params.size;i++)
 					{
 						points.push_back(cell(*(++pos_it)-center,*(++strength_it),&points[*(++bondTo_it)]));
@@ -535,8 +535,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				}
 				else
 				{
-					points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,NULL));
-					set_bond_to(points.back(), NULL);
+					points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,nullptr));
+					set_bond_to(points.back(), nullptr);
 					for(unsigned int i=1;i<_params.size;i++)
 					{
 						points.push_back(cell(*(++pos_it)-center,sqrt(*(++strength_it)),*(strength_it),&points[*(++bondTo_it)]));
@@ -577,7 +577,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 				const CellId owner_id = (cornerOwners[c] < 0) ? kInvalidId : static_cast<CellId>(cornerOwners[c]);
 				cellPtr owner_ptr = cell_ptr_from_id(owner_id);
-				if(owner_ptr == NULL) owner_ptr = points.data();
+				if(owner_ptr == nullptr) owner_ptr = points.data();
 				vertices[c].generators[0]=owner_ptr;
 				vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
 			}
@@ -642,9 +642,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						? points[i].bondToId
 						: cell_id_or_invalid(points[i].bondTo);
 				}
-				const cellPtr old = points.empty() ? NULL : points.data();
+				const cellPtr old = points.empty() ? nullptr : points.data();
 				points.reserve(size);
-					if(old != NULL && old != points.data())
+					if(old != nullptr && old != points.data())
 						for(std::size_t i=1;i<points.size();++i)
 						{
 							if(old_bond_ids[i] != kInvalidId) set_bond_to_id(points[i], old_bond_ids[i]);
@@ -668,7 +668,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						for(unsigned int i=points.size();i<size;i++)
 						{
 							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),&points.back()));
-							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : NULL);
+							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : nullptr);
 						}
 
 			}
@@ -684,7 +684,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						for(unsigned int i=points.size();i<size;i++)
 						{
 							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),&points.back()));
-							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : NULL);
+							set_bond_to(points.back(), points.size() > 1 ? &points[points.size()-2] : nullptr);
 						}
 				}
 
@@ -739,7 +739,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 					for(unsigned int i=0;i<newSize-nRevertPoints;i++)
 					{
-						points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),NULL));
+						points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
 						set_bond_to(points.back(), (&points.back())-gap);
 					}
 				}
@@ -819,7 +819,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							{
 									cell& point = points[point_idx];
 									if(point_idx < old_bond_ids.size() && old_bond_ids[point_idx] != kInvalidId) set_bond_to_id(point, old_bond_ids[point_idx]);
-									point.neighbours.assign(old_neighbour_ids[point_idx].size(), NULL);
+									point.neighbours.assign(old_neighbour_ids[point_idx].size(), nullptr);
 									point.neighboursIds = old_neighbour_ids[point_idx];
 									for(std::size_t neighbour_idx=0;neighbour_idx<point.neighboursIds.size();++neighbour_idx)
 										point.neighbours[neighbour_idx] = cell_ptr_from_id(point.neighboursIds[neighbour_idx]);
@@ -869,7 +869,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		_nVertices=1<<dimension;
 		sideGenerators.clear();
 		for(int i=0;i<2*dimension;i++)
-			sideGenerators.push_back(cell(PDCoord(0,0,0),0,NULL));
+			sideGenerators.push_back(cell(PDCoord(0,0,0),0,nullptr));
 		PDCoord lhc=lowest;
 		vertices[0].setTo(lowest);
 		for(int j=dimension-1;j>=0;j--)
@@ -945,7 +945,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							const PDFloat errorScale=insertionErrorScale;
 							if(__power_diagram_internal_timing__){t3+=clock();t4+=clock();}
 
-							cellPtr identicalPoint=NULL;
+							cellPtr identicalPoint=nullptr;
 							done++;
 							if(done>100)
 								throw MyException();
@@ -1020,7 +1020,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								}
 
 							Replaced.clear();
-							if(identicalPoint!=NULL)
+							if(identicalPoint!=nullptr)
 							{	
 								push_cell_my_vertex(*Involved.front(), identicalPoint->myVertices.front());
 								break;
@@ -1273,16 +1273,16 @@ if(std::abs(checkconst)>0.001)
 			else	return 1;
 		else	return 0;
 	}
-	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=NULL)
+	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=nullptr)
 	{
 		// Greedy neighbor walk to find the cell with minimal power at pos inside the current cube.
-		if(hint==NULL)hint =&points[points.size()/2];
+		if(hint==nullptr)hint =&points[points.size()/2];
 			if(!hint->neighboursIds.empty())
 			{
 				for(const CellId neighbour_id : hint->neighboursIds)
 				{
 					const_cellPtr neighbour = cell_ptr_from_id_const(neighbour_id);
-					if(neighbour != NULL && neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
+					if(neighbour != nullptr && neighbour->power(pos)<hint->power(pos))return findCellInsideCube(pos,neighbour);
 				}
 			}
 			else
@@ -1298,23 +1298,23 @@ private:
 	vertexPtr getRepresentative(const const_cellPtr This)
 	{
 		// Retrieve a connected representative vertex for This, falling back along bondTo if needed.
-		if(This == NULL)
+		if(This == nullptr)
 		{
 			return vertices.data();
 		}
 		const std::size_t n_vertices = This->myVerticesIds.empty() ? This->myVertices.size() : This->myVerticesIds.size();
 		for(std::size_t i = 0; i < n_vertices; ++i)
 		{
-			vertexPtr candidate = NULL;
+			vertexPtr candidate = nullptr;
 			if(!This->myVerticesIds.empty())
 			{
 				candidate = vertex_ptr_from_id(This->myVerticesIds[i]);
 			}
-			if(candidate == NULL && i < This->myVertices.size())
+			if(candidate == nullptr && i < This->myVertices.size())
 			{
 				candidate = This->myVertices[i];
 			}
-			if(candidate != NULL && candidate->isConnected() && candidate->hasGenerator(This))
+			if(candidate != nullptr && candidate->isConnected() && candidate->hasGenerator(This))
 				{
 					return candidate;
 				}
@@ -1322,16 +1322,16 @@ private:
 		if(This->bondToId != kInvalidId)
 		{
 			cellPtr const bond = cell_ptr_from_id(This->bondToId);
-			if(bond != NULL && bond != This) return getRepresentative(bond);
+			if(bond != nullptr && bond != This) return getRepresentative(bond);
 		}
 		const CellId this_id = cell_id_or_invalid(This);
-		if(this_id != 0 && This->bondTo != NULL && This->bondTo != This) return getRepresentative(This->bondTo);
+		if(this_id != 0 && This->bondTo != nullptr && This->bondTo != This) return getRepresentative(This->bondTo);
 		else
 		{
 			return vertices.data();
 		}
 	}
-	vertexPtr prepareInsertion(cell & This,vertexPtr hint=NULL)
+	vertexPtr prepareInsertion(cell & This,vertexPtr hint=nullptr)
 	{
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
 		if(__power_diagram_internal_timing__)t2-=clock();
@@ -1380,7 +1380,7 @@ private:
 	bool doInsertion(const vertexPtr& hint)
 	{
 		// Materialize insertion after prepareInsertion(): create new finite vertices, connect, and update caches.
-//			if(hint!=NULL)
+//			if(hint!=nullptr)
 				{
 						if(__power_diagram_internal_timing__){const unsigned int zeit=clock();t3-=zeit;t4-=zeit;}
 					if(!CreateFiniteVerticesFromReplaced())
@@ -1482,7 +1482,7 @@ private:
 					for(const VertexId vid : point.myVerticesIds)
 					{
 						vertexPtr vtx = vertex_ptr_from_id(vid);
-						if(vtx == NULL || vtx->isCorner()) continue;
+						if(vtx == nullptr || vtx->isCorner()) continue;
 							for(int g=dimension;g>=0;g--)
 								if(vtx->generators[g]->isReal(*this))
 								{
@@ -1534,9 +1534,9 @@ private:
 						if(!involved_cell->neighboursIds.empty() && neighbour_idx < involved_cell->neighboursIds.size())
 						{
 							cellPtr id_neighbour = cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx]);
-							if(id_neighbour != NULL) neighbour = id_neighbour;
+							if(id_neighbour != nullptr) neighbour = id_neighbour;
 						}
-						if(neighbour == NULL || neighbour->visitedAs==-1)
+						if(neighbour == nullptr || neighbour->visitedAs==-1)
 							erase_cell_neighbour(*involved_cell, neighbour_idx);
 						else
 							++neighbour_idx;
@@ -1562,7 +1562,7 @@ private:
 					for(const VertexId vid : involved_cell->myVerticesIds)
 					{
 						vertexPtr vtx = vertex_ptr_from_id(vid);
-						if(vtx == NULL) continue;
+						if(vtx == nullptr) continue;
 						for(int g=dimension;g>=0;g--)
 							if(vtx->generators[g]->isReal(*this))
 							{
@@ -1681,7 +1681,7 @@ private:
 					{
 						points[ref.index].myZeroPoints.push_back(i);
 					}
-					else if(zeros[i].generators[g] != NULL)
+					else if(zeros[i].generators[g] != nullptr)
 					{
 						zeros[i].generators[g]->myZeroPoints.push_back(i);
 					}
@@ -1694,7 +1694,7 @@ private:
 			// Create one new finite vertex on a surviving edge between replaced and persisting regions.
 			//edge between This (replaced and finite) and that defined by generators s1,s2,s3 will get a vertex (of newest,s1,s2,s3)
 			{
-				vertexPtr builtVertex = NULL;
+				vertexPtr builtVertex = nullptr;
 				if(_nUnused==0)
 				{
 					if(nVertices()==vertices.capacity())
@@ -1852,30 +1852,30 @@ private:
 
 			for(unsigned int i=0;i<Replaced.size();i++)
 			{
-				vertexPtr restored = NULL;
+				vertexPtr restored = nullptr;
 				if(_replaced[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_replaced[i]));
-				if(restored == NULL) restored = vertices.data()+_replaced[i];
+				if(restored == nullptr) restored = vertices.data()+_replaced[i];
 				Replaced[i]=restored;
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
-				vertexPtr restored = NULL;
+				vertexPtr restored = nullptr;
 				if(_unused[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_unused[i]));
-				if(restored == NULL) restored = vertices.data()+_unused[i];
+				if(restored == nullptr) restored = vertices.data()+_unused[i];
 				unused[i]=restored;
 			}
 				for(unsigned int i=0;i<Involved.front()->myVertices.size();i++)
 				{
-					vertexPtr restored = NULL;
+					vertexPtr restored = nullptr;
 					if(_currentmyVertices[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_currentmyVertices[i]));
-					if(restored == NULL) restored = vertices.data()+_currentmyVertices[i];
+					if(restored == nullptr) restored = vertices.data()+_currentmyVertices[i];
 					set_cell_my_vertex(*Involved.front(), i, restored);
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
-					vertexPtr restored = NULL;
+					vertexPtr restored = nullptr;
 					if(_first[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_first[i]));
-					if(restored == NULL) restored = vertices.data()+_first[i];
+					if(restored == nullptr) restored = vertices.data()+_first[i];
 					set_cell_my_vertex(points[i], 0, restored);
 				}
 
@@ -1929,12 +1929,12 @@ private:
 					push_cell_my_vertex(*Involved.front(), aDefault);
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
 				{
-					vertexPtr new_representative = NULL;
+					vertexPtr new_representative = nullptr;
 					if(!Involved.front()->myVerticesIds.empty())
 					{
 						new_representative = vertex_ptr_from_id(Involved.front()->myVerticesIds.front());
 					}
-					if(new_representative == NULL)
+					if(new_representative == nullptr)
 					{
 						new_representative = Involved.front()->myVertices.front();
 					}
@@ -1942,12 +1942,12 @@ private:
 					{
 						cellPtr involved_cell = Involved[involved_idx];
 						if(cell_id_or_invalid(involved_cell) == kInvalidId) continue;
-						vertexPtr representative = NULL;
+						vertexPtr representative = nullptr;
 						if(!involved_cell->myVerticesIds.empty())
 						{
 							representative = vertex_ptr_from_id(involved_cell->myVerticesIds.front());
 						}
-						if(representative == NULL)
+						if(representative == nullptr)
 						{
 							if(involved_cell->myVertices.empty()) continue;
 							representative = involved_cell->myVertices.front();
@@ -1969,7 +1969,7 @@ private:
 				for(const VertexId vid : Involved.front()->myVerticesIds)
 				{
 					vertexPtr vtx = vertex_ptr_from_id(vid);
-					if(vtx == NULL) continue;
+					if(vtx == nullptr) continue;
 					vtx->rrv=0;
 					if(!vtx->isCorner())
 						vtx->endPoints[0]->rrv=0;
@@ -2070,7 +2070,7 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 
 
 	friend class PowerDiagram <PDFloat, PDCoord,dimension>;
-	inline bool isCorner() const {return endPoints[0]==NULL; }
+	inline bool isCorner() const {return endPoints[0]==nullptr; }
 	inline bool isOnEdge(const PowerDiagram<PDFloat,PDCoord,dimension>& This)
 	{
 		return (!this->generators[dimension-2]->isReal(This));
@@ -2081,12 +2081,12 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 	}
 //	inline int hasVirtualGenerators()const {return (generators[dimension]->id<0);}
 	inline int hasGenerator(const const_cellPtr& that)const {return (generators[0]==that||generators[1]==that||generators[2]==that||generators[3]==that);}
-//	inline int isFinite() const { return generators[0]!=NULL; }
+//	inline int isFinite() const { return generators[0]!=nullptr; }
 	inline void disconnect(){invalid=1;}
 	inline int isConnected()const{return !invalid;}
 
 	//  vertex(const vertex& copy);
-		inline vertex():invalid(1)/*,generators(dimension+1,NULL),endPoints(dimension+1,NULL)*/
+		inline vertex():invalid(1)/*,generators(dimension+1,nullptr),endPoints(dimension+1,nullptr)*/
 		{
 			for (int g = 0; g <= dimension; ++g) endPointIds[g] = kInvalidId;
 		}
@@ -2141,8 +2141,8 @@ private :
 		position=pos;
 		for(int g=dimension;g>=0;g--)
 		{
-			endPoints[g]=NULL;
-			generators[g]=NULL;
+			endPoints[g]=nullptr;
+			generators[g]=nullptr;
 		}
 	}
 
@@ -2166,11 +2166,11 @@ private :
 		{
 			// Rebase endpoint pointers after vertex vector reallocation.
 			for(int g=dimension;g>=0;g--)
-				if(this->generators[g]!=NULL&&(!this->generators[g]->myVertices.empty())&&this->generators[g]->myVertices.front()==copy)
+				if(this->generators[g]!=nullptr&&(!this->generators[g]->myVertices.empty())&&this->generators[g]->myVertices.front()==copy)
 					this->generators[g]->myVertices.front()=this;
 		for(int g=0;g<=dimension;++g)
 		{
-				if(endPoints[g]!=NULL)
+				if(endPoints[g]!=nullptr)
 					endPoints[g]=this+(endPoints[g]-copy);
 		}
 		}
@@ -2178,7 +2178,7 @@ private :
 		inline void moveAddressNetworkUpdateOnly(const vertexPtr& whereTo)
 		{
 			// Move one vertex object to a new address and patch neighboring endpoint links.
-			if(this->endPoints[dimension]!=NULL)
+			if(this->endPoints[dimension]!=nullptr)
 				(this->endPoints[dimension]->fastWhichis(this))=whereTo;
 		for(int g=0;g<dimension;++g)
 			((endPoints[g])->fastWhichis(this))=whereTo;
@@ -2303,7 +2303,7 @@ struct EdgeEnds
 	inline void storeOrConnect(const vertexPtr& pvertex, vertexPtr& itsEndPointStorage)
 	{
 		// First endpoint stores itself; second endpoint closes the pair and connects both vertices.
-		if(this->a==NULL)
+		if(this->a==nullptr)
 		{
 			this->a=pvertex;								//we store ourself
 			this->b=&itsEndPointStorage; //and where the other should write itself into
@@ -2312,17 +2312,17 @@ struct EdgeEnds
 		{
 			itsEndPointStorage=this->a;//we connect ourself to the other
 			*(this->b)=pvertex;								//and the other to us
-			this->a=NULL;
+			this->a=nullptr;
 		}
 	}
 	inline void connect(const vertexPtr pvertex, vertexPtr& itsEndPointStorage)
 	{
 		// Connect against a previously stored endpoint if one exists for this key.
-		if(this->a!=NULL)
+		if(this->a!=nullptr)
 		{
 			itsEndPointStorage=this->a;//we connect ourself to the other
 			*(this->b)=pvertex;								//and the other to us
-			this->a=NULL;
+			this->a=nullptr;
 		}
 	}
 };
