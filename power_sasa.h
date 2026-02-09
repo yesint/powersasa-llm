@@ -26,9 +26,6 @@ If you have no license please contact SASA-support@kit.edu
 #ifndef POWERSASA_H_
 #define POWERSASA_H_
 
-// Uncomment the next line to get volumes of individual atoms
-#define ATOMVOL
-
 #include <cstdlib>
 #include <array>
 #include <cmath>
@@ -182,11 +179,9 @@ private:
 		costheta.resize(nnb);
 		nb_RAD2.resize(nnb);
 		nb_dist.resize(nnb);
-#ifdef ATOMVOL
 		volnb.resize(nnb);
 		knot.resize(nnb);
 		fknot.resize(nnb);
-#endif
 		std::size_t npnt = kMaxPnt;
 		if (!p.empty()) npnt = p[0].size();
 		const std::size_t nnb_old = p.size();
@@ -297,11 +292,9 @@ private:
 	std::vector< std::vector<int> >next;     // next[][i] is the number of angle that follows the i-th one
 	std::vector< std::vector<int> > p;       // number of surface vertices
 
-#ifdef ATOMVOL
 	std::vector<PDFloat> volnb;
 	std::vector<PDCoord> knot;
 	std::vector<bool>    fknot;
-#endif
         //----- for Get_Next ----------------------------
 
 	std::vector<int> rang;
@@ -529,11 +522,7 @@ calc_sasa_single(const unsigned int iatom)
 		if (atom.myVertices[n]->powerValue > 0.0) covered = false;
 	}
 
-#ifdef ATOMVOL
 	if (covered && !withVol) return;
-#else
-	if (covered) return;
-#endif
 
 //----- get angles and other properties of neighbors -----
 
@@ -542,13 +531,11 @@ calc_sasa_single(const unsigned int iatom)
 	PDCoord  rel_pos;		// vector to neighbor
 	for (i = 0; i < nnb; ++i)       // over neighbors
 	{	  
-#ifdef ATOMVOL
 		if (withVol)
 		{
 			volnb[i] = 0.0;
 			fknot[i] = 0;
 		}
-#endif
 		nbs[i]->visitedAs = i;
 		rel_pos = nbs[i]->position - pos;       // vector to neighbor
 		dist = rel_pos.norm();                  // distance to neighbor
@@ -662,7 +649,6 @@ calc_sasa_single(const unsigned int iatom)
 		++np[ptn0];
 		++np[ptn1];
 
-#ifdef ATOMVOL
 		typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1 = zp->from;
 		typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node2 = node1->endPoints[zp->branch];
 		if (node1->powerValue < 0.0 && node2->powerValue > 0.0)
@@ -723,7 +709,6 @@ calc_sasa_single(const unsigned int iatom)
 			std::cerr << "PowerSasa: Impossible zeroPoint" << std::endl;
 			throw PowerSasaException();
 		}
-#endif
 	}
 
 	std::vector<typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex*> const &nodes = atom.myVertices;
@@ -758,7 +743,6 @@ calc_sasa_single(const unsigned int iatom)
 			ptn1 = partner[1];
 			++nt[ptn0];
 			++nt[ptn1];
-#ifdef ATOMVOL
 			if (fknot[ptn0] == 0)
 			{
 				fknot[ptn0] = 1;
@@ -773,7 +757,6 @@ calc_sasa_single(const unsigned int iatom)
 			}
 			else volnb[ptn1] +=
 			  std::abs((node1->position - knot[ptn1]).cross(node2->position - knot[ptn1]).dot(e[ptn1]));
-#endif
 		}
 	}
 
@@ -890,7 +873,6 @@ calc_sasa_single(const unsigned int iatom)
 				if (withVol)
 				{
 					vol2 += costheta[ic1]*scone;
-#ifdef ATOMVOL
 				if (fknot[ic1] == 0)
 				{
 				  fknot[ic1] = 1;
@@ -898,9 +880,6 @@ calc_sasa_single(const unsigned int iatom)
 				}
 				else volnb[ic1] +=
 				  std::abs((pos+RAD*(*pt0) - knot[ic1]).cross(pos+RAD*(*pt) - knot[ic1]).dot(e[ic1]));
-#else
-				vol3 -= pos.dot(vv);
-#endif
 			}
 			
 				if (withDVol)
@@ -964,7 +943,6 @@ calc_sasa_single(const unsigned int iatom)
 		}
 	}
 
-#ifdef ATOMVOL
 	if (withVol)
 	{
 		for (i = 0; i < nnb; ++i)
@@ -972,7 +950,6 @@ calc_sasa_single(const unsigned int iatom)
 			if (fknot[i]  != 0) vol3 += RAD * volnb[i] * costheta[i];
 		}
 	}
-#endif
 	if (withVol)   Vol[iatom] = RAD*RAD2*sasa_ia/3.0 + RAD*RAD2*vol2/6.0 + vol3/6.0;
 
 	for (i = 0; i < nnb; ++i)       // over neighbors, set zero again (only necessary if an expansion of power diagram is planned)
