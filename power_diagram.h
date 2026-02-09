@@ -781,7 +781,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						if(it->generators[nth(0,g1)]==endpoint->generators[nth(0,g2)]&&it->generators[nth(1,g1)]==endpoint->generators[nth(1,g2)]&&it->generators[nth(2,g1)]==endpoint->generators[nth(2,g2)])
 						{
 	//						(*it)->endPoints[g1]=*it2;		//is already set 
-							endpoint->endPoints[g2]=&(*it);
+							set_vertex_endpoint(*endpoint, g2, &(*it));
 						}
 					}
 				}
