@@ -190,8 +190,7 @@ private:
 
 	PDFloat powerErr;
 	PDFloat insertionErrorScale;
-	std::vector<vertexPtr> Replaced;//old vertices that are removed
-	std::vector<VertexId> ReplacedIds;//mirrored IDs for Replaced
+	std::vector<VertexId> ReplacedIds;//old vertices that are removed (by ID)
 	std::vector<vertexPtr> Invalids;//old vertices that are removed reloaded
 	std::vector<cellPtr> Involved; // all cells which are involved
 	std::vector<GeneratorRef> InvolvedRefs; // mirrored refs for Involved (point or side)
@@ -382,10 +381,10 @@ public :
 			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
 			if(InvolvedRefs[i].kind != ref.kind || InvolvedRefs[i].index != ref.index) throw MyException();
 		}
-		if(Replaced.size() != ReplacedIds.size()) throw MyException();
-		for(std::size_t i=0;i<Replaced.size();++i)
+		for(std::size_t i=0;i<ReplacedIds.size();++i)
 		{
-			if(ReplacedIds[i] != vertex_id_or_invalid(Replaced[i])) throw MyException();
+			if(ReplacedIds[i] == kInvalidId) throw MyException();
+			if(vertex_ptr_from_id(ReplacedIds[i]) == nullptr) throw MyException();
 		}
 #endif
 	}
@@ -458,25 +457,21 @@ public :
 	}
 	inline void clear_replaced()
 	{
-		Replaced.clear();
 		ReplacedIds.clear();
 		validate_transient_mirror_invariants();
 	}
 	inline void push_replaced_id(const VertexId id)
 	{
 		ReplacedIds.push_back(id);
-		Replaced.push_back(vertex_ptr_from_id(id));
 		validate_transient_mirror_invariants();
 	}
 	inline void set_replaced_id(const std::size_t index, const VertexId id)
 	{
 		ReplacedIds[index] = id;
-		Replaced[index] = vertex_ptr_from_id(id);
 		validate_transient_mirror_invariants();
 	}
 	inline void pop_replaced()
 	{
-		Replaced.pop_back();
 		ReplacedIds.pop_back();
 		validate_transient_mirror_invariants();
 	}
@@ -703,7 +698,6 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				nRevertPoints=0;
 		nRevertZeros=0;
 		nRevertVertices=(1<<dimension);
-		Replaced.reserve(64);
 		planes.resize(64*64);
 		points.reserve(_params.size);
 		vertices.reserve(_params.size*32+(1<<dimension));
