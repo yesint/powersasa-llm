@@ -701,11 +701,22 @@ calc_sasa_single(const unsigned int iatom)
 		++np[ptn0];
 		++np[ptn1];
 
-		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1 =
-			power_diagram->zeroPointFrom(*zp);
-		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node2 = node1->endPoints[zp->branch];
-		if (node1->powerValue < 0.0 && node2->powerValue > 0.0)
-		{
+			const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1 =
+				power_diagram->zeroPointFrom(*zp);
+			const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node2 = nullptr;
+			const VertexId zp_end_id = node1->endPointIds[zp->branch];
+			if (zp_end_id != PowerDiagram3D::kInvalidId && zp_end_id < pd_vertices.size())
+			{
+				node2 = &pd_vertices[zp_end_id];
+			}
+			if (node2 == nullptr) node2 = node1->endPoints[zp->branch];
+			if (node2 == nullptr)
+			{
+				std::cerr << "PowerSasa: Invalid zeroPoint endpoint" << std::endl;
+				throw PowerSasaException();
+			}
+			if (node1->powerValue < 0.0 && node2->powerValue > 0.0)
+			{
 			if (fknot[ptn0] == 0)
 			{
 				fknot[ptn0] = 1;
