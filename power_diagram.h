@@ -518,11 +518,6 @@ public :
 	inline cellPtr involved_ptr_at(const std::size_t index)
 	{
 		if(index >= InvolvedRefs.size()) return nullptr;
-		if(index >= InvolvedRefs.size())
-		{
-			std::cerr << "INVOLVED_REFS: missing involved ref at index " << index << std::endl;
-			throw MyException();
-		}
 		const GeneratorRef& ref = InvolvedRefs[index];
 		cellPtr ptr = cell_ptr_from_ref(ref);
 		if(ptr == nullptr)
@@ -534,7 +529,6 @@ public :
 	}
 	inline CellId involved_id_at(const std::size_t index) const
 	{
-		if(index >= InvolvedRefs.size()) return kInvalidId;
 		if(index >= InvolvedRefs.size()) return kInvalidId;
 		const GeneratorRef& ref = InvolvedRefs[index];
 		if(ref.kind != GeneratorKind::point) return kInvalidId;
@@ -1503,7 +1497,7 @@ if(std::abs(checkconst)>0.001)
 private:
 	vertexPtr getRepresentative(const const_cellPtr This)
 	{
-		// Retrieve a connected representative vertex for This, falling back along bondTo if needed.
+		// Retrieve a connected representative vertex for This, following bondToId if needed.
 		if(This == nullptr)
 		{
 			return vertices.data();
