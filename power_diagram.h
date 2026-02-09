@@ -1066,14 +1066,19 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							if(involved_front == nullptr) throw MyException();
 							//is this an Identical point problem?
 								{
-									PDFloat mindist=(Involved[1]->position-involved_front->position).squaredNorm();
-									cellPtr closest=Involved[1];
+									cellPtr closest = involved_ptr_at(1);
+									if(closest == nullptr) throw MyException();
+									PDFloat mindist=(closest->position-involved_front->position).squaredNorm();
 									for(std::size_t involved_idx=2;involved_idx<Involved.size();++involved_idx)
-										if((Involved[involved_idx]->position-involved_front->position).squaredNorm()<mindist)
+									{
+										cellPtr candidate = involved_ptr_at(involved_idx);
+										if(candidate == nullptr) continue;
+										if((candidate->position-involved_front->position).squaredNorm()<mindist)
 										{
-											mindist=(Involved[involved_idx]->position-involved_front->position).squaredNorm();
-											closest=Involved[involved_idx];
+											mindist=(candidate->position-involved_front->position).squaredNorm();
+											closest=candidate;
 										}
+									}
 										if(error(involved_front->r)>sqrt(mindist))
 										{
 										identicalPoint=closest;
