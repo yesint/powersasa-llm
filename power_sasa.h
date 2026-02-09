@@ -66,10 +66,6 @@ public:
 	inline static PDFloat DRAD2() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	// Angular ordering tolerance used when ranking contour vertices on a circle.
 	inline static PDFloat DANG() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
-	// Scalar pi constant used by all spherical area/volume formulas.
-	inline static constexpr PDFloat pi() { return std::numbers::pi_v<PDFloat>; }
-	// Helper used frequently in contour integrations.
-	inline static constexpr PDFloat two_pi() { return static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>; }
 	// Cosine threshold around |1| where cross-product based angle reconstruction is more stable.
 	inline static PDFloat near_one_cosine_threshold() { return static_cast<PDFloat>(0.999); }
 	// Minimum axis component considered numerically reliable in signed-angle orientation tests.
@@ -343,7 +339,7 @@ Ang_About(PDCoord const& a, PDCoord const& b, PDCoord const& c)
 	if (co <= -near_one_cosine_threshold())
 	{
 		v = a.cross(b);
-		ang = pi() - std::asin( v.norm() );
+		ang = std::numbers::pi_v<PDFloat> - std::asin( v.norm() );
 	}
 	else if (co >= near_one_cosine_threshold())
 	{
@@ -372,7 +368,7 @@ Ang_About(PDCoord const& a, PDCoord const& b, PDCoord const& c)
 		std::cerr << "PowerSasa: Axis too short" << std::endl;
 		throw PowerSasaException();
 	}
-	if (ang < 0) ang += two_pi();
+	if (ang < 0) ang += static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>;
 	return ang;
 }
 //-----------------------------------------------------------------------------
@@ -413,7 +409,7 @@ Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 
 	for (j = 1; j < n; ++j)
 	{
-		if (ang[j] <= two_pi() - DANG()) continue;
+		if (ang[j] <= static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat> - DANG()) continue;
 		PDFloat dp = vx[p[j]].cross(vx[p[0]]).dot(e);
 		if (dp < 0.0) ang[j] = 0.0;
 		else if (dp == 0.0)
@@ -583,8 +579,8 @@ calc_sasa_single(const unsigned int iatom)
 
 	if (n_apart == nnb) // no contributing neighbours
 	{
-		if (withSasa) Sasa[iatom] = 4.0 * pi() * RAD2;
-		if (withVol)  Vol[iatom] = (4.0/3.0) * pi() * RAD * RAD2;
+		if (withSasa) Sasa[iatom] = static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat> * RAD2;
+		if (withVol)  Vol[iatom] = (static_cast<PDFloat>(4.0) / static_cast<PDFloat>(3.0)) * std::numbers::pi_v<PDFloat> * RAD * RAD2;
 		return; 
 	}
 	
@@ -816,7 +812,7 @@ calc_sasa_single(const unsigned int iatom)
 		}
 
 		pt = p_ini;
-		if (do_sasa) sasa_ia += 2.0 * pi();
+		if (do_sasa) sasa_ia += static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>;
 		count = 0;
 
 		do                                 // main loop
@@ -830,7 +826,7 @@ calc_sasa_single(const unsigned int iatom)
 			//assert(count <= MAX_PNT);   // else wrong contour
 				ip_next = next[ic2][ip2];
 				phi = ang[ic2][ip_next] - ang[ic2][ip2];
-				if (phi < 0.0) phi += two_pi();
+				if (phi < 0.0) phi += static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>;
 				
 				if (do_sasa)
 				{
@@ -891,7 +887,9 @@ calc_sasa_single(const unsigned int iatom)
 
 		} while (pt != p_ini);
 		
-		if (do_sasa && sasa_ia > 4.0*pi()) sasa_ia -= 4.0*pi();
+		if (do_sasa && sasa_ia > static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat>) {
+			sasa_ia -= static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat>;
+		}
 	}
 
 // ---------- sasa from single circles ----------------------------
@@ -921,14 +919,19 @@ calc_sasa_single(const unsigned int iatom)
 		{
 			if (do_sasa)
 			{  
-				sasa_ia += 2.0 * pi() * (1.0 + costheta[i]);
-				if (sasa_ia > 4.0*pi()) sasa_ia -= 4.0*pi();
+				sasa_ia += static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat> * (static_cast<PDFloat>(1.0) + costheta[i]);
+				if (sasa_ia > static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat>) {
+					sasa_ia -= static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat>;
+				}
 			}
 				if (withDSasa)
 				{
-					DSasa_parts[iatom][i]=( RAD*pi() * (1.0 + (nb_RAD2[i] - RAD2)/(nb_dist[i]*nb_dist[i])) ) * e[i];
+					DSasa_parts[iatom][i] = (RAD * std::numbers::pi_v<PDFloat> *
+						(static_cast<PDFloat>(1.0) + (nb_RAD2[i] - RAD2) / (nb_dist[i] * nb_dist[i]))) * e[i];
 				}
-				if (withVol || withDVol) scone = sintheta[i]*sintheta[i] * 2.0*pi();
+				if (withVol || withDVol) {
+					scone = sintheta[i] * sintheta[i] * static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>;
+				}
 				if (withVol)   vol2 += costheta[i] * scone;
 				if (withDVol)  DVol[iatom] = DVol[iatom] - (0.5*RAD2*scone) * e[i];
 			}
