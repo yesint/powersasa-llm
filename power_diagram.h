@@ -433,6 +433,11 @@ public :
 		a_vertex.endPoints[slot] = ptr;
 		a_vertex.endPointIds[slot] = vertex_id_or_invalid(ptr);
 	}
+	inline void set_vertex_endpoint_deferred(vertex& a_vertex, const int slot, const vertexPtr ptr)
+	{
+		a_vertex.endPoints[slot] = ptr;
+		a_vertex.endPointIds[slot] = kInvalidId;
+	}
 	inline void swap_vertex_link_slots(vertex& a_vertex, const int a, const int b)
 	{
 		std::swap(a_vertex.generators[a], a_vertex.generators[b]);
@@ -1194,8 +1199,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									{
 										if(replaced_vertex->generators[nth(0,g1)]==endpoint->generators[nth(0,g2)]&&replaced_vertex->generators[nth(1,g1)]==endpoint->generators[nth(1,g2)]&&replaced_vertex->generators[nth(2,g1)]==endpoint->generators[nth(2,g2)])	
 										{
-											replaced_vertex->endPoints[g1]=endpoint;
-											endpoint->endPoints[g2]=replaced_vertex;
+											set_vertex_endpoint_deferred(*replaced_vertex, g1, endpoint);
+											set_vertex_endpoint_deferred(*endpoint, g2, replaced_vertex);
 										}
 									}
 								}
