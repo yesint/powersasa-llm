@@ -1,27 +1,27 @@
-#include <stdio.h>
+#include <cmath>
 #include <fstream>
+#include <numeric>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
 
 #include <power_sasa.h>
-#include <testincludes.h>
 
-// g++ -o sasatest -I. sasatest.cpp
-
-int main(int argc, char* argv[])
+int main()
 {
-	typedef float Scalar;
-	typedef Eigen::Vector3f Coord;
+	using Scalar = float;
+	using Coord = Eigen::Vector3f;
 	std::cout << "Precision: float" << std::endl;
 
-	std::vector<Coord> coords; //Vector of coordinates
-	std::vector<Scalar> weights; //Vector of weights (VdW radii)
+	std::vector<Coord> coords; // Vector of coordinates
+	std::vector<Scalar> weights; // Vector of radii including probe
 
 	// Read coordinates from protein_coords.txt
-	std::string coordFile = "protein_coords.txt";
+	const std::string coordFile = "protein_coords.txt";
 	std::ifstream infile(coordFile);
 	
 	if (!infile.is_open()) {
@@ -44,12 +44,10 @@ int main(int argc, char* argv[])
 
 		if (iss >> x >> y >> z >> radius >> element >> atomName) {
 			coords.push_back(Coord(x, y, z));
-			weights.push_back(radius+0.14);
+			weights.push_back(radius + 0.14f);
 			atomCount++;
 		}
 	}
-
-	infile.close();
 
 	std::cout << "Loaded " << atomCount << " atoms from " << coordFile << std::endl;
 
@@ -66,24 +64,16 @@ int main(int argc, char* argv[])
 	const std::vector<Scalar>& sasa = ps.getSasa();
 	const std::vector<Scalar>& vol = ps.getVol();
 
-	Scalar totalSasa = 0.0;
-	Scalar totalVol = 0.0;
-
-	for (const auto& s : sasa) {
-		totalSasa += s;
-	}
-
-	for (const auto& v : vol) {
-		totalVol += v;
-	}
+	const Scalar totalSasa = std::accumulate(sasa.begin(), sasa.end(), Scalar(0));
+	const Scalar totalVol = std::accumulate(vol.begin(), vol.end(), Scalar(0));
 
 	std::cout << "Total SASA: " << totalSasa << " nm^2" << std::endl;
 	std::cout << "Total Volume: " << totalVol << " nm^3" << std::endl;
 
 	// Regression test: Check against Golden Values
-	const Scalar goldenSasa = 144.812f;
-	const Scalar goldenVol = 56.747f;
-	const Scalar epsilon = 1e-3f; // Tolerance
+	constexpr Scalar goldenSasa = 144.812f;
+	constexpr Scalar goldenVol = 56.747f;
+	constexpr Scalar epsilon = 1e-3f;
 
 	if (std::abs(totalSasa - goldenSasa) > epsilon) {
 		std::cerr << "REGRESSION FAILURE: SASA value changed! Expected: " << goldenSasa << ", Got: " << totalSasa << std::endl;
