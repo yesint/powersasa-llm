@@ -2328,7 +2328,14 @@ private :
 		for(int g=0;g<=dimension;++g)
 		{
 				if(endPoints[g]!=nullptr)
+				{
 					endPoints[g]=this+(endPoints[g]-copy);
+					endPointIds[g]=static_cast<VertexId>(copy_id+(endPoints[g]-this));
+				}
+				else
+				{
+					endPointIds[g]=kInvalidId;
+				}
 		}
 		}
 
