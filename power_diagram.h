@@ -826,10 +826,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			for(std::size_t i=0;i<nRevertPoints;++i)
 			{
 				old_bond_ids[i] = points[i].bondToId;
-				old_neighbour_ids[i].resize(points[i].neighbours.size(), kInvalidId);
-				for(std::size_t j=0;j<points[i].neighbours.size();++j)
+				old_neighbour_ids[i].resize(points[i].neighboursIds.size(), kInvalidId);
+				for(std::size_t j=0;j<points[i].neighboursIds.size();++j)
 				{
-					old_neighbour_ids[i][j] = (j < points[i].neighboursIds.size()) ? points[i].neighboursIds[j] : kInvalidId;
+					old_neighbour_ids[i][j] = points[i].neighboursIds[j];
 				}
 			}
 			for(unsigned int vi=0;vi<_nVertices;++vi)
@@ -1642,14 +1642,12 @@ private:
 					std::size_t neighbour_idx=0;
 						while(neighbour_idx<involved_cell->neighbours.size())
 						{
-							cellPtr neighbour = involved_cell->neighbours[neighbour_idx];
-							cellPtr id_neighbour = (neighbour_idx < involved_cell->neighboursIds.size())
+							cellPtr neighbour = (neighbour_idx < involved_cell->neighboursIds.size())
 								? cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx])
 								: nullptr;
-							if(id_neighbour != nullptr) neighbour = id_neighbour;
 							if(neighbour == nullptr || neighbour->visitedAs==-1)
 								erase_cell_neighbour(*involved_cell, neighbour_idx);
-						else
+							else
 							++neighbour_idx;
 					}
 			}
