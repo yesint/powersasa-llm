@@ -591,6 +591,14 @@ public :
 		a_cell.neighboursIds[index] = cell_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
 	}
+	inline void assign_cell_neighbours_from_ids(cell& a_cell, const std::vector<CellId>& neighbour_ids)
+	{
+		a_cell.neighboursIds = neighbour_ids;
+		a_cell.neighbours.assign(neighbour_ids.size(), nullptr);
+		for(std::size_t i=0;i<neighbour_ids.size();++i)
+			a_cell.neighbours[i] = cell_ptr_from_id(neighbour_ids[i]);
+		validate_cell_mirror_invariants(a_cell);
+	}
 	inline void erase_cell_neighbour(cell& a_cell, const std::size_t index)
 	{
 		a_cell.neighbours.erase(a_cell.neighbours.begin() + index);
@@ -1000,10 +1008,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								{
 										cell& point = points[point_idx];
 										if(point_idx < old_bond_ids.size() && old_bond_ids[point_idx] != kInvalidId) set_bond_to_id(point, old_bond_ids[point_idx]);
-										point.neighbours.assign(old_neighbour_ids[point_idx].size(), nullptr);
-										point.neighboursIds = old_neighbour_ids[point_idx];
-										for(std::size_t neighbour_idx=0;neighbour_idx<point.neighboursIds.size();++neighbour_idx)
-											set_cell_neighbour(point, neighbour_idx, cell_ptr_from_id(point.neighboursIds[neighbour_idx]));
+										assign_cell_neighbours_from_ids(point, old_neighbour_ids[point_idx]);
 								}
 					}
 				}
@@ -2337,7 +2342,10 @@ private :
 				if(this->generators[g]!=nullptr
 					&&(!this->generators[g]->myVerticesIds.empty())
 					&&this->generators[g]->myVerticesIds.front()==copy_id)
+				{
 					this->generators[g]->myVertices.front()=this;
+					this->generators[g]->myVerticesIds.front()=copy_id;
+				}
 		for(int g=0;g<=dimension;++g)
 		{
 				if(endPoints[g]!=nullptr)
