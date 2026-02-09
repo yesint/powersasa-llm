@@ -743,8 +743,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
 				cornerOwners[c]=(owner_id == kInvalidId) ? 0 : static_cast<int>(owner_id);
 			}
-			const const_cellPtr oldstorage=points.data();
-		points.reserve(newSize);
+			const const_cellPtr old_points_data=points.data();
+			points.reserve(newSize);
+			const bool points_reallocated = (points.data()!= old_points_data);
 		if(params.radiiGiven)
 			{
 					for(unsigned int i=0;i<newSize-nRevertPoints;i++)
@@ -808,7 +809,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			}
 			else
 			{
-				if(points.data()!= oldstorage)
+				if(points_reallocated)
 					{
 							for(unsigned int vi=0;vi<_nVertices;++vi)
 								for(int g=0;g<=dimension;++g)
