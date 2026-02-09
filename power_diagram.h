@@ -1051,7 +1051,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		PDCoord lhc=lowest;
 		vertices[0].setTo(lowest);
 		for(int j=dimension-1;j>=0;j--)
-			vertices[0].generators[j+1]=&sideGenerators[j];
+			set_vertex_generator(vertices[0], j+1, &sideGenerators[j]);
 		for(int i=0;i<(1<<dimension);i++)
 			vertices[i].rrv=0;
 		for(int i=0;i<(1<<dimension);i++)
@@ -1067,7 +1067,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			lhc[j]=highest[j];
 			vertices[i].setTo(lhc);
 			for(j=dimension-1;j>=0;j--)
-				vertices[i].generators[j+1]=((lhc[j]==lowest[j])?&sideGenerators[j]:&sideGenerators[j+dimension]);
+				set_vertex_generator(vertices[i], j+1, ((lhc[j]==lowest[j])?&sideGenerators[j]:&sideGenerators[j+dimension]));
 		}
 		for(int i=0;i<(1<<dimension);i++)
 			for(int d=0;d<dimension;d++)
