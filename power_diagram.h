@@ -1916,17 +1916,21 @@ private:
 		if(Involved.size()*Involved.size()>planes.size())
 			planes.resize(Involved.size()*Involved.size());
 
+			cellPtr involved_front = involved_front_ptr();
+			if(involved_front == nullptr) return;
 			for(unsigned int vertex_idx=0;vertex_idx<(1u<<dimension);++vertex_idx)
 				if(vertices[vertex_idx].rrv>0)
 				{
-					vertices[vertex_idx].setPowerData(Involved.front());
-					vertices[vertex_idx].generators[0]=(Involved.front());
+					vertices[vertex_idx].setPowerData(involved_front);
+					vertices[vertex_idx].generators[0]=involved_front;
 				}
 
 
-			for(const vertexPtr involved_vertex : Involved.front()->myVertices)
+			for(const VertexId vid : involved_front->myVerticesIds)
 			//if(!(*it)->isCorner())
-			{	
+			{
+				vertexPtr involved_vertex = vertex_ptr_from_id(vid);
+				if(involved_vertex == nullptr) continue;
 				involved_vertex->registerForConnection3D(this);
 			}
 
@@ -1959,16 +1963,8 @@ private:
 				cellPtr involved_front = involved_front_ptr();
 				if(involved_front == nullptr) throw MyException();
 				_currentmyVertices.reserve(involved_front->myVertices.size());
-				if(!involved_front->myVerticesIds.empty())
-				{
-					for(const VertexId vid : involved_front->myVerticesIds)
-						_currentmyVertices.push_back(static_cast<int>(vid));
-				}
-				else
-				{
-					for(const vertexPtr current_vertex : involved_front->myVertices)
-						_currentmyVertices.push_back(static_cast<int>(get_vertex_id(*current_vertex)));
-				}
+				for(const VertexId vid : involved_front->myVerticesIds)
+					_currentmyVertices.push_back(static_cast<int>(vid));
 				std::size_t involved_prefix = 0;
 				const CellId involved_front_id = cell_id_or_invalid(involved_front);
 				if(involved_front_id != kInvalidId) involved_prefix = involved_front_id;
