@@ -413,6 +413,38 @@ public :
 	std::vector< vertex> const & get_vertices() const { return vertices; }
 
 	std::vector< zeroPoint> const & get_zeroPoints() const { return zeros; }
+	inline const_vertexPtr zeroPointFrom(const zeroPoint& zp) const
+	{
+		if (zp.fromId != kInvalidId && zp.fromId < _nVertices) return &vertices[zp.fromId];
+		return zp.from;
+	}
+	inline const_cellPtr zeroPointGenerator(const zeroPoint& zp, const int g) const
+	{
+		if (g < 0 || g >= dimension) return NULL;
+		const GeneratorRef& ref = zp.generatorRefs[g];
+		if (ref.is_valid())
+		{
+			if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
+			if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
+		}
+		return zp.generators[g];
+	}
+	inline bool zeroPointValid(const zeroPoint& zp) const
+	{
+		const const_vertexPtr from_ptr = zeroPointFrom(zp);
+		if (from_ptr == NULL) return false;
+		const vertexPtr to_ptr = from_ptr->endPoints[zp.branch];
+		if (to_ptr == NULL) return false;
+		return ((!from_ptr->invalid) && (!to_ptr->invalid));
+	}
+	inline PDCoord zeroPointPos(const zeroPoint& zp) const
+	{
+		const const_vertexPtr from_ptr = zeroPointFrom(zp);
+		if (from_ptr == NULL) throw MyException();
+		const vertexPtr to_ptr = from_ptr->endPoints[zp.branch];
+		if (to_ptr == NULL) throw MyException();
+		return (to_ptr->position) * zp.pos - from_ptr->position * (zp.pos - static_cast<PDFloat>(1.0));
+	}
 
 
 	inline static PDFloat error(const PDFloat &f) 

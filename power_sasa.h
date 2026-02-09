@@ -598,16 +598,18 @@ calc_sasa_single(const unsigned int iatom)
 
 	int nvx = 0;
 	for (unsigned int k = 0; k < atom.myZeroPoints.size(); ++k)
-		if(power_diagram->get_zeroPoints()[atom.myZeroPoints[k]].isValid())
+		if(power_diagram->zeroPointValid(power_diagram->get_zeroPoints()[atom.myZeroPoints[k]]))
 	{
 		zp = &(power_diagram->get_zeroPoints()[atom.myZeroPoints[k]]);
-		zp_pos = zp->getPos();
+		zp_pos = power_diagram->zeroPointPos(*zp);
 		ptn = 0;
 		for (int kg = 0; kg < 3; ++kg)
 		{
-			if (zp->generators[kg] != &atom)
+			const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell* const zp_generator =
+				power_diagram->zeroPointGenerator(*zp, kg);
+			if (zp_generator != &atom)
 			{
-				partner[ptn] = zp->generators[kg]->visitedAs;
+				partner[ptn] = zp_generator->visitedAs;
 				++ptn;
 			}
 		}
@@ -651,8 +653,9 @@ calc_sasa_single(const unsigned int iatom)
 		++np[ptn0];
 		++np[ptn1];
 
-		typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1 = zp->from;
-		typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node2 = node1->endPoints[zp->branch];
+		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1 =
+			power_diagram->zeroPointFrom(*zp);
+		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node2 = node1->endPoints[zp->branch];
 		if (node1->powerValue < 0.0 && node2->powerValue > 0.0)
 		{
 			if (fknot[ptn0] == 0)
