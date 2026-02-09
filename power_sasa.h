@@ -476,6 +476,7 @@ calc_sasa_single(const unsigned int iatom)
 	bool ok;
 	using PowerDiagram3D = typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>;
 	using CellId = typename PowerDiagram3D::CellId;
+	using GeneratorKind = typename PowerDiagram3D::GeneratorKind;
 
 	std::vector<typename PowerDiagram3D::cell> const& atoms = power_diagram->get_points();
 	const typename PowerDiagram3D::cell& atom = atoms[iatom];
@@ -527,7 +528,6 @@ calc_sasa_single(const unsigned int iatom)
 	if (nnb == 0)
 	{
 		const auto& first_vertex = power_diagram->get_vertices()[0];
-		using GeneratorKind = typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord, 3>::GeneratorKind;
 		bool is_owner = false;
 		const auto& gref = first_vertex.generatorRefs[0];
 		if (gref.is_valid() && gref.kind == GeneratorKind::point && gref.index == iatom)
@@ -765,8 +765,10 @@ calc_sasa_single(const unsigned int iatom)
 
 	const std::size_t node_count = atom.myVerticesIds.empty() ? atom.myVertices.size() : atom.myVerticesIds.size();
 	const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1, *node2;
-	std::array<typename POWER_DIAGRAM::PowerDiagram<PDFloat, PDCoord,3>::cellPtr,4> gen1, gen2;
-	typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell *at;
+	const auto generators_match = [](const typename PowerDiagram3D::GeneratorRef& a, const typename PowerDiagram3D::GeneratorRef& b) -> bool
+	{
+		return a.is_valid() && b.is_valid() && a.kind == b.kind && a.index == b.index;
+	};
 
 	for (j = 0; j < static_cast<int>(node_count); ++j)
 	{
@@ -780,24 +782,58 @@ calc_sasa_single(const unsigned int iatom)
 		if (node1 == nullptr) continue;
 		for (kn = 0; kn < 4; ++kn)
 		{
-			node2 = node1->endPoints[kn];
-			if (node2 > node1) continue;
-			if (node1->powerValue > 0.0 || node2->powerValue > 0.0) continue;
-			gen1 = node1->generators;
-			gen2 = node2->generators;
-			if ((gen2[0] != &atom) && (gen2[1] != &atom) &&
-			  (gen2[2] != &atom) && (gen2[3] != &atom)) continue;
-			ptn = 0;
-			for (int kg = 0; kg < 4; ++kg)
-			{
-				at = gen1[kg];
-				if (at != &atom &&
-				  (at == gen2[0] || at == gen2[1] || at == gen2[2] || at == gen2[3]))
+				node2 = node1->endPoints[kn];
+				if (node2 > node1) continue;
+				if (node1->powerValue > 0.0 || node2->powerValue > 0.0) continue;
+				bool node2_contains_atom = false;
+				for (int kg = 0; kg < 4; ++kg)
 				{
-					partner[ptn] = at->visitedAs;
-					++ptn;
+					const auto& g2ref = node2->generatorRefs[kg];
+					if (g2ref.is_valid())
+					{
+						if (g2ref.kind == GeneratorKind::point && g2ref.index == iatom)
+						{
+							node2_contains_atom = true;
+							break;
+						}
+					}
+					else if (node2->generators[kg] == &atom)
+					{
+						node2_contains_atom = true;
+						break;
+					}
 				}
-			}
+				if (!node2_contains_atom) continue;
+				ptn = 0;
+				for (int kg = 0; kg < 4; ++kg)
+				{
+					const auto& g1ref = node1->generatorRefs[kg];
+					const typename PowerDiagram3D::cell* at = nullptr;
+					if (g1ref.is_valid())
+					{
+						at = &power_diagram->get_generator(g1ref);
+					}
+					if (at == nullptr)
+					{
+						at = node1->generators[kg];
+					}
+					if (at == nullptr || at == &atom) continue;
+					bool shared_generator = false;
+					for (int kh = 0; kh < 4; ++kh)
+					{
+						const auto& g2ref = node2->generatorRefs[kh];
+						if (generators_match(g1ref, g2ref) || at == node2->generators[kh])
+						{
+							shared_generator = true;
+							break;
+						}
+					}
+					if (shared_generator)
+					{
+						partner[ptn] = at->visitedAs;
+						++ptn;
+					}
+				}
 			ptn0 = partner[0];
 			ptn1 = partner[1];
 			++nt[ptn0];
