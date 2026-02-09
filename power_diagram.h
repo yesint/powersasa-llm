@@ -244,6 +244,11 @@ public :
 			return -f*(std::numeric_limits<PDFloat>::epsilon());
 		else return std::numeric_limits<PDFloat>::min()/std::numeric_limits<PDFloat>::epsilon();
 	}
+	inline bool above_power_err(const PDFloat value) const { return value > powerErr; }
+	inline bool below_neg_power_err(const PDFloat value) const { return value < -powerErr; }
+	inline bool within_power_err(const PDFloat value) const { return std::abs(value) <= powerErr; }
+	inline bool below_power_err(const PDFloat value) const { return value < powerErr; }
+	inline PDFloat power_err_scaled_epsilon() const { return powerErr * std::numeric_limits<PDFloat>::epsilon(); }
 template <class Pos_iterator, class Strength_iterator, class BondTo_iterator>
 static PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_iterator> create(unsigned int size, Pos_iterator pos_begin, Strength_iterator strength_begin, BondTo_iterator bondTo_begin)
 {
@@ -872,8 +877,8 @@ if(std::abs(checkconst)>0.001)
 		inline ReplaceState finiteReplaced(vertex& This,const_cellPtr const& aCell)
 		{
 			This.rrv=This.powerdiff3D(aCell,This.generators[0]);
-			if(This.rrv>powerErr) return ReplaceState::replaced;
-			if(This.rrv<-powerErr) return ReplaceState::persisting;
+			if(above_power_err(This.rrv)) return ReplaceState::replaced;
+			if(below_neg_power_err(This.rrv)) return ReplaceState::persisting;
 			This.rrv=0;
 			return ReplaceState::ambiguous;
 		}
@@ -1163,7 +1168,7 @@ private:
 								const PDFloat rootsq=(v1-v3)*(v1-v3)-4*quot*v2;
 								if(rootsq<=0)
 									continue;
-								if(quot<powerErr)
+								if(below_power_err(quot))
 									if(v1>=0&&v2>=0&&v3>=0)continue;
 								const PDFloat rootquot=sqrt(rootsq)/quot;
 								const PDFloat min=(v1-v3)/quot;
@@ -1195,7 +1200,7 @@ private:
 								const PDFloat rootsq=(v1-v3)*(v1-v3)-4*quot*v2;
 								if(rootsq<=0)
 									continue;
-								if(quot<powerErr)
+								if(below_power_err(quot))
 									if(v1>=0&&v2>=0&&v3>=0)continue;
 								const PDFloat rootquot=sqrt(rootsq)/quot;
 								const PDFloat min=(v1-v3)/quot;
@@ -1446,7 +1451,7 @@ template <class VectorSubtraction>
 		const PDFloat tmp=(normal.dot(direction));
 //		const PDFloat sqr=normal.squaredNorm();
 
-        if(tmp>PowerDiagram<PDFloat,PDCoord,dimension>::powerErr*std::numeric_limits<PDFloat>::epsilon())
+        if(tmp>power_err_scaled_epsilon())
             return direction*((0.5*(planeVal+normal.squaredNorm())-normal.dot(supportVec))/tmp);
         throw MyException();
 		}
@@ -1531,10 +1536,10 @@ struct vertex
 			owner.Involved.front()->myVertices.push_back(this);
 			endPoints[0]->fastWhichis(This)=this;
 
-				if(std::abs(powerValue)<owner.powerErr)
-				{
-					return false;
-				}
+			if(owner.within_power_err(powerValue))
+			{
+				return false;
+			}
 				return true;
 		}
 

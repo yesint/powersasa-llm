@@ -67,6 +67,15 @@ public:
 	inline static PDFloat DRAD2() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	inline static PDFloat DANG() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	inline static PDFloat pi() { return static_cast<PDFloat> (3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342) ;} //everything const, will be optimized away.
+	inline static PDFloat two_pi() { return static_cast<PDFloat>(2.0) * pi(); }
+	inline static PDFloat near_one_cosine_threshold() { return static_cast<PDFloat>(0.999); }
+	inline static PDFloat axis_component_threshold() { return static_cast<PDFloat>(0.001); }
+	inline static PDFloat clamp_unit_interval(const PDFloat value)
+	{
+		if (value < static_cast<PDFloat>(-1.0)) return static_cast<PDFloat>(-1.0);
+		if (value > static_cast<PDFloat>(1.0)) return static_cast<PDFloat>(1.0);
+		return value;
+	}
 
 	const std::vector<PDFloat>& getSasa() const {return Sasa;}
 	const std::vector<PDFloat>& getVol() const {return Vol;}
@@ -306,35 +315,33 @@ public:
 template <class PDFloat, class PDCoord> PDFloat PowerSasa<PDFloat, PDCoord>::
 Ang_About(PDCoord const& a, PDCoord const& b, PDCoord const& c)
 {
-	PDFloat const ONE = 0.999;
-	PDFloat const THRESHOLD = 0.001;
 	PDFloat ang, co, vp;
 	PDCoord  v;
 
 	co = a.dot(b);
-	if (co <= -ONE)
+	if (co <= -near_one_cosine_threshold())
 	{
 		v = a.cross(b);
 		ang = pi() - std::asin( v.norm() );
 	}
-	else if (co >= ONE)
+	else if (co >= near_one_cosine_threshold())
 	{
 		v = a.cross(b);
 		ang = std::asin( v.norm() );
 	}
 	else ang = std::acos(co);
 
-	if (std::fabs(c[0]) > THRESHOLD)
+	if (std::fabs(c[0]) > axis_component_threshold())
 	{
 		vp = a[1]*b[2] - a[2]*b[1];
 		if ( (vp < 0.0) != (c[0] < 0.0) ) ang = - ang;
 	}
-	else if (std::fabs(c[1]) > THRESHOLD)
+	else if (std::fabs(c[1]) > axis_component_threshold())
 	{
 		vp = a[2]*b[0] - a[0]*b[2];
 		if ( (vp < 0.0) != (c[1] < 0.0) ) ang = - ang;
 	}
-	else if (std::fabs(c[2]) > THRESHOLD)
+	else if (std::fabs(c[2]) > axis_component_threshold())
 	{
 		vp = a[0]*b[1] - a[1]*b[0];
 		if ( (vp < 0.0) != (c[2] < 0.0) ) ang = - ang;
@@ -344,7 +351,7 @@ Ang_About(PDCoord const& a, PDCoord const& b, PDCoord const& c)
 		std::cerr << "PowerSasa: Axis too short" << std::endl;
 		throw PowerSasaException();
 	}
-	if (ang < 0) ang += 2.0 * pi();
+	if (ang < 0) ang += two_pi();
 	return ang;
 }
 //-----------------------------------------------------------------------------
@@ -385,7 +392,7 @@ Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 
 	for (j = 1; j < n; ++j)
 	{
-		if (ang[j] <= 2.0*pi() - DANG()) continue;
+		if (ang[j] <= two_pi() - DANG()) continue;
 		PDFloat dp = vx[p[j]].cross(vx[p[0]]).dot(e);
 		if (dp < 0.0) ang[j] = 0.0;
 		else if (dp == 0.0)
@@ -810,19 +817,18 @@ calc_sasa_single(const unsigned int iatom)
 				throw PowerSasaException();
 			}
 			//assert(count <= MAX_PNT);   // else wrong contour
-			ip_next = next[ic2][ip2];
-			phi = ang[ic2][ip_next] - ang[ic2][ip2];
-			if (phi < 0.0) phi += 2.0 * pi();
-			
-			if (do_sasa)
-			{
-				co = (e[ic1].dot(e[ic2]) - costheta[ic1]*costheta[ic2])
-					/ (sintheta[ic1] * sintheta[ic2]);
+				ip_next = next[ic2][ip2];
+				phi = ang[ic2][ip_next] - ang[ic2][ip2];
+				if (phi < 0.0) phi += two_pi();
+				
+				if (do_sasa)
+				{
+					co = (e[ic1].dot(e[ic2]) - costheta[ic1]*costheta[ic2])
+						/ (sintheta[ic1] * sintheta[ic2]);
 
-				if (co < -1.0) co = -1.0;
-				if (co >  1.0) co = 1.0;
-				sasa_ia += phi * costheta[ic2] - acos(co);
-			}
+					co = clamp_unit_interval(co);
+					sasa_ia += phi * costheta[ic2] - acos(co);
+				}
 			
 			off[ p[ic2][ip2] ] = 1;
 			ic1 = ic2;
