@@ -988,17 +988,18 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 							//reconnect replaced with persisting
 								for(const vertexPtr replaced_vertex : Replaced)
-								for(typename std::array<vertexPtr,dimension+1>::const_iterator it2=replaced_vertex->endPoints.begin()+replaced_vertex->isCorner();it2!=replaced_vertex->endPoints.end();++it2)
-				 				if((*it2)->rrv<=0)
+								for(int endpoint_idx=replaced_vertex->isCorner();endpoint_idx<=dimension;++endpoint_idx)
+				 				if(replaced_vertex->endPoints[endpoint_idx]->rrv<=0)
 								{
-									(*it2)->rrv=0;
+									vertexPtr endpoint = replaced_vertex->endPoints[endpoint_idx];
+									endpoint->rrv=0;
 									for(int g1=replaced_vertex->isCorner();g1<=dimension;g1++)
-									for(int g2=(*it2)->isCorner();g2<=dimension;g2++)
+									for(int g2=endpoint->isCorner();g2<=dimension;g2++)
 									{
-										if(replaced_vertex->generators[nth(0,g1)]==(*it2)->generators[nth(0,g2)]&&replaced_vertex->generators[nth(1,g1)]==(*it2)->generators[nth(1,g2)]&&replaced_vertex->generators[nth(2,g1)]==(*it2)->generators[nth(2,g2)])	
+										if(replaced_vertex->generators[nth(0,g1)]==endpoint->generators[nth(0,g2)]&&replaced_vertex->generators[nth(1,g1)]==endpoint->generators[nth(1,g2)]&&replaced_vertex->generators[nth(2,g1)]==endpoint->generators[nth(2,g2)])	
 										{
-											replaced_vertex->endPoints[g1]=*it2;
-											(*it2)->endPoints[g2]=replaced_vertex;
+											replaced_vertex->endPoints[g1]=endpoint;
+											endpoint->endPoints[g2]=replaced_vertex;
 										}
 									}
 								}
