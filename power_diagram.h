@@ -330,6 +330,10 @@ public :
 		}
 		return GeneratorRef();
 	}
+	inline bool ref_is_real_point(const GeneratorRef& ref) const
+	{
+		return ref.is_valid() && ref.kind == GeneratorKind::point && ref.index < points.size();
+	}
 	inline void sync_cell_link_mirrors(cell& a_cell) const
 	{
 		a_cell.bondToId = cell_id_or_invalid(a_cell.bondTo);
@@ -1376,7 +1380,7 @@ if(std::abs(checkconst)>0.001)
 			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
 			if (ref_ptr == gptr)
 			{
-					return !(ref.kind == GeneratorKind::point && ref.index < points.size());
+					return !ref_is_real_point(ref);
 				}
 			}
 			return (cell_id_or_invalid(gptr) == kInvalidId);
@@ -1391,7 +1395,7 @@ if(std::abs(checkconst)>0.001)
 				const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
 				if (ref_ptr == gptr)
 			{
-				dim_is_real = (ref.kind == GeneratorKind::point && ref.index < points.size());
+				dim_is_real = ref_is_real_point(ref);
 			}
 		}
 		if(!dim_is_real)
