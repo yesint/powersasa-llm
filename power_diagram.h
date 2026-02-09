@@ -1198,37 +1198,36 @@ if(std::abs(checkconst)>0.001)
 			return (id == kInvalidId) ? -1 : static_cast<long long>(id);
 		};
 
-		for(typename std::vector<vertex > ::iterator it=vertices.begin();it!=vertices.begin()+_nVertices;++it)
+		for(unsigned int vi=0;vi<_nVertices;++vi)
+		{
+			vertex& v = vertices[vi];
+			if(v.isConnected() && (!v.isCorner()))
+			{
+				out<<generator_idx(v.generators[0])<<" "<<std::flush;
+				out<<generator_idx(v.generators[1])<<" "<<std::flush;
+				out<<generator_idx(v.generators[2])<<" "<<std::flush;
+				out<<generator_idx(v.generators[3])<<"    "<<std::flush;
+				out<<v.position[0]<<" "<<std::flush;
+				out<<v.position[1]<<" "<<std::flush;
+				out<<v.position[2]<<" "<<std::flush;
+				out<<v.powerValue<<"   "<<std::flush;
+				out<<v.generators[0]->power(v.position)<<std::endl;
 
-					if(it->isConnected() && (!it->isCorner()))
-
-					{
-						out<<generator_idx(it->generators[0])<<" "<<std::flush;
-						out<<generator_idx(it->generators[1])<<" "<<std::flush;
-						out<<generator_idx(it->generators[2])<<" "<<std::flush;
-						out<<generator_idx(it->generators[3])<<"    "<<std::flush;
-						out<<it->position[0]<<" "<<std::flush;
-						out<<it->position[1]<<" "<<std::flush;
-						out<<it->position[2]<<" "<<std::flush;
-						out<<it->powerValue<<"   "<<std::flush;
-						out<<it->generators[0]->power(it->position)<<std::endl;
-
-						out<<" "<<generator_idx(it->endPoints[0]->generators[0])<<" "<<generator_idx(it->endPoints[0]->generators[1])<<" "<<generator_idx(it->endPoints[0]->generators[2])<<" "<<generator_idx(it->endPoints[0]->generators[3])<<std::endl;
-						out<<" "<<generator_idx(it->endPoints[1]->generators[0])<<" "<<generator_idx(it->endPoints[1]->generators[1])<<" "<<generator_idx(it->endPoints[1]->generators[2])<<" "<<generator_idx(it->endPoints[1]->generators[3])<<std::endl;
-						out<<" "<<generator_idx(it->endPoints[2]->generators[0])<<" "<<generator_idx(it->endPoints[2]->generators[1])<<" "<<generator_idx(it->endPoints[2]->generators[2])<<" "<<generator_idx(it->endPoints[2]->generators[3])<<std::endl;
-						out<<" "<<generator_idx(it->endPoints[3]->generators[0])<<" "<<generator_idx(it->endPoints[3]->generators[1])<<" "<<generator_idx(it->endPoints[3]->generators[2])<<" "<<generator_idx(it->endPoints[3]->generators[3])<<std::endl;
-			 }else if(it->isCorner()){
-
-//out<<(it-vertices.begin())<<" "<<(it->endPoints[1]-&vertices[0])<<" "<<(it->endPoints[2]-&vertices[0])<<" "<<(it->endPoints[3]-&vertices[0])<<std::endl;
-//out<<it->endPoints[3]->position<<std::endl;
-						out<<generator_idx(it->generators[0])<<" "<<generator_idx(it->generators[1])<<" "<<generator_idx(it->generators[2])<<" "<<generator_idx(it->generators[3])<<"    "<<it->position[0]<<" "<<it->position[1]<<" "<<it->position[2]<<" "<<it->powerValue<<"   "<<it->generators[0]->power(it->position)<<std::endl;/*
-std::cout<<it->generators[0]->position[0]<<" "<<it->generators[0]->position[1]<<" "<<it->generators[0]->position[2]<<"    "<<it->generators[0]->r2<<std::endl;
-std::cout<<it->position[0]<<" "<<it->position[1]<<" "<<it->position[2]<<std::endl;
-					out<<" "<<it->endPoints[1]->generators[0]-&points[0]<<" "<<it->endPoints[1]->generators[1]-&points[0]<<" "<<it->endPoints[1]->generators[2]-&points[0]<<" "<<it->endPoints[1]->generators[3]-&points[0]<<std::endl;
-					out<<" "<<it->endPoints[2]->generators[0]-&points[0]<<" "<<it->endPoints[2]->generators[1]-&points[0]<<" "<<it->endPoints[2]->generators[2]-&points[0]<<" "<<it->endPoints[2]->generators[3]-&points[0]<<std::endl;
-					out<<" "<<it->endPoints[3]->generators[0]-&points[0]<<" "<<it->endPoints[3]->generators[1]-&points[0]<<" "<<it->endPoints[3]->generators[2]-&points[0]<<" "<<it->endPoints[3]->generators[3]-&points[0]<<std::endl;*/
-		 }else{std::cout<<"outtake"<<std::endl;}
-std::cout<<std::endl;
+				out<<" "<<generator_idx(v.endPoints[0]->generators[0])<<" "<<generator_idx(v.endPoints[0]->generators[1])<<" "<<generator_idx(v.endPoints[0]->generators[2])<<" "<<generator_idx(v.endPoints[0]->generators[3])<<std::endl;
+				out<<" "<<generator_idx(v.endPoints[1]->generators[0])<<" "<<generator_idx(v.endPoints[1]->generators[1])<<" "<<generator_idx(v.endPoints[1]->generators[2])<<" "<<generator_idx(v.endPoints[1]->generators[3])<<std::endl;
+				out<<" "<<generator_idx(v.endPoints[2]->generators[0])<<" "<<generator_idx(v.endPoints[2]->generators[1])<<" "<<generator_idx(v.endPoints[2]->generators[2])<<" "<<generator_idx(v.endPoints[2]->generators[3])<<std::endl;
+				out<<" "<<generator_idx(v.endPoints[3]->generators[0])<<" "<<generator_idx(v.endPoints[3]->generators[1])<<" "<<generator_idx(v.endPoints[3]->generators[2])<<" "<<generator_idx(v.endPoints[3]->generators[3])<<std::endl;
+			}
+			else if(v.isCorner())
+			{
+				out<<generator_idx(v.generators[0])<<" "<<generator_idx(v.generators[1])<<" "<<generator_idx(v.generators[2])<<" "<<generator_idx(v.generators[3])<<"    "<<v.position[0]<<" "<<v.position[1]<<" "<<v.position[2]<<" "<<v.powerValue<<"   "<<v.generators[0]->power(v.position)<<std::endl;
+			}
+			else
+			{
+				std::cout<<"outtake"<<std::endl;
+			}
+			std::cout<<std::endl;
+		}
 	}
 
 //	inline const int dimension()const{return dimension;}
