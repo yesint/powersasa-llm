@@ -2,7 +2,7 @@
 
 ## Session Snapshot
 - Branch: `main`
-- HEAD: `53ebe3f`
+- HEAD: `1279a5a`
 - Regression gate: pass (`build/make` then `build/./sasatest`)
 - Working tree: clean
 
@@ -30,6 +30,21 @@ If `./sasatest` exits non-zero, treat as regression.
 - Added/kept synchronization helpers for mirrored pointer/ID links.
 
 ## Recent Commit Log (latest first)
+- `1279a5a` Use zero-point refs directly for point ownership
+- `186825f` Construct zero-points with explicit refs and source IDs
+- `d864aca` Centralize zero-point creation with mirrored refs
+- `7ac5f8f` Refresh endpoint IDs during vertex reallocation rebind
+- `0126cbd` Initialize vertex link mirrors in ctor and reset
+- `421a32b` Defer endpoint ID updates during reconnect rewiring
+- `0500503` Invalidate endpoint ID on endpoint overwrite
+- `c2cb84c` Use generator helper in vertex init path
+- `22fa023` Simplify redundant virtual and neighbour checks
+- `98c50ba` Use endpoint helper in revert reconnection
+- `4cacf8f` Use synchronized slot swap in cube link ordering
+- `b42b050` Use endpoint helper in cube endpoint setup
+- `2f648fb` Use generator helper in cube setup
+- `0af82f1` Use generator helper in stable assignment paths
+- `7f1a33a` Add vertex link helpers and simplify ID-order fallbacks
 - `53ebe3f` Use strict vertex IDs for edge ordering
 - `a94ce9c` Use data-based range check in cell isReal
 - `66e39f5` Use vertex IDs for zero-point edge ordering
@@ -69,6 +84,14 @@ If `./sasatest` exits non-zero, treat as regression.
 - Code is currently in mixed mode:
   - IDs are widely present and used first in many paths.
   - Raw pointers still remain primary storage in many structs and algorithms.
+
+### Confirmed Migration Blocker
+- Immediate endpoint-ID writes in certain live rewiring paths cause geometric regression:
+  - signature: `PowerSasa: odd number of crossing...`
+- Safe pattern for those hotspots is:
+  - update endpoint pointers immediately
+  - defer endpoint ID write (`kInvalidId`) until later synchronization/rebuild
+- This is already applied in reconnect block via `set_vertex_endpoint_deferred(...)`.
 
 ## Plan For Next Session
 
