@@ -492,16 +492,6 @@ public :
 		InvolvedRefs.clear();
 		validate_transient_mirror_invariants();
 	}
-	inline void sync_involved_refs_from_ptrs()
-	{
-		InvolvedRefs.resize(Involved.size(), GeneratorRef());
-		for(std::size_t i=0;i<Involved.size();++i)
-		{
-			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
-			InvolvedRefs[i] = ref;
-		}
-		validate_transient_mirror_invariants();
-	}
 	inline void sort_involved_by_ref()
 	{
 		if(InvolvedRefs.size() != Involved.size()) throw MyException();
