@@ -1498,7 +1498,14 @@ private:
 				if(current_cell_id != kInvalidId)
 					current_cell_order = static_cast<int>(current_cell_id);
 				else
-					current_cell_order = static_cast<int>((*it)-&points.front());
+				{
+					for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
+						if(&points[point_idx]==(*it))
+						{
+							current_cell_order = static_cast<int>(point_idx);
+							break;
+						}
+				}
 				if(!(*it)->myVerticesIds.empty())
 				{
 					for(const VertexId vid : (*it)->myVerticesIds)
@@ -1773,7 +1780,13 @@ private:
 				std::size_t involved_prefix = 0;
 				const CellId involved_front_id = cell_id_or_invalid(Involved.front());
 				if(involved_front_id != kInvalidId) involved_prefix = involved_front_id;
-				else involved_prefix = static_cast<std::size_t>(Involved.front()-&points.front());
+				else
+					for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
+						if(&points[point_idx]==Involved.front())
+						{
+							involved_prefix = point_idx;
+							break;
+						}
 				for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+involved_prefix;++it)
 				{
 					if(!it->myVerticesIds.empty()) _first.push_back(static_cast<int>(it->myVerticesIds.front()));
