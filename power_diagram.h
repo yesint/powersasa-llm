@@ -423,18 +423,13 @@ public :
 	}
 	inline vertexPtr replaced_ptr_at(const std::size_t index)
 	{
-		if(index >= Replaced.size()) return nullptr;
-		vertexPtr ptr = nullptr;
-		const VertexId id = replaced_id_at(index);
-		if(id != kInvalidId) ptr = vertex_ptr_from_id(id);
-		if(ptr == nullptr) ptr = Replaced[index];
-		return ptr;
+		return vertex_ptr_from_id(replaced_id_at(index));
 	}
 	inline VertexId replaced_id_at(const std::size_t index) const
 	{
 		if(index >= Replaced.size()) return kInvalidId;
-		if(index < ReplacedIds.size() && ReplacedIds[index] != kInvalidId) return ReplacedIds[index];
-		return vertex_id_or_invalid(Replaced[index]);
+		if(index >= ReplacedIds.size()) return kInvalidId;
+		return ReplacedIds[index];
 	}
 	inline void clear_involved()
 	{
@@ -1112,9 +1107,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								_nUnused=unused.size();	
 
 							//reconnect replaced with persisting
-								for(const vertexPtr replaced_vertex : Replaced)
+								for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
+								{
+									const VertexId replaced_id = replaced_id_at(replaced_idx);
+									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
+									if(replaced_vertex == nullptr) continue;
 								for(int endpoint_idx=replaced_vertex->isCorner();endpoint_idx<=dimension;++endpoint_idx)
-				 				if(replaced_vertex->endPoints[endpoint_idx]->rrv<=0)
+					 				if(replaced_vertex->endPoints[endpoint_idx]->rrv<=0)
 								{
 									vertexPtr endpoint = replaced_vertex->endPoints[endpoint_idx];
 									endpoint->rrv=0;
@@ -1127,6 +1126,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 											endpoint->endPoints[g2]=replaced_vertex;
 										}
 									}
+								}
 								}
 
 
@@ -1145,8 +1145,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								//set everything zero again
 								SetInvolvedPersistingVisitedToZero();
 								clear_cell_my_vertices(*involved_front);
-							 	for(vertexPtr replaced_vertex : Replaced)
+							 	for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 								{
+									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
+									if(replaced_vertex == nullptr) continue;
 				  					replaced_vertex->rrv=0;
 									replaced_vertex->invalid=0;
 								}
@@ -1498,8 +1500,10 @@ private:
 						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*involved_front)+1<<" is reduced from "<<involved_front->r2;
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
-						for(const vertexPtr replaced_vertex : Replaced)
+						for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 						{
+							vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
+							if(replaced_vertex == nullptr) continue;
 						replaced_vertex->rrv=0;
 						for(int g=replaced_vertex->isCorner();g<=dimension;g++)
 							replaced_vertex->endPoints[g]->rrv=0;
