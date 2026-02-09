@@ -192,8 +192,7 @@ private:
 	PDFloat insertionErrorScale;
 	std::vector<VertexId> ReplacedIds;//old vertices that are removed (by ID)
 	std::vector<vertexPtr> Invalids;//old vertices that are removed reloaded
-	std::vector<cellPtr> Involved; // all cells which are involved
-	std::vector<GeneratorRef> InvolvedRefs; // mirrored refs for Involved (point or side)
+	std::vector<GeneratorRef> InvolvedRefs; // all cells which are involved (point or side refs)
 	std::vector< EdgeEnds> planes;//used for connecting new vertices, stores "open ends"
 	enum class ReplaceState
 	{
@@ -247,7 +246,7 @@ public :
 	inline void AddToInvolved(cell& thit)
 	{
 		// Mark a cell as part of the local insertion neighborhood.
-		thit.visitedAs=Involved.size();
+		thit.visitedAs=InvolvedRefs.size();
 		push_involved(&thit);
 	}
 	clock_t t1,t2,t3,t4,t5,t6;
@@ -375,11 +374,9 @@ public :
 	inline void validate_transient_mirror_invariants() const
 	{
 #if PD_ENABLE_TOPOLOGY_ASSERTS
-		if(Involved.size() != InvolvedRefs.size()) throw MyException();
-		for(std::size_t i=0;i<Involved.size();++i)
+		for(std::size_t i=0;i<InvolvedRefs.size();++i)
 		{
-			const GeneratorRef ref = generator_ref_or_invalid(Involved[i]);
-			if(InvolvedRefs[i].kind != ref.kind || InvolvedRefs[i].index != ref.index) throw MyException();
+			if(cell_ptr_from_ref(InvolvedRefs[i]) == nullptr) throw MyException();
 		}
 		for(std::size_t i=0;i<ReplacedIds.size();++i)
 		{
@@ -482,14 +479,12 @@ public :
 	}
 	inline void clear_involved()
 	{
-		Involved.clear();
 		InvolvedRefs.clear();
 		validate_transient_mirror_invariants();
 	}
 	inline void sort_involved_by_ref()
 	{
-		if(InvolvedRefs.size() != Involved.size()) throw MyException();
-		std::vector<std::size_t> order(Involved.size());
+		std::vector<std::size_t> order(InvolvedRefs.size());
 		for(std::size_t i=0;i<order.size();++i) order[i] = i;
 		auto ref_rank = [](const GeneratorRef& ref) -> int
 		{
@@ -506,28 +501,23 @@ public :
 				if(ka != kb) return ka < kb;
 				return ra.index < rb.index;
 			});
-		std::vector<cellPtr> sorted_ptrs;
 		std::vector<GeneratorRef> sorted_refs;
-		sorted_ptrs.reserve(Involved.size());
 		sorted_refs.reserve(InvolvedRefs.size());
 		for(const std::size_t idx : order)
 		{
 			sorted_refs.push_back(InvolvedRefs[idx]);
-			sorted_ptrs.push_back(cell_ptr_from_ref(sorted_refs.back()));
 		}
-		Involved.swap(sorted_ptrs);
 		InvolvedRefs.swap(sorted_refs);
 		validate_transient_mirror_invariants();
 	}
 	inline void push_involved(const cellPtr ptr)
 	{
-		Involved.push_back(ptr);
 		InvolvedRefs.push_back(generator_ref_or_invalid(ptr));
 		validate_transient_mirror_invariants();
 	}
 	inline cellPtr involved_ptr_at(const std::size_t index)
 	{
-		if(index >= Involved.size()) return nullptr;
+		if(index >= InvolvedRefs.size()) return nullptr;
 		if(index >= InvolvedRefs.size())
 		{
 			std::cerr << "INVOLVED_REFS: missing involved ref at index " << index << std::endl;
@@ -544,7 +534,7 @@ public :
 	}
 	inline CellId involved_id_at(const std::size_t index) const
 	{
-		if(index >= Involved.size()) return kInvalidId;
+		if(index >= InvolvedRefs.size()) return kInvalidId;
 		if(index >= InvolvedRefs.size()) return kInvalidId;
 		const GeneratorRef& ref = InvolvedRefs[index];
 		if(ref.kind != GeneratorKind::point) return kInvalidId;
@@ -814,7 +804,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 				if(params.fill_zeroPoints)
 				{
-					for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+					for(std::size_t involved_idx=0;involved_idx<InvolvedRefs.size();++involved_idx)
 					{
 						cellPtr involved_cell = involved_ptr_at(involved_idx);
 						if(involved_cell == nullptr) continue;
@@ -1149,7 +1139,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									cellPtr closest = involved_ptr_at(1);
 									if(closest == nullptr) throw MyException();
 									PDFloat mindist=(closest->position-involved_front->position).squaredNorm();
-									for(std::size_t involved_idx=2;involved_idx<Involved.size();++involved_idx)
+									for(std::size_t involved_idx=2;involved_idx<InvolvedRefs.size();++involved_idx)
 									{
 										cellPtr candidate = involved_ptr_at(involved_idx);
 										if(candidate == nullptr) continue;
@@ -1212,7 +1202,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 								const VertexId fallback_replaced_id = replaced_id_at(0);
 								vertexPtr fallback_replaced = vertex_ptr_from_id(fallback_replaced_id);
-								for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
+								for(std::size_t involved_idx=1;involved_idx<InvolvedRefs.size();++involved_idx)
 								{
 									cellPtr involved_cell = involved_ptr_at(involved_idx);
 									if(involved_cell == nullptr || involved_cell->myVerticesIds.empty()) continue;
@@ -1708,7 +1698,7 @@ private:
 			{
 				// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
 				sort_involved_by_ref();
-				for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+				for(std::size_t involved_idx=0;involved_idx<InvolvedRefs.size();++involved_idx)
 				{
 					cellPtr involved_cell = involved_ptr_at(involved_idx);
 					if(involved_cell == nullptr) continue;
@@ -1724,7 +1714,7 @@ private:
 							++neighbour_idx;
 					}
 			}
-				for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+				for(std::size_t involved_idx=0;involved_idx<InvolvedRefs.size();++involved_idx)
 				{
 					cellPtr involved_cell = involved_ptr_at(involved_idx);
 					if(involved_cell == nullptr) continue;
@@ -1757,7 +1747,7 @@ private:
 				}
 			}
 
-			for(std::size_t involved_idx=0;involved_idx<Involved.size();++involved_idx)
+			for(std::size_t involved_idx=0;involved_idx<InvolvedRefs.size();++involved_idx)
 			{
 				cellPtr involved_cell = involved_ptr_at(involved_idx);
 				if(involved_cell == nullptr) continue;
@@ -1956,8 +1946,8 @@ private:
 		//these are generated by the new Cell and two older Cells
 		//we identify vertices to be connected over an new edge by only the two old cells! (new one is everywhere)
 		//the earlier dumps itself into the array at spot [a,b] (with a<b) the later simply picks it up!
-		if(Involved.size()*Involved.size()>planes.size())
-			planes.resize(Involved.size()*Involved.size());
+		if(InvolvedRefs.size()*InvolvedRefs.size()>planes.size())
+			planes.resize(InvolvedRefs.size()*InvolvedRefs.size());
 
 			cellPtr involved_front = involved_front_ptr();
 			if(involved_front == nullptr) return;
@@ -2129,7 +2119,7 @@ private:
 				{
 					vertexPtr new_representative = vertex_ptr_from_id(involved_front->myVerticesIds.front());
 					if(new_representative == nullptr) return;
-					for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
+					for(std::size_t involved_idx=1;involved_idx<InvolvedRefs.size();++involved_idx)
 					{
 						cellPtr involved_cell = involved_ptr_at(involved_idx);
 						if(involved_cell == nullptr) continue;
@@ -2147,7 +2137,7 @@ private:
 		void SetInvolvedPersistingVisitedToZero() 
 		{
 			// Clear temporary rrv/visited marks used during local insertion traversal.
-			for(std::size_t involved_idx=1;involved_idx<Involved.size();++involved_idx)
+			for(std::size_t involved_idx=1;involved_idx<InvolvedRefs.size();++involved_idx)
 			{
 				cellPtr involved_cell = involved_ptr_at(involved_idx);
 				if(involved_cell == nullptr) continue;
@@ -2470,9 +2460,9 @@ private :
 	inline void registerForConnection3D(PowerDiagram<PDFloat,PDCoord,dimension>*const& owner)
 	{
 		// Register candidate edge endpoints so matching generator pairs can be connected.
-		owner->planes[generators[2]->visitedAs*owner->Involved.size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[3]);
-		owner->planes[generators[3]->visitedAs*owner->Involved.size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[2]);
-		owner->planes[generators[3]->visitedAs*owner->Involved.size()+generators[2]->visitedAs].storeOrConnect(this,endPoints[1]);
+		owner->planes[generators[2]->visitedAs*owner->InvolvedRefs.size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[3]);
+		owner->planes[generators[3]->visitedAs*owner->InvolvedRefs.size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[2]);
+		owner->planes[generators[3]->visitedAs*owner->InvolvedRefs.size()+generators[2]->visitedAs].storeOrConnect(this,endPoints[1]);
 	}
 
 
