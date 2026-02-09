@@ -554,10 +554,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 	void clearAllmyVertices()
 	{
-		for(typename std::vector< cell >::iterator it=points.begin();it!=points.end();++it)
+		for(cell& point : points)
 		{
-			it->myVertices.clear();
-			it->myZeroPoints.clear();
+			point.myVertices.clear();
+			point.myZeroPoints.clear();
 		}
 	}
 	void buildCube(const PDCoord& lowest,const PDCoord& highest)
@@ -1094,10 +1094,10 @@ private:
 
 		void FillAllNeighbours()
 		{
-		for(typename std::vector<cell>::iterator it=points.begin();it!=points.end();++it)
+		for(cell& point : points)
 		{
-			it->neighbours.clear();
-			it->visitedAs=-1;
+			point.neighbours.clear();
+			point.visitedAs=-1;
 		}
 		for(typename std::vector<cell >::iterator it=points.begin();it!=points.end();++it)
 			for(typename std::vector<vertexPtr>::const_iterator it2=it->myVertices.begin();it2!=it->myVertices.end();++it2)
@@ -1112,8 +1112,8 @@ private:
 								}
 						}
 
-		for(typename std::vector<cell >::iterator it=points.begin();it!=points.end();++it)
-			it->visitedAs=0;
+		for(cell& point : points)
+			point.visitedAs=0;
 	}
 
 	void FillAllNeighboursOfInvolved()
@@ -1144,8 +1144,8 @@ private:
 					}
 			}
 
-		for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
-			(*it)->visitedAs=0;
+		for(cellPtr involved_cell : Involved)
+			involved_cell->visitedAs=0;
 	}
 	void FillAllZeroPoints(	unsigned int fromVertex=(1<<dimension),const unsigned int fromZero=0)
 	{
@@ -1348,19 +1348,19 @@ private:
 		_currentmyVertices.reserve(Involved.front()->myVertices.size());
 		_first.reserve(vertices.capacity());
 
-		for(typename std::vector<vertexPtr>::const_iterator it=Replaced.begin();it!=Replaced.end();++it)
-			_replaced.push_back(*it-&vertices.front());
-		for(typename std::vector<vertexPtr>::const_iterator it=unused.begin();it!=unused.end();++it)
-			_unused.push_back(*it-&vertices.front());
-		for(typename std::vector<vertexPtr>::const_iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
-			_currentmyVertices.push_back(*it-&vertices.front());
+		for(const vertexPtr replaced_vertex : Replaced)
+			_replaced.push_back(replaced_vertex-&vertices.front());
+		for(const vertexPtr unused_vertex : unused)
+			_unused.push_back(unused_vertex-&vertices.front());
+		for(const vertexPtr current_vertex : Involved.front()->myVertices)
+			_currentmyVertices.push_back(current_vertex-&vertices.front());
 		for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+(Involved.front()-&points.front());++it)
 			_first.push_back(it->myVertices.front()-&vertices.front());
 
 		vertices.reserve(2*vertices.capacity()+1);
 
-		for(typename std::vector<vertex >::iterator it=vertices.begin();it!=vertices.begin()+_nVertices;++it)
-			it->refreshAfterRealloc(oldMemoryPointer+(&*it-&vertices.front()));
+		for(unsigned int i=0;i<_nVertices;++i)
+			vertices[i].refreshAfterRealloc(oldMemoryPointer+i);
 		vertices.resize(vertices.capacity());
 
 		for(unsigned int i=0;i<Replaced.size();i++)
