@@ -1294,7 +1294,7 @@ private:
 		// Retrieve a connected representative vertex for This, falling back along bondTo if needed.
 		if(This == NULL)
 		{
-			return &vertices[0];
+			return vertices.data();
 		}
 		const std::size_t n_vertices = This->myVerticesIds.empty() ? This->myVertices.size() : This->myVerticesIds.size();
 		for(std::size_t i = 0; i < n_vertices; ++i)
@@ -1322,7 +1322,7 @@ private:
 		if(this_id != 0 && This->bondTo != NULL && This->bondTo != This) return getRepresentative(This->bondTo);
 		else
 		{
-			return &vertices[0];
+			return vertices.data();
 		}
 	}
 	vertexPtr prepareInsertion(cell & This,vertexPtr hint=NULL)
@@ -1403,9 +1403,9 @@ private:
 		// Seed the diagram: assign the first real generator to all cube corners.
 		clear_interna();
 		for(int i=0;i<(1<<dimension);i++)
-			vertices[i].setPowerData(&points.front());
+			vertices[i].setPowerData(&points[0]);
 		for(int i=0;i<(1<<dimension);i++)
-			vertices[i].generators[0]=&points.front();
+			vertices[i].generators[0]=&points[0];
 			for(int i=0;i<(1<<dimension);i++)
 				push_cell_my_vertex(points.front(), &vertices[i]);
 		}
@@ -1798,7 +1798,7 @@ private:
 		std::vector<int> _unused;
 		std::vector<int> _currentmyVertices;
 		std::vector<int> _first;
-		const_vertexPtr const oldMemoryPointer=&vertices.front();
+		const_vertexPtr const oldMemoryPointer=vertices.data();
 			_replaced.reserve(Replaced.size());
 			_unused.reserve(unused.size());
 			_currentmyVertices.reserve(Involved.front()->myVertices.size());
@@ -1844,28 +1844,28 @@ private:
 			{
 				vertexPtr restored = NULL;
 				if(_replaced[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_replaced[i]));
-				if(restored == NULL) restored = &vertices.front()+_replaced[i];
+				if(restored == NULL) restored = vertices.data()+_replaced[i];
 				Replaced[i]=restored;
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
 				vertexPtr restored = NULL;
 				if(_unused[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_unused[i]));
-				if(restored == NULL) restored = &vertices.front()+_unused[i];
+				if(restored == NULL) restored = vertices.data()+_unused[i];
 				unused[i]=restored;
 			}
 				for(unsigned int i=0;i<Involved.front()->myVertices.size();i++)
 				{
 					vertexPtr restored = NULL;
 					if(_currentmyVertices[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_currentmyVertices[i]));
-					if(restored == NULL) restored = &vertices.front()+_currentmyVertices[i];
+					if(restored == NULL) restored = vertices.data()+_currentmyVertices[i];
 					set_cell_my_vertex(*Involved.front(), i, restored);
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
 					vertexPtr restored = NULL;
 					if(_first[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_first[i]));
-					if(restored == NULL) restored = &vertices.front()+_first[i];
+					if(restored == NULL) restored = vertices.data()+_first[i];
 					set_cell_my_vertex(points[i], 0, restored);
 				}
 
