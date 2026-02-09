@@ -577,7 +577,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 				const CellId owner_id = (cornerOwners[c] < 0) ? kInvalidId : static_cast<CellId>(cornerOwners[c]);
 				cellPtr owner_ptr = cell_ptr_from_id(owner_id);
-				if(owner_ptr == NULL) owner_ptr = &points[0];
+				if(owner_ptr == NULL) owner_ptr = points.data();
 				vertices[c].generators[0]=owner_ptr;
 				vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
 			}
@@ -724,7 +724,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
 				cornerOwners[c]=(owner_id == kInvalidId) ? 0 : static_cast<int>(owner_id);
 			}
-			const const_cellPtr oldstorage=&points[0];
+			const const_cellPtr oldstorage=points.data();
 		points.reserve(newSize);
 		if(params.radiiGiven)
 			{
@@ -785,7 +785,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			}
 			else
 			{
-					if(&points[0]!= oldstorage)
+				if(points.data()!= oldstorage)
 					{
 							for(unsigned int vi=0;vi<_nVertices;++vi)
 								for(int g=0;g<=dimension;++g)
@@ -806,7 +806,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									}
 									cellPtr& generator = vertices[vi].generators[g];
 									if(generator>=oldstorage&&generator<=oldstorage+nRevertPoints)
-										generator=generator-oldstorage+&points[0];
+										generator=generator-oldstorage+points.data();
 								}
 
 							for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
@@ -904,8 +904,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		}
 		for(int d=1;d<=dimension;d++)//n
 		{
-			push_cell_my_vertex(*vertices[0].generators[d], &vertices[0]);
-			push_cell_my_vertex(*vertices[(1<<dimension)-1].generators[d], &vertices[0]);
+			push_cell_my_vertex(*vertices[0].generators[d], vertices.data());
+			push_cell_my_vertex(*vertices[(1<<dimension)-1].generators[d], vertices.data());
 		}
 	}
 	void buildVertices(const unsigned int& nPoints,const int from=0)
