@@ -1718,24 +1718,26 @@ private:
 				sort_involved_by_ref();
 				for(std::size_t involved_idx=0;involved_idx<involved_size();++involved_idx)
 				{
-					cellPtr involved_cell = involved_ptr_at(involved_idx);
+					const CellId involved_id = involved_id_at(involved_idx);
+					if(involved_id == kInvalidId) continue;
+					cellPtr involved_cell = cell_ptr_from_id(involved_id);
 					if(involved_cell == nullptr) continue;
-						std::size_t neighbour_idx=0;
-							while(neighbour_idx<involved_cell->neighboursIds.size())
-							{
+					std::size_t neighbour_idx=0;
+						while(neighbour_idx<involved_cell->neighboursIds.size())
+						{
 								cellPtr neighbour = cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx]);
 								if(neighbour == nullptr || neighbour->visitedAs==-1)
 									erase_cell_neighbour(*involved_cell, neighbour_idx);
 								else
 							++neighbour_idx;
 					}
-			}
+				}
 				for(std::size_t involved_idx=0;involved_idx<involved_size();++involved_idx)
 				{
-					cellPtr involved_cell = involved_ptr_at(involved_idx);
-					if(involved_cell == nullptr) continue;
 					const CellId current_cell_id = involved_id_at(involved_idx);
 					if(current_cell_id == kInvalidId) continue;
+					cellPtr involved_cell = cell_ptr_from_id(current_cell_id);
+					if(involved_cell == nullptr) continue;
 					const int current_cell_order = static_cast<int>(current_cell_id);
 				for(const VertexId vid : involved_cell->myVerticesIds)
 				{
