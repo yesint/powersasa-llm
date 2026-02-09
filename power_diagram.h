@@ -746,9 +746,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			const const_cellPtr old_points_data=points.data();
 			points.reserve(newSize);
 			const bool points_reallocated = (points.data()!= old_points_data);
-		if(params.radiiGiven)
-			{
-					for(unsigned int i=0;i<newSize-nRevertPoints;i++)
+			if(params.radiiGiven)
+				{
+					const std::size_t add_count = newSize-nRevertPoints;
+					for(std::size_t i=0;i<add_count;i++)
 					{
 						points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
 						const std::size_t new_idx = points.size()-1;
@@ -758,7 +759,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				}
 				else
 				{
-					for(unsigned int i=0;i<newSize-nRevertPoints;i++)
+					const std::size_t add_count = newSize-nRevertPoints;
+					for(std::size_t i=0;i<add_count;i++)
 					{
 						points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
 						const std::size_t new_idx = points.size()-1;
