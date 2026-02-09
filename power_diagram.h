@@ -2162,35 +2162,35 @@ private :
 		position=pos;
 	}
 
-	void refreshAfterRealloc(const vertex*const& copy)
-	{
-		// Rebase endpoint pointers after vertex vector reallocation.
-		for(int g=dimension;g>=0;g--)
-			if(this->generators[g]!=NULL&&(!this->generators[g]->myVertices.empty())&&this->generators[g]->myVertices.front()==copy)
-				this->generators[g]->myVertices.front()=this;
-		for(typename std::array<vertexPtr,dimension+1>::iterator it=endPoints.begin();it!=endPoints.end();++it)
+		void refreshAfterRealloc(const vertex*const& copy)
 		{
-				if((*it)!=NULL)
-					*it=this+(*it-copy);
+			// Rebase endpoint pointers after vertex vector reallocation.
+			for(int g=dimension;g>=0;g--)
+				if(this->generators[g]!=NULL&&(!this->generators[g]->myVertices.empty())&&this->generators[g]->myVertices.front()==copy)
+					this->generators[g]->myVertices.front()=this;
+		for(int g=0;g<=dimension;++g)
+		{
+				if(endPoints[g]!=NULL)
+					endPoints[g]=this+(endPoints[g]-copy);
 		}
-	}
+		}
 
-	inline void moveAddressNetworkUpdateOnly(const vertexPtr& whereTo)
-	{
-		// Move one vertex object to a new address and patch neighboring endpoint links.
-		if(this->endPoints[dimension]!=NULL)
-			(this->endPoints[dimension]->fastWhichis(this))=whereTo;
-		for(typename std::array<vertexPtr,dimension+1>::iterator it=endPoints.begin();it!=endPoints.begin()+dimension;++it)
-			((*it)->fastWhichis(this))=whereTo;
+		inline void moveAddressNetworkUpdateOnly(const vertexPtr& whereTo)
+		{
+			// Move one vertex object to a new address and patch neighboring endpoint links.
+			if(this->endPoints[dimension]!=NULL)
+				(this->endPoints[dimension]->fastWhichis(this))=whereTo;
+		for(int g=0;g<dimension;++g)
+			((endPoints[g])->fastWhichis(this))=whereTo;
 
-		*whereTo=*this;
-	}
-	inline vertexPtr& fastWhichis (const const_vertexPtr& comp)
-	{
-		for(typename std::array<vertexPtr,dimension+1>::iterator it=endPoints.begin()+dimension;it!=endPoints.begin();--it)
-			if(*it==comp)return *it;
+			*whereTo=*this;
+		}
+		inline vertexPtr& fastWhichis (const const_vertexPtr& comp)
+		{
+		for(int g=dimension;g>0;--g)
+			if(endPoints[g]==comp)return endPoints[g];
 		return endPoints[0];
-	}
+		}
 	inline vertexPtr& persistingWhichis3D (const const_vertexPtr& newOne)
 	{
 		if(generators[2]==newOne->generators[2])
@@ -2208,36 +2208,36 @@ private :
 
 
 
-		bool cornerToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
-		{
-			// Mark a corner vertex as replaced and continue replacement flood-fill through neighbors.
-			owner.Replaced.push_back(this);
-				for(typename std::array<cellPtr,dimension+1>::const_iterator it=this->generators.begin();it!=this->generators.end();++it)
-					if((*it)->visitedAs==0)
-						owner.AddToInvolved(*(*it));
+			bool cornerToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
+			{
+				// Mark a corner vertex as replaced and continue replacement flood-fill through neighbors.
+				owner.Replaced.push_back(this);
+				for(int g=0;g<=dimension;++g)
+					if(this->generators[g]->visitedAs==0)
+						owner.AddToInvolved(*this->generators[g]);
 				owner.push_cell_my_vertex(*owner.Involved.front(), this);//although replaced it will be part of the new cell!its a corner!
 
 
-			for(typename std::array<vertexPtr,dimension+1>::const_iterator it=this->endPoints.begin()+dimension;it!=this->endPoints.begin();--it)
-				if((*it)->rrv==0)
+			for(int g=dimension;g>0;--g)
+				if(this->endPoints[g]->rrv==0)
 				{
-					if(!(*it)->replaceCheck(owner))
+					if(!this->endPoints[g]->replaceCheck(owner))
 						return false;
 				}else{}
 
 			return true;
 		}
-		bool finiteToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
-		{
-			// Mark a finite vertex as replaced and continue replacement flood-fill through neighbors.
-			owner.Replaced.push_back(this);
-			for(typename std::array<cellPtr,dimension+1>::const_iterator it=this->generators.begin();it!=this->generators.end();++it)
-				if((*it)->visitedAs==0)
-					owner.AddToInvolved(*(*it));
+			bool finiteToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
+			{
+				// Mark a finite vertex as replaced and continue replacement flood-fill through neighbors.
+				owner.Replaced.push_back(this);
+			for(int g=0;g<=dimension;++g)
+				if(this->generators[g]->visitedAs==0)
+					owner.AddToInvolved(*this->generators[g]);
 
-			for(typename std::array<vertexPtr,dimension+1>::const_iterator it=this->endPoints.begin();it!=this->endPoints.end();++it)
-				if((*it)->rrv==0)
-					if(!(*it)->replaceCheck(owner))
+			for(int g=0;g<=dimension;++g)
+				if(this->endPoints[g]->rrv==0)
+					if(!this->endPoints[g]->replaceCheck(owner))
 						return false;
 
 			return true;
