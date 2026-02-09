@@ -1984,16 +1984,9 @@ private:
 				_currentmyVertices.reserve(involved_front->myVerticesIds.size());
 				for(const VertexId vid : involved_front->myVerticesIds)
 					_currentmyVertices.push_back(vid);
-				std::size_t involved_prefix = 0;
 				const CellId involved_front_id = cell_id_or_invalid(involved_front);
-				if(involved_front_id != kInvalidId) involved_prefix = involved_front_id;
-				else
-					for(std::size_t point_idx=0;point_idx<points.size();++point_idx)
-						if(&points[point_idx]==involved_front)
-						{
-							involved_prefix = point_idx;
-							break;
-						}
+				if(involved_front_id == kInvalidId) throw MyException();
+				const std::size_t involved_prefix = involved_front_id;
 				for(std::size_t point_idx=0;point_idx<involved_prefix;++point_idx)
 				{
 					const cell& point = points[point_idx];
@@ -2012,23 +2005,26 @@ private:
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
-				vertexPtr restored = nullptr;
-				if(_unused[i] != kInvalidId) restored = vertex_ptr_from_id(_unused[i]);
-				if(restored == nullptr && _unused[i] != kInvalidId) restored = vertices.data()+_unused[i];
+				const VertexId restored_id = _unused[i];
+				if(restored_id == kInvalidId) throw MyException();
+				vertexPtr restored = vertex_ptr_from_id(restored_id);
+				if(restored == nullptr) throw MyException();
 				unused[i]=restored;
 			}
 				for(unsigned int i=0;i<involved_front->myVerticesIds.size();i++)
 				{
-					vertexPtr restored = nullptr;
-					if(_currentmyVertices[i] != kInvalidId) restored = vertex_ptr_from_id(_currentmyVertices[i]);
-					if(restored == nullptr && _currentmyVertices[i] != kInvalidId) restored = vertices.data()+_currentmyVertices[i];
+					const VertexId restored_id = _currentmyVertices[i];
+					if(restored_id == kInvalidId) throw MyException();
+					vertexPtr restored = vertex_ptr_from_id(restored_id);
+					if(restored == nullptr) throw MyException();
 					set_cell_my_vertex(*involved_front, i, restored);
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
-					vertexPtr restored = nullptr;
-					if(_first[i] != kInvalidId) restored = vertex_ptr_from_id(_first[i]);
-					if(restored == nullptr && _first[i] != kInvalidId) restored = vertices.data()+_first[i];
+					const VertexId restored_id = _first[i];
+					if(restored_id == kInvalidId) continue;
+					vertexPtr restored = vertex_ptr_from_id(restored_id);
+					if(restored == nullptr) throw MyException();
 					if(restored != nullptr) set_cell_my_vertex(points[i], 0, restored);
 				}
 
