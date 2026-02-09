@@ -785,14 +785,29 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			}
 			else
 			{
-				if(&points[0]!= oldstorage)
-				{
-						for(unsigned int vi=0;vi<_nVertices;++vi)
-							for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end();++itg)
-								if(*itg>=oldstorage&&*itg<=oldstorage+nRevertPoints)
+					if(&points[0]!= oldstorage)
+					{
+							for(unsigned int vi=0;vi<_nVertices;++vi)
+								for(int g=0;g<=dimension;++g)
 								{
-									*itg=*itg-oldstorage+&points[0];
-							}
+									const GeneratorRef& ref = vertices[vi].generatorRefs[g];
+									if(ref.is_valid())
+									{
+										if(ref.kind == GeneratorKind::point && ref.index < points.size())
+										{
+											vertices[vi].generators[g] = &points[ref.index];
+											continue;
+										}
+										if(ref.kind == GeneratorKind::side && ref.index < sideGenerators.size())
+										{
+											vertices[vi].generators[g] = &sideGenerators[ref.index];
+											continue;
+										}
+									}
+									cellPtr& generator = vertices[vi].generators[g];
+									if(generator>=oldstorage&&generator<=oldstorage+nRevertPoints)
+										generator=generator-oldstorage+&points[0];
+								}
 
 							for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
 							{
