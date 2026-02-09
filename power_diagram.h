@@ -470,6 +470,10 @@ public :
 		if(index >= ReplacedIds.size()) return kInvalidId;
 		return ReplacedIds[index];
 	}
+	inline std::size_t replaced_size() const
+	{
+		return ReplacedIds.size();
+	}
 	inline void clear_involved()
 	{
 		InvolvedRefs.clear();
@@ -1178,7 +1182,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								_nUnused=unused.size();	
 
 							//reconnect replaced with persisting
-								for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+								for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 								{
 									const VertexId replaced_id = replaced_id_at(replaced_idx);
 									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
@@ -1216,7 +1220,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								//set everything zero again
 								SetInvolvedPersistingVisitedToZero();
 								clear_cell_my_vertices(*involved_front);
-							 	for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+							 	for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 								{
 									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
 									if(replaced_vertex == nullptr) continue;
@@ -1558,7 +1562,7 @@ private:
 						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*involved_front)+1<<" is reduced from "<<involved_front->r2;
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
-						for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+						for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 						{
 							vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
 							if(replaced_vertex == nullptr) continue;
@@ -1918,7 +1922,7 @@ private:
 		//exactly one old EXISTING edge which is NOT disappearing totally
 		//all possible edges are the ones coming out our "replaced" vertices
 		//so we only try to create if an endPoint of a replaced vertex is not replaced (visitedAs ==-1)
-				for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+				for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 				{
 					const VertexId replaced_id = replaced_id_at(replaced_idx);
 					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
@@ -1987,11 +1991,11 @@ private:
 		std::vector<VertexId> _currentmyVertices;
 		std::vector<VertexId> _first;
 		const_vertexPtr const oldMemoryPointer=vertices.data();
-			_replaced.reserve(ReplacedIds.size());
+			_replaced.reserve(replaced_size());
 			_unused.reserve(unused.size());
 			_first.reserve(vertices.capacity());
 
-			for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 			{
 				const VertexId replaced_id = replaced_id_at(replaced_idx);
 				if(replaced_id == kInvalidId) throw MyException();
@@ -2026,7 +2030,7 @@ private:
 			vertices[i].refreshAfterRealloc(oldMemoryPointer+i, i);
 			vertices.resize(vertices.capacity());
 
-			for(unsigned int i=0;i<ReplacedIds.size();i++)
+			for(unsigned int i=0;i<replaced_size();i++)
 			{
 				set_replaced_id(i, _replaced[i]);
 			}
@@ -2058,13 +2062,13 @@ private:
 		// Mark replaced vertices as invalid/unused and update per-cell myVertices ownership lists.
 		unused.resize(_nUnused);
 		//mark replaced as unused
-		for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();)
+		for(std::size_t replaced_idx=0;replaced_idx<replaced_size();)
 		{
 			const VertexId replaced_id = replaced_id_at(replaced_idx);
 			vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
 			if(replaced_vertex == nullptr)
 			{
-				const VertexId last_id = replaced_id_at(ReplacedIds.size()-1);
+				const VertexId last_id = replaced_id_at(replaced_size()-1);
 				set_replaced_id(replaced_idx, last_id);
 				pop_replaced();
 				continue;
@@ -2073,7 +2077,7 @@ private:
 			{
 				replaced_vertex->rrv=0;
 				//Replaced.erase(it);--it;//the corners are always part of diagram	
-				const VertexId last_id = replaced_id_at(ReplacedIds.size()-1);
+				const VertexId last_id = replaced_id_at(replaced_size()-1);
 				set_replaced_id(replaced_idx, last_id);
 				pop_replaced();
 			}
@@ -2086,7 +2090,7 @@ private:
 			}
 		}
 		if(nRevertVertices==0)
-			for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 			{
 				const VertexId replaced_id = replaced_id_at(replaced_idx);
 				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
@@ -2095,7 +2099,7 @@ private:
 			}
 
 		else
-			for(std::size_t replaced_idx=0;replaced_idx<ReplacedIds.size();++replaced_idx)
+			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 			{
 				const VertexId replaced_id = replaced_id_at(replaced_idx);
 				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
