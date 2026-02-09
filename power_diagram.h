@@ -1074,7 +1074,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			{
 				const int ii=i;
 				const int j=(ii>>d)%2?ii-(1<<d):ii+(1<<d);
-				vertices[i].endPoints[d+1]=&vertices[j];
+				set_vertex_endpoint(vertices[i], d+1, &vertices[j]);
 			}
 			for(int i=0;i<(1<<dimension);i++)
 			{//:TODO: direct sort or faster?
