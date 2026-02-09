@@ -1803,21 +1803,42 @@ private:
 								}
 				_nUnused=unused.size();
 		}
-		void AssignRepresentativeVerticesToCells(const vertexPtr& aDefault)
-	{
-		// Ensure each involved cell keeps at least one representative connected vertex after insertion.
-			//if there are no new vertices, the new cell is covered
+			void AssignRepresentativeVerticesToCells(const vertexPtr& aDefault)
+		{
+			// Ensure each involved cell keeps at least one representative connected vertex after insertion.
+				//if there are no new vertices, the new cell is covered
 				if(Involved.front()->myVertices.empty())
 					push_cell_my_vertex(*Involved.front(), aDefault);
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
+				{
+					vertexPtr new_representative = NULL;
+					if(!Involved.front()->myVerticesIds.empty())
+					{
+						new_representative = vertex_ptr_from_id(Involved.front()->myVerticesIds.front());
+					}
+					if(new_representative == NULL)
+					{
+						new_representative = Involved.front()->myVertices.front();
+					}
 					for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
-						if(cell_id_or_invalid(*it) != kInvalidId)
-	{
-						if(!(*it)->myVertices.front()->isConnected())//if representing vertex has been erased
-							set_cell_my_vertex(*(*it), 0, Involved.front()->myVertices.front());//we assign representative of new also to this one
-	}else{/*std::cout<<"can never happen"<<std::endl; exit(1);*/}
+					{
+						if(cell_id_or_invalid(*it) == kInvalidId) continue;
+						vertexPtr representative = NULL;
+						if(!(*it)->myVerticesIds.empty())
+						{
+							representative = vertex_ptr_from_id((*it)->myVerticesIds.front());
+						}
+						if(representative == NULL)
+						{
+							if((*it)->myVertices.empty()) continue;
+							representative = (*it)->myVertices.front();
+						}
+						if(!representative->isConnected())//if representing vertex has been erased
+							set_cell_my_vertex(*(*it), 0, new_representative);//we assign representative of new also to this one
+					}
+				}
 
-	}
+		}
 
 		void SetInvolvedPersistingVisitedToZero() 
 		{
