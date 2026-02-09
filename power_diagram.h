@@ -604,16 +604,17 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		// Rebuild the full diagram from scratch for updated coordinates/radii.
 		clearAllmyVertices();
 		clear_interna();
-		if(size>points.size())
-		{
-			const cellPtr old=&points.front();
-			points.reserve(size);
-				if(old!=&points.front())
-					for(int i=1;i<points.size();i++)
-					{
-						set_bond_to(points[i], points[i].bondTo-old+&points[0]);
-					}
-			}
+			if(size>points.size())
+			{
+				const cellPtr old=&points.front();
+				points.reserve(size);
+					if(old!=&points.front())
+						for(int i=1;i<points.size();i++)
+						{
+							if(points[i].bondToId != kInvalidId) set_bond_to_id(points[i], points[i].bondToId);
+							else if(points[i].bondTo != NULL) set_bond_to(points[i], points[i].bondTo-old+&points[0]);
+						}
+				}
 		zeros.clear();
 		PDCoord lowest,highest;
 		getBoundingBox<PDCoord,PDFloat,PDCoord const*,PDFloat const*,dimension>(lowest,highest,size,&(*pos_it),&(*strength_it));
@@ -717,7 +718,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 				{//createlike
 						for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
-								set_bond_to(*it, it->bondTo-oldstorage+&points[0]);
+							if(it->bondToId != kInvalidId) set_bond_to_id(*it, it->bondToId);
+							else if(it->bondTo != NULL) set_bond_to(*it, it->bondTo-oldstorage+&points[0]);
 					buildCube(vertices.begin()->position-2*rebuild,vertices[(1<<dimension)-1].position+2*rebuild);
 
 
@@ -747,7 +749,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 						for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
 						{
-								set_bond_to(*it, it->bondTo-oldstorage+&points[0]);
+								if(it->bondToId != kInvalidId) set_bond_to_id(*it, it->bondToId);
+								else if(it->bondTo != NULL) set_bond_to(*it, it->bondTo-oldstorage+&points[0]);
 								for(typename std::vector<cellPtr>::iterator itn=it->neighbours.begin();itn!=it->neighbours.end();++itn)
 									(*itn)+=&points[0]-oldstorage;
 						}
