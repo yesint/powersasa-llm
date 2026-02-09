@@ -381,6 +381,13 @@ public :
 		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
 		return nullptr;
 	}
+	inline cellPtr cell_ptr_from_ref(const GeneratorRef& ref)
+	{
+		if (!ref.is_valid()) return nullptr;
+		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
+		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
+		return nullptr;
+	}
 	inline vertexPtr vertex_ptr_from_id(const VertexId id)
 	{
 		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertex_at(id);
@@ -543,11 +550,8 @@ public :
 	{
 		if (g < 0 || g >= dimension) return nullptr;
 		const GeneratorRef& ref = zp.generatorRefs[g];
-		if (ref.is_valid())
-		{
-			if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
-			if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
-		}
+		const const_cellPtr by_ref = cell_ptr_from_ref_const(ref);
+		if (by_ref != nullptr) return by_ref;
 		return zp.generators[g];
 	}
 	inline bool zeroPointValid(const zeroPoint& zp) const
@@ -911,19 +915,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								for(int g=0;g<=dimension;++g)
 								{
 									const GeneratorRef& ref = old_vertex_generator_refs[vi][g];
-									if(ref.is_valid())
-									{
-										if(ref.kind == GeneratorKind::point && ref.index < points.size())
-										{
-											vertices[vi].generators[g] = &points[ref.index];
-											continue;
-										}
-										if(ref.kind == GeneratorKind::side && ref.index < sideGenerators.size())
-										{
-											vertices[vi].generators[g] = &sideGenerators[ref.index];
-											continue;
-										}
-									}
+									cellPtr restored_generator = cell_ptr_from_ref(ref);
+									if(restored_generator != nullptr) vertices[vi].generators[g] = restored_generator;
 								}
 
 								for(std::size_t point_idx=0;point_idx<nRevertPoints;++point_idx)
