@@ -354,6 +354,19 @@ public :
 			a_zero.generatorRefs[g] = generator_ref_or_invalid(a_zero.generators[g]);
 		}
 	}
+	inline void push_zero_from_edge(const const_vertexPtr source_vertex, const VertexId source_id, const int branch, const PDFloat sol)
+	{
+		zeroPoint zp(
+			source_vertex->generators[nth(0,branch)],
+			source_vertex->generators[nth(1,branch)],
+			source_vertex->generators[nth(2,branch)],
+			sol,
+			&vertices[source_id],
+			branch);
+		zp.fromId = source_id;
+		for(int g=0;g<dimension;++g) zp.generatorRefs[g] = source_vertex->generatorRefs[nth(g,branch)];
+		zeros.push_back(zp);
+	}
 	inline void sync_all_link_mirrors()
 	{
 		for (cell& a_cell : points) sync_cell_link_mirrors(a_cell);
@@ -1782,17 +1795,17 @@ private:
 								if(sol1>0&&sol1<1)
 									if(endpoint->powerValue>0)
 									{
-											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
-											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+											push_zero_from_edge(it, vertex_index, branch, sol1);
+											push_zero_from_edge(it, vertex_index, branch, sol2);
 										}
 										else
-											zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
+											push_zero_from_edge(it, vertex_index, branch, sol1);
 									else if(sol2>0&&sol2<1)
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+										push_zero_from_edge(it, vertex_index, branch, sol2);
 									else
 									{//the covered zeros
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+										push_zero_from_edge(it, vertex_index, branch, sol1);
+										push_zero_from_edge(it, vertex_index, branch, sol2);
 									}
 								}else if(endpoint->powerValue>0)
 							{
@@ -1812,9 +1825,9 @@ private:
 								const PDFloat sol1=min+rootquot;
 								const PDFloat sol2=min-rootquot;
 								if(sol1>0&&sol1<1)
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol1,&vertices[vertex_index],branch));
+										push_zero_from_edge(it, vertex_index, branch, sol1);
 									else
-										zeros.push_back(zeroPoint(it->generators[nth(0,branch)],it->generators[nth(1,branch)],it->generators[nth(2,branch)],sol2,&vertices[vertex_index],branch));
+										push_zero_from_edge(it, vertex_index, branch, sol2);
 								}
 							}
 						}
