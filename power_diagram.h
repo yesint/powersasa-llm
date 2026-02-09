@@ -2014,13 +2014,13 @@ private:
 			vertices[i].refreshAfterRealloc(oldMemoryPointer+i, i);
 			vertices.resize(vertices.capacity());
 
-			for(unsigned int i=0;i<replaced_size();i++)
+			for(std::size_t i=0;i<replaced_size();++i)
 			{
 				set_replaced_id(i, _replaced[i]);
 			}
-			for(unsigned int i=0;i<unused.size();i++)
+			for(std::size_t i=0;i<unused.size();++i)
 				if(unused[i] == kInvalidId || vertex_ptr_from_id(unused[i]) == nullptr) throw MyException();
-				for(unsigned int i=0;i<involved_front->myVerticesIds.size();i++)
+				for(std::size_t i=0;i<involved_front->myVerticesIds.size();++i)
 				{
 					const VertexId restored_id = _currentmyVertices[i];
 					if(restored_id == kInvalidId) throw MyException();
@@ -2034,7 +2034,7 @@ private:
 					if(restored_id == kInvalidId) continue;
 					vertexPtr restored = vertex_ptr_from_id(restored_id);
 					if(restored == nullptr) throw MyException();
-					if(restored != nullptr) set_cell_my_vertex(points[i], 0, restored);
+					set_cell_my_vertex(points[i], 0, restored);
 				}
 
 	}
