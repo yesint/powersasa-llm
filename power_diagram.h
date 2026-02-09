@@ -2401,7 +2401,7 @@ private :
 			bool cornerToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 			{
 				// Mark a corner vertex as replaced and continue replacement flood-fill through neighbors.
-				owner.push_replaced(this);
+				owner.push_replaced_id(owner.get_vertex_id(*this));
 				for(int g=0;g<=dimension;++g)
 					if(this->generators[g]->visitedAs==0)
 						owner.AddToInvolved(*this->generators[g]);
@@ -2422,7 +2422,7 @@ private :
 			bool finiteToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 			{
 				// Mark a finite vertex as replaced and continue replacement flood-fill through neighbors.
-				owner.push_replaced(this);
+				owner.push_replaced_id(owner.get_vertex_id(*this));
 			for(int g=0;g<=dimension;++g)
 				if(this->generators[g]->visitedAs==0)
 					owner.AddToInvolved(*this->generators[g]);
