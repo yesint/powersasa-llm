@@ -30,6 +30,7 @@ If you have no license please contact SASA-support@kit.edu
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <numbers>
 #include "power_diagram.h"
 #include <memory>
 #include <vector>
@@ -66,9 +67,9 @@ public:
 	// Angular ordering tolerance used when ranking contour vertices on a circle.
 	inline static PDFloat DANG() { return static_cast<PDFloat>(1000.0) * std::numeric_limits<PDFloat>::epsilon() ; }
 	// Scalar pi constant used by all spherical area/volume formulas.
-	inline static PDFloat pi() { return static_cast<PDFloat> (3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342) ;} //everything const, will be optimized away.
+	inline static constexpr PDFloat pi() { return std::numbers::pi_v<PDFloat>; }
 	// Helper used frequently in contour integrations.
-	inline static PDFloat two_pi() { return static_cast<PDFloat>(2.0) * pi(); }
+	inline static constexpr PDFloat two_pi() { return static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>; }
 	// Cosine threshold around |1| where cross-product based angle reconstruction is more stable.
 	inline static PDFloat near_one_cosine_threshold() { return static_cast<PDFloat>(0.999); }
 	// Minimum axis component considered numerically reliable in signed-angle orientation tests.
