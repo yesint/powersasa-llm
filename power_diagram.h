@@ -763,7 +763,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					const CellId owner_id = cornerOwners[c];
 					cellPtr owner_ptr = cell_ptr_from_id(owner_id);
 					if(owner_ptr == nullptr) throw MyException();
-					vertices[c].generators[0]=owner_ptr;
+					set_vertex_generator(vertices[c], 0, owner_ptr);
 					vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
 				}
 			for(const VertexId invalid_id : Invalids)
@@ -1611,7 +1611,7 @@ private:
 		for(int i=0;i<(1<<dimension);i++)
 			vertices[i].setPowerData(points.data());
 		for(int i=0;i<(1<<dimension);i++)
-			vertices[i].generators[0]=points.data();
+			set_vertex_generator(vertices[i], 0, points.data());
 			for(int i=0;i<(1<<dimension);i++)
 				push_cell_my_vertex(points[0], &vertices[i]);
 		}
@@ -1950,7 +1950,7 @@ private:
 				if(vertices[vertex_idx].rrv>0)
 				{
 					vertices[vertex_idx].setPowerData(involved_front);
-					vertices[vertex_idx].generators[0]=involved_front;
+					set_vertex_generator(vertices[vertex_idx], 0, involved_front);
 				}
 
 
