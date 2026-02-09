@@ -475,10 +475,22 @@ public :
 		ReplacedIds.push_back(vertex_id_or_invalid(ptr));
 		validate_transient_mirror_invariants();
 	}
+	inline void push_replaced_id(const VertexId id)
+	{
+		ReplacedIds.push_back(id);
+		Replaced.push_back(vertex_ptr_from_id(id));
+		validate_transient_mirror_invariants();
+	}
 	inline void set_replaced(const std::size_t index, const vertexPtr ptr)
 	{
 		Replaced[index] = ptr;
 		ReplacedIds[index] = vertex_id_or_invalid(ptr);
+		validate_transient_mirror_invariants();
+	}
+	inline void set_replaced_id(const std::size_t index, const VertexId id)
+	{
+		ReplacedIds[index] = id;
+		Replaced[index] = vertex_ptr_from_id(id);
 		validate_transient_mirror_invariants();
 	}
 	inline void pop_replaced()
@@ -2035,10 +2047,7 @@ private:
 
 			for(unsigned int i=0;i<Replaced.size();i++)
 			{
-				vertexPtr restored = nullptr;
-				if(_replaced[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_replaced[i]));
-				if(restored == nullptr && _replaced[i] >= 0) restored = vertices.data()+_replaced[i];
-				set_replaced(i, restored);
+				set_replaced_id(i, (_replaced[i] >= 0) ? static_cast<VertexId>(_replaced[i]) : kInvalidId);
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
@@ -2075,7 +2084,7 @@ private:
 			if(replaced_vertex == nullptr)
 			{
 				const VertexId last_id = replaced_id_at(Replaced.size()-1);
-				set_replaced(replaced_idx, vertex_ptr_from_id(last_id));
+				set_replaced_id(replaced_idx, last_id);
 				pop_replaced();
 				continue;
 			}
@@ -2084,7 +2093,7 @@ private:
 				replaced_vertex->rrv=0;
 				//Replaced.erase(it);--it;//the corners are always part of diagram	
 				const VertexId last_id = replaced_id_at(Replaced.size()-1);
-				set_replaced(replaced_idx, vertex_ptr_from_id(last_id));
+				set_replaced_id(replaced_idx, last_id);
 				pop_replaced();
 			}
 			else
