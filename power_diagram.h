@@ -912,15 +912,15 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 										mindist=((*it)->position-Involved.front()->position).squaredNorm();
 										closest=*it;
 									}
-								if(error(Involved.front()->r)>sqrt(mindist))
-								{
-									identicalPoint=closest;
-									if(params.with_warnings)
+									if(error(Involved.front()->r)>sqrt(mindist))
 									{
-										std::cout<<"numerical similar point to "<<closest-&points[0]+1<<" found. ";
-										std::cout<<Involved.front()-&points[0]+1<<" is ignored"<<std::endl;
+										identicalPoint=closest;
+										if(params.with_warnings)
+										{
+											std::cout<<"numerical similar point to "<<get_cell_id(*closest)+1<<" found. ";
+											std::cout<<get_cell_id(*Involved.front())+1<<" is ignored"<<std::endl;
+										}
 									}
-								}
 							}
 							//delete new vertices built directly into vertices (when unused has been empty)
 							if(_nUnused==0)
@@ -928,7 +928,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								//here comes the deletion ;)
 								_nVertices-=Involved.front()->myVertices.size()-unused.size()+_nUnused;
 								for(typename std::vector<vertexPtr>::iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
-									if((*it)-&vertices[0]<(1<<dimension))
+									if(get_vertex_id(*(*it))<(1<<dimension))
 									{
 										_nVertices++;
 									}else (*it)->disconnect();
@@ -977,12 +977,12 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								push_cell_my_vertex(*Involved.front(), identicalPoint->myVertices.front());
 								break;
 							}
-							else
-							{
-								const PDFloat oldr2=Involved.front()->r2;
-								if(params.with_warnings)
-									std::cout<<" Numerical Zero Warning: Power of "<<Involved.front()-&points[0]+1<<" is reduced from "<<Involved.front()->r2;
-								Involved.front()->r2-=pow(2.0,done)*(errorScale);
+								else
+								{
+									const PDFloat oldr2=Involved.front()->r2;
+									if(params.with_warnings)
+										std::cout<<" Numerical Zero Warning: Power of "<<get_cell_id(*Involved.front())+1<<" is reduced from "<<Involved.front()->r2;
+									Involved.front()->r2-=pow(2.0,done)*(errorScale);
 								if(Involved.front()->r2>=0)	Involved.front()->r= sqrt(Involved.front()->r2);
 								else 		Involved.front()->r=-sqrt(-Involved.front()->r2);
 								if(params.with_warnings)
