@@ -176,7 +176,7 @@ private:
 	unsigned int _nVertices;
 	unsigned int _nUnused;
 
-	std::vector<vertexPtr> unused;
+	std::vector<VertexId> unused;
 	std::vector< cell > points;
 	std::vector< vertex > vertices;//we use the plane space of a vector because of speed. never push_back or it will cause a realloc !!!
 	std::vector< zeroPoint> zeros;//this is a vector of all zero points, but maybe some are inactive (inactives do not appear in myZeros!)
@@ -1156,7 +1156,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 								//delete new vertices built on unused (not needed because endpoints not constructed,yet)
 								for(std::size_t unused_idx=_nUnused;unused_idx<unused.size();++unused_idx)
-									unused[unused_idx]->disconnect();
+								{
+									vertexPtr unused_vertex = vertex_ptr_from_id(unused[unused_idx]);
+									if(unused_vertex != nullptr) unused_vertex->disconnect();
+								}
 								_nUnused=unused.size();	
 
 							//reconnect replaced with persisting
@@ -1287,8 +1290,13 @@ if(std::abs(checkconst)>0.001)
 			std::sort(unused.begin(),unused.end());
 			for(int i=static_cast<int>(unused.size())-1;i>=0;--i)
 			{
-				if(unused[i]!=&vertices[_nVertices-1])
-					vertices[--_nVertices].moveAddressNetworkUpdateOnly(unused[i]);
+				const VertexId unused_id = unused[i];
+				if(unused_id != (_nVertices-1))
+				{
+					vertexPtr where_to = vertex_ptr_from_id(unused_id);
+					if(where_to == nullptr) throw MyException();
+					vertices[--_nVertices].moveAddressNetworkUpdateOnly(where_to);
+				}
 				else {--_nVertices;}
 			}
 
@@ -1846,8 +1854,12 @@ private:
 				}
 				else
 				{
-					unused[_nUnused-1]->endPointsAndPositionOverwrite(This->endPoints[here],This->getPowerPointOnLine2(This->endPoints[here]));
-					builtVertex = unused[--_nUnused];
+					const VertexId unused_id = unused[_nUnused-1];
+					vertexPtr unused_vertex = vertex_ptr_from_id(unused_id);
+					if(unused_vertex == nullptr) throw MyException();
+					unused_vertex->endPointsAndPositionOverwrite(This->endPoints[here],This->getPowerPointOnLine2(This->endPoints[here]));
+					builtVertex = unused_vertex;
+					--_nUnused;
 				}
 				if(!builtVertex->Init(This,here,*this))
 				{
@@ -1955,12 +1967,10 @@ private:
 	{
 		// Grow vertex storage while preserving all pointer-based topology links.
 		std::vector<VertexId> _replaced;
-		std::vector<VertexId> _unused;
 		std::vector<VertexId> _currentmyVertices;
 		std::vector<VertexId> _first;
 		const_vertexPtr const oldMemoryPointer=vertices.data();
 			_replaced.reserve(replaced_size());
-			_unused.reserve(unused.size());
 			_first.reserve(vertices.capacity());
 
 			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
@@ -1969,8 +1979,6 @@ private:
 				if(replaced_id == kInvalidId) throw MyException();
 				_replaced.push_back(replaced_id);
 			}
-			for(const vertexPtr unused_vertex : unused)
-				_unused.push_back(get_vertex_id(*unused_vertex));
 				cellPtr involved_front = involved_front_ptr();
 				if(involved_front == nullptr) throw MyException();
 				_currentmyVertices.reserve(involved_front->myVerticesIds.size());
@@ -1996,13 +2004,7 @@ private:
 				set_replaced_id(i, _replaced[i]);
 			}
 			for(unsigned int i=0;i<unused.size();i++)
-			{
-				const VertexId restored_id = _unused[i];
-				if(restored_id == kInvalidId) throw MyException();
-				vertexPtr restored = vertex_ptr_from_id(restored_id);
-				if(restored == nullptr) throw MyException();
-				unused[i]=restored;
-			}
+				if(unused[i] == kInvalidId || vertex_ptr_from_id(unused[i]) == nullptr) throw MyException();
 				for(unsigned int i=0;i<involved_front->myVerticesIds.size();i++)
 				{
 					const VertexId restored_id = _currentmyVertices[i];
@@ -2053,24 +2055,24 @@ private:
 				++replaced_idx;
 			}
 		}
-		if(nRevertVertices==0)
-			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
-			{
-				const VertexId replaced_id = replaced_id_at(replaced_idx);
-				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-				if(replaced_vertex == nullptr) continue;
-				unused.push_back(replaced_vertex);
-			}
+			if(nRevertVertices==0)
+				for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
+				{
+					const VertexId replaced_id = replaced_id_at(replaced_idx);
+					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
+					if(replaced_vertex == nullptr) continue;
+					unused.push_back(replaced_id);
+				}
 
 		else
 			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 			{
-				const VertexId replaced_id = replaced_id_at(replaced_idx);
-				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-				if(replaced_vertex == nullptr) continue;
-				if(replaced_id>=nRevertVertices)
-					unused.push_back(replaced_vertex);
-						else
+					const VertexId replaced_id = replaced_id_at(replaced_idx);
+					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
+					if(replaced_vertex == nullptr) continue;
+					if(replaced_id>=nRevertVertices)
+						unused.push_back(replaced_id);
+							else
 							for(const cellPtr generator : replaced_vertex->generators)
 								for(unsigned int i=0;i<generator->myVerticesIds.size();i++)
 									if(generator->myVerticesIds[i]==replaced_id)
