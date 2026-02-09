@@ -628,16 +628,14 @@ public :
 	std::vector< zeroPoint> const & get_zeroPoints() const { return zeros; }
 	inline const_vertexPtr zeroPointFrom(const zeroPoint& zp) const
 	{
-		if (zp.fromId != kInvalidId && zp.fromId < _nVertices) return &vertices[zp.fromId];
-		return zp.from;
+		return (zp.fromId != kInvalidId && zp.fromId < _nVertices) ? &vertices[zp.fromId] : nullptr;
 	}
 	inline const_cellPtr zeroPointGenerator(const zeroPoint& zp, const int g) const
 	{
 		if (g < 0 || g >= dimension) return nullptr;
 		const GeneratorRef& ref = zp.generatorRefs[g];
 		const const_cellPtr by_ref = cell_ptr_from_ref_const(ref);
-		if (by_ref != nullptr) return by_ref;
-		return zp.generators[g];
+		return by_ref;
 	}
 	inline bool zeroPointValid(const zeroPoint& zp) const
 	{
