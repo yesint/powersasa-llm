@@ -198,26 +198,31 @@ private:
 		ambiguous
 	};
 public :
-	struct cell
-	{
-		int visitedAs;
-		PDCoord position;
-		PDFloat r;
-		PDFloat r2;
-		typedef zeroPoint* zeroPointPtr;
-		cellPtr bondTo;
-		std::vector<cellPtr> neighbours;
-		std::vector<vertexPtr> myVertices;
-		std::vector<int> myZeroPoints;
+		struct cell
+		{
+			int visitedAs;
+			PDCoord position;
+			PDFloat r;
+			PDFloat r2;
+			typedef zeroPoint* zeroPointPtr;
+			cellPtr bondTo;
+			std::vector<cellPtr> neighbours;
+			std::vector<vertexPtr> myVertices;
+			CellId bondToId;
+			std::vector<CellId> neighboursIds;
+			std::vector<VertexId> myVerticesIds;
+			std::vector<int> myZeroPoints;
 
-		inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power,const cellPtr bond):visitedAs(0),position(pos),r(root),r2(power),bondTo(bond)
-		{
-			myVertices.reserve(12);
-		}
-		inline cell(PDCoord const& pos,const PDFloat& str,const cellPtr bond):visitedAs(0),position(pos),r(str),r2(str*str),bondTo(bond)
-		{
-			myVertices.reserve(12);
-		}
+			inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power,const cellPtr bond):visitedAs(0),position(pos),r(root),r2(power),bondTo(bond),bondToId(kInvalidId)
+			{
+				myVertices.reserve(12);
+				myVerticesIds.reserve(12);
+			}
+			inline cell(PDCoord const& pos,const PDFloat& str,const cellPtr bond):visitedAs(0),position(pos),r(str),r2(str*str),bondTo(bond),bondToId(kInvalidId)
+			{
+				myVertices.reserve(12);
+				myVerticesIds.reserve(12);
+			}
 		inline PDFloat power(const PDCoord& coord) const
 		{
 			// Power distance to this weighted site.
@@ -247,6 +252,81 @@ public :
 	inline VertexId get_vertex_id(const vertex& my_vertex) const
 	{
 		return static_cast<VertexId>(&my_vertex - &vertices[0]);
+	}
+	inline CellId cell_id_or_invalid(const cellPtr ptr) const
+	{
+		if (ptr == NULL || points.empty()) return kInvalidId;
+		const cell* const first = points.data();
+		const cell* const last = first + points.size();
+		if (ptr < first || ptr >= last) return kInvalidId;
+		return static_cast<CellId>(ptr - first);
+	}
+	inline VertexId vertex_id_or_invalid(const vertexPtr ptr) const
+	{
+		if (ptr == NULL || vertices.empty()) return kInvalidId;
+		const vertex* const first = vertices.data();
+		const vertex* const last = first + vertices.size();
+		if (ptr < first || ptr >= last) return kInvalidId;
+		return static_cast<VertexId>(ptr - first);
+	}
+	inline GeneratorRef generator_ref_or_invalid(const cellPtr ptr) const
+	{
+		if (ptr == NULL) return GeneratorRef();
+		if (!points.empty())
+		{
+			const cell* const pfirst = points.data();
+			const cell* const plast = pfirst + points.size();
+			if (ptr >= pfirst && ptr < plast)
+			{
+				return GeneratorRef(GeneratorKind::point, static_cast<std::size_t>(ptr - pfirst));
+			}
+		}
+		if (!sideGenerators.empty())
+		{
+			const cell* const sfirst = sideGenerators.data();
+			const cell* const slast = sfirst + sideGenerators.size();
+			if (ptr >= sfirst && ptr < slast)
+			{
+				return GeneratorRef(GeneratorKind::side, static_cast<std::size_t>(ptr - sfirst));
+			}
+		}
+		return GeneratorRef();
+	}
+	inline void sync_cell_link_mirrors(cell& a_cell) const
+	{
+		a_cell.bondToId = cell_id_or_invalid(a_cell.bondTo);
+		a_cell.neighboursIds.resize(a_cell.neighbours.size(), kInvalidId);
+		for (std::size_t i = 0; i < a_cell.neighbours.size(); ++i)
+		{
+			a_cell.neighboursIds[i] = cell_id_or_invalid(a_cell.neighbours[i]);
+		}
+		a_cell.myVerticesIds.resize(a_cell.myVertices.size(), kInvalidId);
+		for (std::size_t i = 0; i < a_cell.myVertices.size(); ++i)
+		{
+			a_cell.myVerticesIds[i] = vertex_id_or_invalid(a_cell.myVertices[i]);
+		}
+	}
+	inline void sync_vertex_link_mirrors(vertex& a_vertex) const
+	{
+		for (int g = 0; g <= dimension; ++g)
+		{
+			a_vertex.generatorRefs[g] = generator_ref_or_invalid(a_vertex.generators[g]);
+			a_vertex.endPointIds[g] = vertex_id_or_invalid(a_vertex.endPoints[g]);
+		}
+	}
+	inline void sync_zero_link_mirrors(zeroPoint& a_zero) const
+	{
+		a_zero.fromId = vertex_id_or_invalid(a_zero.from);
+		for (int g = 0; g < dimension; ++g)
+		{
+			a_zero.generatorRefs[g] = generator_ref_or_invalid(a_zero.generators[g]);
+		}
+	}
+	inline void sync_all_link_mirrors()
+	{
+		for (cell& a_cell : points) sync_cell_link_mirrors(a_cell);
+		for (unsigned int vi = 0; vi < _nVertices; ++vi) sync_vertex_link_mirrors(vertices[vi]);
+		for (zeroPoint& a_zero : zeros) sync_zero_link_mirrors(a_zero);
 	}
 	inline zeroPoint const& get_zero(const ZeroId n) const { return zeros[n]; }
 	inline zeroPoint& get_zero(const ZeroId n) { return zeros[n]; }
@@ -348,11 +428,12 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			FillAllMyVertices();
 		if(params.fill_neighbours)
 			FillAllNeighbours();
-		if(params.fill_zeroPoints)
-			FillAllZeroPoints();
+			if(params.fill_zeroPoints)
+				FillAllZeroPoints();
+			sync_all_link_mirrors();
 
 
-	}
+		}
 	const std::vector<cell >& getPoints()const {return points;}
 
 		void revert()
@@ -410,9 +491,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			}
 		nRevertPoints=0;
 		nRevertVertices=0;
-		for(int c=0;c<(1<<dimension);c++)
-			cornerOwners[c]=0;
-	}
+			for(int c=0;c<(1<<dimension);c++)
+				cornerOwners[c]=0;
+			sync_all_link_mirrors();
+		}
 	template <class Pos_iterator, class Strength_iterator>
 	inline void recalculate(const Pos_iterator pos_it,const Strength_iterator strength_it,const unsigned int size)
 	//does standard deletion and calculation of Vertices, neighbour information, ...
@@ -471,9 +553,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			FillAllMyVertices();
 		if(params.fill_neighbours)
 			FillAllNeighbours();
-		if(params.fill_zeroPoints)
-			FillAllZeroPoints();
-	}
+			if(params.fill_zeroPoints)
+				FillAllZeroPoints();
+			sync_all_link_mirrors();
+		}
 
 
 	template <class Pos_iterator, class Strength_iterator>
@@ -575,9 +658,10 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			FillAllMyVertices(nRevertPoints,nRevertVertices);
 		if(params.fill_neighbours)
 			FillAllNeighboursOfInvolved();
-		if(params.fill_zeroPoints)
-			FillAllZeroPoints(nRevertVertices,nRevertZeros);
-	}
+			if(params.fill_zeroPoints)
+				FillAllZeroPoints(nRevertVertices,nRevertZeros);
+			sync_all_link_mirrors();
+		}
 
 	void addMore(const PDCoord& pos,const PDFloat& radius,const int near)
 	{
@@ -1548,17 +1632,19 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 
 
 
-struct zeroPoint
-{
-	PDFloat pos;
-	vertexPtr from;
-	int branch;
-	std::array<cellPtr,dimension> generators;
-
-	zeroPoint(const cellPtr& a,const cellPtr& b,const cellPtr& c,const PDFloat& position,const vertexPtr& origin,const int& way):
-		pos(position),from(origin),branch(way)
+	struct zeroPoint
 	{
-		generators[0]=a;
+		PDFloat pos;
+		vertexPtr from;
+		VertexId fromId;
+		int branch;
+		std::array<cellPtr,dimension> generators;
+		std::array<GeneratorRef,dimension> generatorRefs;
+
+		zeroPoint(const cellPtr& a,const cellPtr& b,const cellPtr& c,const PDFloat& position,const vertexPtr& origin,const int& way):
+			pos(position),from(origin),fromId(kInvalidId),branch(way)
+		{
+			generators[0]=a;
 //		generators[0]->myZeroPoints.push_back(this);
 		generators[1]=b;
 //		generators[1]->myZeroPoints.push_back(this);
@@ -1573,14 +1659,16 @@ struct zeroPoint
 	}
 	bool isValid()const{return ((!from->invalid)&&(!from->endPoints[branch]->invalid));}
 };
-struct vertex
-{
-	PDFloat rrv;//relative replace value (power difference)
-	bool invalid;
-	std::array<cellPtr,dimension+1> generators;
-	PDCoord position;
-	PDFloat powerValue;
-	std::array <vertexPtr,dimension+1> endPoints;
+	struct vertex
+	{
+		PDFloat rrv;//relative replace value (power difference)
+		bool invalid;
+		std::array<cellPtr,dimension+1> generators;
+		std::array<GeneratorRef,dimension+1> generatorRefs;
+		PDCoord position;
+		PDFloat powerValue;
+		std::array <vertexPtr,dimension+1> endPoints;
+		std::array<VertexId,dimension+1> endPointIds;
 
 
 	friend class PowerDiagram <PDFloat, PDCoord,dimension>;
@@ -1600,7 +1688,10 @@ struct vertex
 	inline int isConnected()const{return !invalid;}
 
 	//  vertex(const vertex& copy);
-	inline vertex():invalid(1)/*,generators(dimension+1,NULL),endPoints(dimension+1,NULL)*/ { }
+		inline vertex():invalid(1)/*,generators(dimension+1,NULL),endPoints(dimension+1,NULL)*/
+		{
+			for (int g = 0; g <= dimension; ++g) endPointIds[g] = kInvalidId;
+		}
 
 		inline bool Init(const const_vertexPtr& This,const int& keep,const PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
@@ -1631,15 +1722,17 @@ inline PDCoord getPowerPointOnLine2(vertex const* const& persist)const
 	return ((rrv)/((rrv)-(persist->rrv)))*(persist->position-position)+position;
 }
 
-	void operator=(const vertex& that)
-	{
-		generators=that.generators;
-		position=that.position;
-		powerValue=that.powerValue;
-		endPoints=that.endPoints;
-		invalid=that.invalid;
-		rrv=that.rrv;
-	}
+		void operator=(const vertex& that)
+		{
+			generators=that.generators;
+			generatorRefs=that.generatorRefs;
+			position=that.position;
+			powerValue=that.powerValue;
+			endPoints=that.endPoints;
+			endPointIds=that.endPointIds;
+			invalid=that.invalid;
+			rrv=that.rrv;
+		}
 private :
 	inline void setPowerData(const const_cellPtr& aCell)
 	{
