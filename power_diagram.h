@@ -231,7 +231,11 @@ public :
 		inline bool isReal(const PowerDiagram<PDFloat,PDCoord,dimension>& This)
 		{
 			// Distinguish true input sites from temporary cube side generators.
-			return (this>=&This.getPoints()[0]&&this<&This.getPoints()[This.getPoints().size()]);
+			const std::vector<cell>& pts = This.getPoints();
+			if(pts.empty()) return false;
+			const cell* const first = pts.data();
+			const cell* const last = first + pts.size();
+			return (this>=first&&this<last);
 		}
 	private:
 
