@@ -255,7 +255,7 @@ public :
 	}
 	inline CellId cell_id_or_invalid(const cellPtr ptr) const
 	{
-		if (ptr == NULL || points.empty()) return kInvalidId;
+		if (ptr == nullptr || points.empty()) return kInvalidId;
 		const cell* const first = points.data();
 		const cell* const last = first + points.size();
 		if (ptr < first || ptr >= last) return kInvalidId;
@@ -263,7 +263,7 @@ public :
 	}
 	inline CellId cell_id_or_invalid(const const_cellPtr ptr) const
 	{
-		if (ptr == NULL || points.empty()) return kInvalidId;
+		if (ptr == nullptr || points.empty()) return kInvalidId;
 		const cell* const first = points.data();
 		const cell* const last = first + points.size();
 		if (ptr < first || ptr >= last) return kInvalidId;
@@ -271,7 +271,7 @@ public :
 	}
 	inline VertexId vertex_id_or_invalid(const vertexPtr ptr) const
 	{
-		if (ptr == NULL || vertices.empty()) return kInvalidId;
+		if (ptr == nullptr || vertices.empty()) return kInvalidId;
 		const vertex* const first = vertices.data();
 		const vertex* const last = first + vertices.size();
 		if (ptr < first || ptr >= last) return kInvalidId;
@@ -279,7 +279,7 @@ public :
 	}
 	inline VertexId vertex_id_or_invalid(const const_vertexPtr ptr) const
 	{
-		if (ptr == NULL || vertices.empty()) return kInvalidId;
+		if (ptr == nullptr || vertices.empty()) return kInvalidId;
 		const vertex* const first = vertices.data();
 		const vertex* const last = first + vertices.size();
 		if (ptr < first || ptr >= last) return kInvalidId;
@@ -287,7 +287,7 @@ public :
 	}
 	inline GeneratorRef generator_ref_or_invalid(const cellPtr ptr) const
 	{
-		if (ptr == NULL) return GeneratorRef();
+		if (ptr == nullptr) return GeneratorRef();
 		if (!points.empty())
 		{
 			const cell* const pfirst = points.data();
@@ -346,22 +346,22 @@ public :
 	}
 	inline cellPtr cell_ptr_from_id(const CellId id)
 	{
-		return (id == kInvalidId || id >= points.size()) ? NULL : &points[id];
+		return (id == kInvalidId || id >= points.size()) ? nullptr : &points[id];
 	}
 	inline const_cellPtr cell_ptr_from_id_const(const CellId id) const
 	{
-		return (id == kInvalidId || id >= points.size()) ? NULL : &points[id];
+		return (id == kInvalidId || id >= points.size()) ? nullptr : &points[id];
 	}
 	inline const_cellPtr cell_ptr_from_ref_const(const GeneratorRef& ref) const
 	{
-		if (!ref.is_valid()) return NULL;
+		if (!ref.is_valid()) return nullptr;
 		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
 		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
-		return NULL;
+		return nullptr;
 	}
 	inline vertexPtr vertex_ptr_from_id(const VertexId id)
 	{
-		return (id == kInvalidId || id >= vertices.size()) ? NULL : &vertices[id];
+		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertices[id];
 	}
 	inline void set_bond_to(cell& a_cell, const cellPtr ptr)
 	{
