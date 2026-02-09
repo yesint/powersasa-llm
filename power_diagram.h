@@ -708,6 +708,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			nRevertPoints=points.size();
 			std::vector<CellId> old_bond_ids(nRevertPoints, kInvalidId);
 			std::vector<std::vector<CellId> > old_neighbour_ids(nRevertPoints);
+			std::vector<std::array<GeneratorRef,dimension+1> > old_vertex_generator_refs(_nVertices);
 			for(std::size_t i=0;i<nRevertPoints;++i)
 			{
 				old_bond_ids[i] = (points[i].bondToId != kInvalidId) ? points[i].bondToId : cell_id_or_invalid(points[i].bondTo);
@@ -719,6 +720,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 						: cell_id_or_invalid(points[i].neighbours[j]);
 				}
 			}
+			for(unsigned int vi=0;vi<_nVertices;++vi)
+				for(int g=0;g<=dimension;++g)
+					old_vertex_generator_refs[vi][g] = vertices[vi].generatorRefs[g].is_valid()
+						? vertices[vi].generatorRefs[g]
+						: generator_ref_or_invalid(vertices[vi].generators[g]);
 			for(int c=0;c<(1<<dimension);c++)
 			{
 				const CellId owner_id = cell_id_or_invalid(vertices[c].generators[0]);
@@ -790,7 +796,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							for(unsigned int vi=0;vi<_nVertices;++vi)
 								for(int g=0;g<=dimension;++g)
 								{
-									const GeneratorRef& ref = vertices[vi].generatorRefs[g];
+									const GeneratorRef& ref = old_vertex_generator_refs[vi][g];
 									if(ref.is_valid())
 									{
 										if(ref.kind == GeneratorKind::point && ref.index < points.size())
@@ -804,9 +810,6 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 											continue;
 										}
 									}
-									cellPtr& generator = vertices[vi].generators[g];
-									if(generator>=oldstorage&&generator<=oldstorage+nRevertPoints)
-										generator=generator-oldstorage+points.data();
 								}
 
 							for(typename std::vector< cell >::iterator it=points.begin();it!=points.begin()+nRevertPoints;++it)
