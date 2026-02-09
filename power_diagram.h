@@ -2238,8 +2238,8 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 				this->setPowerData(involved_front);
 
 			for(int g=dimension;g>0;g--)
-				generators[g]=This->generators[g-(g<=keep)];
-			generators[0]=involved_front;
+				owner.set_vertex_generator(*this, g, This->generators[g-(g<=keep)]);
+			owner.set_vertex_generator(*this, 0, involved_front);
 			owner.push_cell_my_vertex(*involved_front, this);
 			endPoints[0]->fastWhichis(This)=this;
 
