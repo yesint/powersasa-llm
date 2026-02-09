@@ -1458,12 +1458,19 @@ private:
 			point.visitedAs=0;
 	}
 
-		void FillAllNeighboursOfInvolved()
-		{
-			// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
-			sort(Involved.begin(),Involved.end());
-			for(cellPtr involved_cell : Involved)
+			void FillAllNeighboursOfInvolved()
 			{
+				// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
+				sort(Involved.begin(),Involved.end(),
+					[this](const cellPtr a, const cellPtr b)
+					{
+						const CellId a_id = cell_id_or_invalid(a);
+						const CellId b_id = cell_id_or_invalid(b);
+						if(a_id != kInvalidId && b_id != kInvalidId) return a_id < b_id;
+						return a < b;
+					});
+				for(cellPtr involved_cell : Involved)
+				{
 				std::size_t neighbour_idx=0;
 					while(neighbour_idx<involved_cell->neighbours.size())
 					{
