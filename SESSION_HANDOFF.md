@@ -2,7 +2,7 @@
 
 ## Session Snapshot
 - Branch: `main`
-- HEAD: `1279a5a`
+- HEAD: `4245462`
 - Regression gate: pass (`build/make` then `build/./sasatest`)
 - Working tree: clean
 
@@ -30,6 +30,10 @@ If `./sasatest` exits non-zero, treat as regression.
 - Added/kept synchronization helpers for mirrored pointer/ID links.
 
 ## Recent Commit Log (latest first)
+- `4245462` Simplify virtual-generator count branch
+- `cf4632b` Use involved IDs in neighbour refresh passes
+- `382a1d7` Use involved IDs first in representative reassignment
+- `d8c1645` Use size_t loops in reserve rebind and drop dead check
 - `1279a5a` Use zero-point refs directly for point ownership
 - `186825f` Construct zero-points with explicit refs and source IDs
 - `d864aca` Centralize zero-point creation with mirrored refs
@@ -92,6 +96,9 @@ If `./sasatest` exits non-zero, treat as regression.
   - update endpoint pointers immediately
   - defer endpoint ID write (`kInvalidId`) until later synchronization/rebuild
 - This is already applied in reconnect block via `set_vertex_endpoint_deferred(...)`.
+- `SetInvolvedPersistingVisitedToZero()` must still reset `visitedAs` through `involved_ptr_at(...)`:
+  - replacing that loop with point-ID-only iteration caused runtime segfault (`EXIT:139`)
+  - indicates non-point involved refs participate in transient visited-state cleanup
 
 ## Plan For Next Session
 
