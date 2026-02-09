@@ -2229,11 +2229,17 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 	inline void disconnect(){invalid=1;}
 	inline int isConnected()const{return !invalid;}
 
-	//  vertex(const vertex& copy);
-		inline vertex():invalid(1)/*,generators(dimension+1,nullptr),endPoints(dimension+1,nullptr)*/
-		{
-			for (int g = 0; g <= dimension; ++g) endPointIds[g] = kInvalidId;
-		}
+		//  vertex(const vertex& copy);
+			inline vertex():invalid(1)/*,generators(dimension+1,nullptr),endPoints(dimension+1,nullptr)*/
+			{
+				for (int g = 0; g <= dimension; ++g)
+				{
+					endPoints[g] = nullptr;
+					endPointIds[g] = kInvalidId;
+					generators[g] = nullptr;
+					generatorRefs[g] = GeneratorRef();
+				}
+			}
 
 			inline bool Init(const const_vertexPtr& This,const int& keep,PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
@@ -2282,15 +2288,17 @@ private :
 	{
 		powerValue=(aCell->position-position).squaredNorm()-aCell->r2;
 	}
-	inline void setTo(const PDCoord pos)
-	{
-		position=pos;
-		for(int g=dimension;g>=0;g--)
+		inline void setTo(const PDCoord pos)
 		{
-			endPoints[g]=nullptr;
-			generators[g]=nullptr;
+			position=pos;
+			for(int g=dimension;g>=0;g--)
+			{
+				endPoints[g]=nullptr;
+				endPointIds[g]=kInvalidId;
+				generators[g]=nullptr;
+				generatorRefs[g]=GeneratorRef();
+			}
 		}
-	}
 
 	inline	PDFloat powerdiff3D(const_cellPtr const& aCell,const_cellPtr const& bCell)const
 	{
