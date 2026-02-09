@@ -1773,20 +1773,19 @@ private:
 		if(Involved.size()*Involved.size()>planes.size())
 			planes.resize(Involved.size()*Involved.size());
 
-		for(typename std::vector<vertex >::iterator it=vertices.begin();it!=vertices.begin()+(1<<dimension);++it)
+			for(unsigned int vertex_idx=0;vertex_idx<(1u<<dimension);++vertex_idx)
+				if(vertices[vertex_idx].rrv>0)
+				{
+					vertices[vertex_idx].setPowerData(Involved.front());
+					vertices[vertex_idx].generators[0]=(Involved.front());
+				}
 
-			if(it->rrv>0)
-			{
-				it->setPowerData(Involved.front());
-				it->generators[0]=(Involved.front());
+
+			for(const vertexPtr involved_vertex : Involved.front()->myVertices)
+			//if(!(*it)->isCorner())
+			{	
+				involved_vertex->registerForConnection3D(this);
 			}
-
-
-		for(typename std::vector<vertexPtr>::const_iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
-		//if(!(*it)->isCorner())
-		{	
-			(*it)->registerForConnection3D(this);
-		}
 
 	}
 
@@ -1831,10 +1830,11 @@ private:
 							involved_prefix = point_idx;
 							break;
 						}
-				for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+involved_prefix;++it)
+				for(std::size_t point_idx=0;point_idx<involved_prefix;++point_idx)
 				{
-					if(!it->myVerticesIds.empty()) _first.push_back(static_cast<int>(it->myVerticesIds.front()));
-					else _first.push_back(static_cast<int>(get_vertex_id(*it->myVertices.front())));
+					const cell& point = points[point_idx];
+					if(!point.myVerticesIds.empty()) _first.push_back(static_cast<int>(point.myVerticesIds.front()));
+					else _first.push_back(static_cast<int>(get_vertex_id(*point.myVertices.front())));
 				}
 
 		vertices.reserve(2*vertices.capacity()+1);
