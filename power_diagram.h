@@ -1478,37 +1478,43 @@ private:
 			}
 			for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
 			{
+				int current_cell_order = 0;
+				const CellId current_cell_id = cell_id_or_invalid(*it);
+				if(current_cell_id != kInvalidId)
+					current_cell_order = static_cast<int>(current_cell_id);
+				else
+					current_cell_order = static_cast<int>((*it)-&points.front());
 				if(!(*it)->myVerticesIds.empty())
 				{
 					for(const VertexId vid : (*it)->myVerticesIds)
 					{
 						vertexPtr vtx = vertex_ptr_from_id(vid);
 						if(vtx == NULL) continue;
-						for(int g=dimension;g>=0;g--)
-							if(vtx->generators[g]->isReal(*this))
-							{
-								if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=(*it)-&points.front()&&vtx->generators[g]!=(*it))
+							for(int g=dimension;g>=0;g--)
+								if(vtx->generators[g]->isReal(*this))
 								{
-									push_cell_neighbour(*(*it), vtx->generators[g]);
-									vtx->generators[g]->visitedAs=(*it)-&points.front()+1;
+									if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=(*it))
+									{
+										push_cell_neighbour(*(*it), vtx->generators[g]);
+										vtx->generators[g]->visitedAs=current_cell_order+1;
+									}
 								}
-							}
-					}
+						}
 				}
 				else
 				{
 					for(typename std::vector<vertexPtr>::const_iterator it2=(*it)->myVertices.begin();it2!=(*it)->myVertices.end();++it2)
 					{
-						for(int g=dimension;g>=0;g--)
-							if((*it2)->generators[g]->isReal(*this))
-							{
-									if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=(*it)-&points.front()&&(*it2)->generators[g]!=(*it))
-									{
-										push_cell_neighbour(*(*it), (*it2)->generators[g]);
-										(*it2)->generators[g]->visitedAs=(*it)-&points.front()+1;
-									}
-							}
-					}
+							for(int g=dimension;g>=0;g--)
+								if((*it2)->generators[g]->isReal(*this))
+								{
+										if((*it2)->generators[g]->visitedAs!=0&&(*it2)->generators[g]->visitedAs<=current_cell_order&&(*it2)->generators[g]!=(*it))
+										{
+											push_cell_neighbour(*(*it), (*it2)->generators[g]);
+											(*it2)->generators[g]->visitedAs=current_cell_order+1;
+										}
+								}
+						}
 				}
 			}
 
