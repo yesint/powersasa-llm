@@ -1062,23 +1062,25 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							done++;
 							if(done>100)
 								throw MyException();
+							cellPtr involved_front = involved_front_ptr();
+							if(involved_front == nullptr) throw MyException();
 							//is this an Identical point problem?
 								{
-									PDFloat mindist=(Involved[1]->position-Involved.front()->position).squaredNorm();
+									PDFloat mindist=(Involved[1]->position-involved_front->position).squaredNorm();
 									cellPtr closest=Involved[1];
 									for(std::size_t involved_idx=2;involved_idx<Involved.size();++involved_idx)
-										if((Involved[involved_idx]->position-Involved.front()->position).squaredNorm()<mindist)
+										if((Involved[involved_idx]->position-involved_front->position).squaredNorm()<mindist)
 										{
-											mindist=(Involved[involved_idx]->position-Involved.front()->position).squaredNorm();
+											mindist=(Involved[involved_idx]->position-involved_front->position).squaredNorm();
 											closest=Involved[involved_idx];
 										}
-										if(error(Involved.front()->r)>sqrt(mindist))
+										if(error(involved_front->r)>sqrt(mindist))
 										{
 										identicalPoint=closest;
 										if(params.with_warnings)
 										{
 											std::cout<<"numerical similar point to "<<get_cell_id(*closest)+1<<" found. ";
-											std::cout<<get_cell_id(*Involved.front())+1<<" is ignored"<<std::endl;
+											std::cout<<get_cell_id(*involved_front)+1<<" is ignored"<<std::endl;
 										}
 									}
 							}
@@ -1086,8 +1088,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								if(_nUnused==0)
 								{
 									//here comes the deletion ;)
-									_nVertices-=Involved.front()->myVertices.size()-unused.size()+_nUnused;
-									for(vertexPtr involved_vertex : Involved.front()->myVertices)
+									_nVertices-=involved_front->myVertices.size()-unused.size()+_nUnused;
+									for(vertexPtr involved_vertex : involved_front->myVertices)
 										if(get_vertex_id(*involved_vertex)<(1<<dimension))
 										{
 											_nVertices++;
@@ -1132,7 +1134,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 								//set everything zero again
 								SetInvolvedPersistingVisitedToZero();
-								clear_cell_my_vertices(*Involved.front());
+								clear_cell_my_vertices(*involved_front);
 							 	for(vertexPtr replaced_vertex : Replaced)
 								{
 				  					replaced_vertex->rrv=0;
@@ -1142,19 +1144,19 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							clear_replaced();
 							if(identicalPoint!=nullptr)
 							{	
-								push_cell_my_vertex(*Involved.front(), identicalPoint->myVertices.front());
+								push_cell_my_vertex(*involved_front, identicalPoint->myVertices.front());
 								break;
 							}
 								else
 								{
-									const PDFloat oldr2=Involved.front()->r2;
+									const PDFloat oldr2=involved_front->r2;
 									if(params.with_warnings)
-										std::cout<<" Numerical Zero Warning: Power of "<<get_cell_id(*Involved.front())+1<<" is reduced from "<<Involved.front()->r2;
-									Involved.front()->r2-=pow(2.0,done)*(errorScale);
-								if(Involved.front()->r2>=0)	Involved.front()->r= sqrt(Involved.front()->r2);
-								else 		Involved.front()->r=-sqrt(-Involved.front()->r2);
+										std::cout<<" Numerical Zero Warning: Power of "<<get_cell_id(*involved_front)+1<<" is reduced from "<<involved_front->r2;
+									involved_front->r2-=pow(2.0,done)*(errorScale);
+								if(involved_front->r2>=0)	involved_front->r= sqrt(involved_front->r2);
+								else 		involved_front->r=-sqrt(-involved_front->r2);
 								if(params.with_warnings)
-									std::cout<<" to "<<Involved.front()->r2<<" ( Change was "<<Involved.front()->r2-oldr2<<" )"<<std::endl;
+									std::cout<<" to "<<involved_front->r2<<" ( Change was "<<involved_front->r2-oldr2<<" )"<<std::endl;
 							}
 
 
@@ -1479,9 +1481,11 @@ private:
 				if(FillReplacedPersistingAndInvolved(This,hint))
 					break;
 
-				const PDFloat oldr2=Involved.front()->r2;
+				cellPtr involved_front = involved_front_ptr();
+				if(involved_front == nullptr) throw MyException();
+				const PDFloat oldr2=involved_front->r2;
 					if(params.with_warnings)
-						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*Involved.front())+1<<" is reduced from "<<Involved.front()->r2;
+						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*involved_front)+1<<" is reduced from "<<involved_front->r2;
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
 						for(const vertexPtr replaced_vertex : Replaced)
@@ -1495,9 +1499,9 @@ private:
 				if(This.r2>0)	This.r= sqrt(This.r2);
 				else 		This.r=-sqrt(-This.r2);
 				if(params.with_warnings)
-					std::cout<<" to "<<Involved.front()->r2<<" ( Change was "<<Involved.front()->r2-oldr2<<" )"<<std::endl;
+					std::cout<<" to "<<involved_front->r2<<" ( Change was "<<involved_front->r2-oldr2<<" )"<<std::endl;
 				done++;
-				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<get_cell_id(*Involved.front())<<" "<<Involved.front()->position+center<<std::endl;
+				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<get_cell_id(*involved_front)<<" "<<involved_front->position+center<<std::endl;
 					throw MyException();}
 			}
 			return hint;
@@ -2228,12 +2232,14 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 			inline bool Init(const const_vertexPtr& This,const int& keep,PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
 			// Initialize a newly created finite vertex generated by cutting one edge.
-				this->setPowerData(owner.Involved.front());
+				cellPtr involved_front = owner.involved_front_ptr();
+				if(involved_front == nullptr) return false;
+				this->setPowerData(involved_front);
 
 			for(int g=dimension;g>0;g--)
 				generators[g]=This->generators[g-(g<=keep)];
-			generators[0]=owner.Involved.front();
-			owner.push_cell_my_vertex(*owner.Involved.front(), this);
+			generators[0]=involved_front;
+			owner.push_cell_my_vertex(*involved_front, this);
 			endPoints[0]->fastWhichis(This)=this;
 
 			if(owner.within_power_err(powerValue))
@@ -2349,7 +2355,9 @@ private :
 				for(int g=0;g<=dimension;++g)
 					if(this->generators[g]->visitedAs==0)
 						owner.AddToInvolved(*this->generators[g]);
-				owner.push_cell_my_vertex(*owner.Involved.front(), this);//although replaced it will be part of the new cell!its a corner!
+				cellPtr involved_front = owner.involved_front_ptr();
+				if(involved_front != nullptr)
+					owner.push_cell_my_vertex(*involved_front, this);//although replaced it will be part of the new cell!its a corner!
 
 
 			for(int g=dimension;g>0;--g)
@@ -2386,8 +2394,10 @@ private :
 
 		bool finiteReplaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
+			cellPtr involved_front = owner.involved_front_ptr();
+			if(involved_front == nullptr) return false;
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
-				owner.finiteReplaced(*this,owner.Involved.front());
+				owner.finiteReplaced(*this,involved_front);
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::ambiguous)
 				return false;
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::replaced)
@@ -2396,8 +2406,10 @@ private :
 		}
 		bool cornerReplaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
+			cellPtr involved_front = owner.involved_front_ptr();
+			if(involved_front == nullptr) return false;
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
-				owner.finiteReplaced(*this,owner.Involved.front());
+				owner.finiteReplaced(*this,involved_front);
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::ambiguous)
 				return false;
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::replaced)
