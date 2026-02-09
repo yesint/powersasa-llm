@@ -1707,19 +1707,30 @@ private:
 		std::vector<int> _currentmyVertices;
 		std::vector<int> _first;
 		const_vertexPtr const oldMemoryPointer=&vertices.front();
-		_replaced.reserve(Replaced.size());
-		_unused.reserve(unused.size());
-		_currentmyVertices.reserve(Involved.front()->myVertices.size());
-		_first.reserve(vertices.capacity());
+			_replaced.reserve(Replaced.size());
+			_unused.reserve(unused.size());
+			_currentmyVertices.reserve(Involved.front()->myVertices.size());
+			_first.reserve(vertices.capacity());
 
 		for(const vertexPtr replaced_vertex : Replaced)
 			_replaced.push_back(replaced_vertex-&vertices.front());
 		for(const vertexPtr unused_vertex : unused)
 			_unused.push_back(unused_vertex-&vertices.front());
-		for(const vertexPtr current_vertex : Involved.front()->myVertices)
-			_currentmyVertices.push_back(current_vertex-&vertices.front());
-		for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+(Involved.front()-&points.front());++it)
-			_first.push_back(it->myVertices.front()-&vertices.front());
+			if(!Involved.front()->myVerticesIds.empty())
+			{
+				for(const VertexId vid : Involved.front()->myVerticesIds)
+					_currentmyVertices.push_back(static_cast<int>(vid));
+			}
+			else
+			{
+				for(const vertexPtr current_vertex : Involved.front()->myVertices)
+					_currentmyVertices.push_back(current_vertex-&vertices.front());
+			}
+			for(typename std::vector<cell >::const_iterator it=points.begin();it!=points.begin()+(Involved.front()-&points.front());++it)
+			{
+				if(!it->myVerticesIds.empty()) _first.push_back(static_cast<int>(it->myVerticesIds.front()));
+				else _first.push_back(it->myVertices.front()-&vertices.front());
+			}
 
 		vertices.reserve(2*vertices.capacity()+1);
 
@@ -1732,7 +1743,7 @@ private:
 		for(unsigned int i=0;i<unused.size();i++)
 			unused[i]=&vertices.front()+_unused[i];
 			for(unsigned int i=0;i<Involved.front()->myVertices.size();i++)
-				Involved.front()->myVertices[i]=&vertices.front()+_currentmyVertices[i];
+				set_cell_my_vertex(*Involved.front(), i, &vertices.front()+_currentmyVertices[i]);
 			for(int i=0;i<Involved.front()-&points.front();i++)
 				set_cell_my_vertex(points[i], 0, &vertices.front()+_first[i]);
 
@@ -1794,24 +1805,44 @@ private:
 
 	}
 
-	void SetInvolvedPersistingVisitedToZero() 
-	{
-		// Clear temporary rrv/visited marks used during local insertion traversal.
-		for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
-			(*it)->visitedAs=0;
-		for(typename std::vector<vertexPtr>::const_iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
+		void SetInvolvedPersistingVisitedToZero() 
 		{
-			(*it)->rrv=0;
-			if(!(*it)->isCorner())
-				(*it)->endPoints[0]->rrv=0;
+			// Clear temporary rrv/visited marks used during local insertion traversal.
+			for(typename std::vector<cellPtr>::const_iterator it=Involved.begin()+1;it!=Involved.end();++it)
+				(*it)->visitedAs=0;
+			if(!Involved.front()->myVerticesIds.empty())
+			{
+				for(const VertexId vid : Involved.front()->myVerticesIds)
+				{
+					vertexPtr vtx = vertex_ptr_from_id(vid);
+					if(vtx == NULL) continue;
+					vtx->rrv=0;
+					if(!vtx->isCorner())
+						vtx->endPoints[0]->rrv=0;
+					else
+					{
+						vtx->endPoints[1]->rrv=0;
+						vtx->endPoints[2]->rrv=0;
+						vtx->endPoints[3]->rrv=0;
+					}
+				}
+			}
 			else
 			{
-				(*it)->endPoints[1]->rrv=0;
-				(*it)->endPoints[2]->rrv=0;
-				(*it)->endPoints[3]->rrv=0;
+				for(typename std::vector<vertexPtr>::const_iterator it=Involved.front()->myVertices.begin();it!=Involved.front()->myVertices.end();++it)
+				{
+					(*it)->rrv=0;
+					if(!(*it)->isCorner())
+						(*it)->endPoints[0]->rrv=0;
+					else
+					{
+						(*it)->endPoints[1]->rrv=0;
+						(*it)->endPoints[2]->rrv=0;
+						(*it)->endPoints[3]->rrv=0;
+					}
+				}
 			}
 		}
-	}
 
 public:
 template <class VectorSubtraction>
