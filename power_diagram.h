@@ -137,12 +137,6 @@ struct PowerDiagramParams
 	}
 };
 
-template <class kind>
-struct twoOf
-{
-	kind a;
-	kind b;
-};
 
 
 template <class PDFloat, class PDCoord,const int dimension>
@@ -169,7 +163,6 @@ private:
 	std::vector< cell > points;
 	std::vector< vertex > vertices;//we use the plane space of a vector because of speed. never push_back or it will cause a realloc !!!
 	std::vector< zeroPoint> zeros;//this is a vector of all zero points, but maybe some are inactive (inactives do not appear in myZeros!)
-	std::vector<twoOf<int> > circlePairs3D;
 	std::vector< cell > sideGenerators;
 
 
