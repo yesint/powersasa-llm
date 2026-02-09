@@ -462,29 +462,10 @@ public :
 		ReplacedIds.clear();
 		validate_transient_mirror_invariants();
 	}
-	inline void sync_replaced_ids_from_ptrs()
-	{
-		ReplacedIds.resize(Replaced.size(), kInvalidId);
-		for(std::size_t i=0;i<Replaced.size();++i)
-			ReplacedIds[i] = vertex_id_or_invalid(Replaced[i]);
-		validate_transient_mirror_invariants();
-	}
-	inline void push_replaced(const vertexPtr ptr)
-	{
-		Replaced.push_back(ptr);
-		ReplacedIds.push_back(vertex_id_or_invalid(ptr));
-		validate_transient_mirror_invariants();
-	}
 	inline void push_replaced_id(const VertexId id)
 	{
 		ReplacedIds.push_back(id);
 		Replaced.push_back(vertex_ptr_from_id(id));
-		validate_transient_mirror_invariants();
-	}
-	inline void set_replaced(const std::size_t index, const vertexPtr ptr)
-	{
-		Replaced[index] = ptr;
-		ReplacedIds[index] = vertex_id_or_invalid(ptr);
 		validate_transient_mirror_invariants();
 	}
 	inline void set_replaced_id(const std::size_t index, const VertexId id)
@@ -498,10 +479,6 @@ public :
 		Replaced.pop_back();
 		ReplacedIds.pop_back();
 		validate_transient_mirror_invariants();
-	}
-	inline vertexPtr replaced_ptr_at(const std::size_t index)
-	{
-		return vertex_ptr_from_id(replaced_id_at(index));
 	}
 	inline VertexId replaced_id_at(const std::size_t index) const
 	{
@@ -2012,7 +1989,7 @@ private:
 
 			for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();++replaced_idx)
 			{
-				vertexPtr replaced_vertex = replaced_ptr_at(replaced_idx);
+				vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
 				if(replaced_vertex == nullptr) _replaced.push_back(-1);
 				else _replaced.push_back(static_cast<int>(get_vertex_id(*replaced_vertex)));
 			}
