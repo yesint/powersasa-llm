@@ -1985,9 +1985,9 @@ private:
 	{
 		// Grow vertex storage while preserving all pointer-based topology links.
 		std::vector<VertexId> _replaced;
-		std::vector<int> _unused;
-		std::vector<int> _currentmyVertices;
-		std::vector<int> _first;
+		std::vector<VertexId> _unused;
+		std::vector<VertexId> _currentmyVertices;
+		std::vector<VertexId> _first;
 		const_vertexPtr const oldMemoryPointer=vertices.data();
 			_replaced.reserve(ReplacedIds.size());
 			_unused.reserve(unused.size());
@@ -2000,12 +2000,12 @@ private:
 				_replaced.push_back(replaced_id);
 			}
 			for(const vertexPtr unused_vertex : unused)
-				_unused.push_back(static_cast<int>(get_vertex_id(*unused_vertex)));
+				_unused.push_back(get_vertex_id(*unused_vertex));
 				cellPtr involved_front = involved_front_ptr();
 				if(involved_front == nullptr) throw MyException();
 				_currentmyVertices.reserve(involved_front->myVerticesIds.size());
 				for(const VertexId vid : involved_front->myVerticesIds)
-					_currentmyVertices.push_back(static_cast<int>(vid));
+					_currentmyVertices.push_back(vid);
 				std::size_t involved_prefix = 0;
 				const CellId involved_front_id = cell_id_or_invalid(involved_front);
 				if(involved_front_id != kInvalidId) involved_prefix = involved_front_id;
@@ -2019,7 +2019,7 @@ private:
 				for(std::size_t point_idx=0;point_idx<involved_prefix;++point_idx)
 				{
 					const cell& point = points[point_idx];
-					_first.push_back(point.myVerticesIds.empty() ? -1 : static_cast<int>(point.myVerticesIds.front()));
+					_first.push_back(point.myVerticesIds.empty() ? kInvalidId : point.myVerticesIds.front());
 				}
 
 		vertices.reserve(2*vertices.capacity()+1);
@@ -2035,22 +2035,22 @@ private:
 			for(unsigned int i=0;i<unused.size();i++)
 			{
 				vertexPtr restored = nullptr;
-				if(_unused[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_unused[i]));
-				if(restored == nullptr) restored = vertices.data()+_unused[i];
+				if(_unused[i] != kInvalidId) restored = vertex_ptr_from_id(_unused[i]);
+				if(restored == nullptr && _unused[i] != kInvalidId) restored = vertices.data()+_unused[i];
 				unused[i]=restored;
 			}
 				for(unsigned int i=0;i<involved_front->myVerticesIds.size();i++)
 				{
 					vertexPtr restored = nullptr;
-					if(_currentmyVertices[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_currentmyVertices[i]));
-					if(restored == nullptr) restored = vertices.data()+_currentmyVertices[i];
+					if(_currentmyVertices[i] != kInvalidId) restored = vertex_ptr_from_id(_currentmyVertices[i]);
+					if(restored == nullptr && _currentmyVertices[i] != kInvalidId) restored = vertices.data()+_currentmyVertices[i];
 					set_cell_my_vertex(*involved_front, i, restored);
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
 					vertexPtr restored = nullptr;
-					if(_first[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_first[i]));
-					if(restored == nullptr && _first[i] >= 0) restored = vertices.data()+_first[i];
+					if(_first[i] != kInvalidId) restored = vertex_ptr_from_id(_first[i]);
+					if(restored == nullptr && _first[i] != kInvalidId) restored = vertices.data()+_first[i];
 					if(restored != nullptr) set_cell_my_vertex(points[i], 0, restored);
 				}
 
