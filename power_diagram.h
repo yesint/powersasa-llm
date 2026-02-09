@@ -1119,15 +1119,15 @@ private:
 	void FillAllNeighboursOfInvolved()
 	{
 		sort(Involved.begin(),Involved.end());
-		for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
+		for(cellPtr involved_cell : Involved)
 		{
-			for(typename std::vector<cellPtr>::iterator itn=(*it)->neighbours.begin();itn!=(*it)->neighbours.end();++itn)
+			std::size_t neighbour_idx=0;
+			while(neighbour_idx<involved_cell->neighbours.size())
 			{
-				if((*itn)->visitedAs==-1)
-				{
-					itn=(*it)->neighbours.erase(itn);
-					itn--;
-				}
+				if(involved_cell->neighbours[neighbour_idx]->visitedAs==-1)
+					involved_cell->neighbours.erase(involved_cell->neighbours.begin()+neighbour_idx);
+				else
+					++neighbour_idx;
 			}
 		}
 		for(typename std::vector<cellPtr>::iterator it=Involved.begin();it!=Involved.end();++it)
@@ -1380,36 +1380,38 @@ private:
 	{
 		unused.resize(_nUnused);
 		//mark replaced as unused
-		for(typename std::vector<vertexPtr>::iterator it=Replaced.begin();it!=Replaced.end();++it)
+		for(std::size_t replaced_idx=0;replaced_idx<Replaced.size();)
 		{
-			if((*it)->isCorner())
+			vertexPtr replaced_vertex=Replaced[replaced_idx];
+			if(replaced_vertex->isCorner())
 			{
-				(*it)->rrv=0;
+				replaced_vertex->rrv=0;
 				//Replaced.erase(it);--it;//the corners are always part of diagram	
-				*it=Replaced.back();
+				Replaced[replaced_idx]=Replaced.back();
 				Replaced.pop_back();
-				--it;
 			}
 			else
 			{
-				if((*it)-&vertices.front()<nRevertVertices)
-					Invalids.push_back(*it);
-				(*it)->disconnect();//vertex has no connection any more.  we delete it later
+				if(replaced_vertex-&vertices.front()<nRevertVertices)
+					Invalids.push_back(replaced_vertex);
+				replaced_vertex->disconnect();//vertex has no connection any more.  we delete it later
+				++replaced_idx;
 			}
 		}
 		if(nRevertVertices==0)
-			unused.insert(unused.end(), Replaced.begin(), Replaced.end());
+			for(vertexPtr replaced_vertex : Replaced)
+				unused.push_back(replaced_vertex);
 
 		else
-			for(typename std::vector<vertexPtr>::iterator it=Replaced.begin();it!=Replaced.end();++it)
-				if((*it)-&vertices[0]>=nRevertVertices)
-					unused.push_back(*it);
+			for(vertexPtr replaced_vertex : Replaced)
+				if(replaced_vertex-&vertices[0]>=nRevertVertices)
+					unused.push_back(replaced_vertex);
 				else
-					for(typename std::array<cellPtr,dimension+1>::const_iterator itg=(*it)->generators.begin();itg!=(*it)->generators.end();++itg)
-						for(unsigned int i=0;i<(*itg)->myVertices.size();i++)
-							if((*itg)->myVertices[i]==(*it))
+					for(const cellPtr generator : replaced_vertex->generators)
+						for(unsigned int i=0;i<generator->myVertices.size();i++)
+							if(generator->myVertices[i]==replaced_vertex)
 							{
-								(*itg)->myVertices.erase((*itg)->myVertices.begin()+i);
+								generator->myVertices.erase(generator->myVertices.begin()+i);
 								break;
 							}
 			_nUnused=unused.size();
