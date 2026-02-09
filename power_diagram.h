@@ -1497,15 +1497,12 @@ if(std::abs(checkconst)>0.001)
 				const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
 				if (ref_ptr == gptr)
 			{
-				dim_is_real = ref_is_real_point(ref);
+					dim_is_real = ref_is_real_point(ref);
+				}
 			}
+			if(dim_is_real) return 0;
+			return that->isCorner() ? 3 : 2;
 		}
-		if(!dim_is_real)
-			if(that->isCorner())
-				return 3;
-			else return 2;
-		else	return 0;
-	}
 	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=nullptr)
 	{
 		// Greedy neighbor walk to find the cell with minimal power at pos inside the current cube.
