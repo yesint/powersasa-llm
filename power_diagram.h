@@ -1984,7 +1984,7 @@ private:
 	void ReserveNewVertices()
 	{
 		// Grow vertex storage while preserving all pointer-based topology links.
-		std::vector<int> _replaced;
+		std::vector<VertexId> _replaced;
 		std::vector<int> _unused;
 		std::vector<int> _currentmyVertices;
 		std::vector<int> _first;
@@ -1997,7 +1997,7 @@ private:
 			{
 				const VertexId replaced_id = replaced_id_at(replaced_idx);
 				if(replaced_id == kInvalidId) throw MyException();
-				_replaced.push_back(static_cast<int>(replaced_id));
+				_replaced.push_back(replaced_id);
 			}
 			for(const vertexPtr unused_vertex : unused)
 				_unused.push_back(static_cast<int>(get_vertex_id(*unused_vertex)));
@@ -2030,7 +2030,7 @@ private:
 
 			for(unsigned int i=0;i<ReplacedIds.size();i++)
 			{
-				set_replaced_id(i, static_cast<VertexId>(_replaced[i]));
+				set_replaced_id(i, _replaced[i]);
 			}
 			for(unsigned int i=0;i<unused.size();i++)
 			{
