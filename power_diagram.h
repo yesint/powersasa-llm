@@ -1159,8 +1159,6 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								vertexPtr identical_representative = nullptr;
 								if(!identicalPoint->myVerticesIds.empty())
 									identical_representative = vertex_ptr_from_id(identicalPoint->myVerticesIds.front());
-								if(identical_representative == nullptr && !identicalPoint->myVertices.empty())
-									identical_representative = identicalPoint->myVertices.front();
 								if(identical_representative != nullptr)
 									push_cell_my_vertex(*involved_front, identical_representative);
 								break;
