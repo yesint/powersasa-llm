@@ -742,13 +742,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		if(points.size()>nRevertPoints)
 			points.erase(points.begin()+nRevertPoints,points.end());
 			for(int c=0;c<(1<<dimension);c++)
-			{
-				const CellId owner_id = cornerOwners[c];
-				cellPtr owner_ptr = cell_ptr_from_id(owner_id);
-				if(owner_ptr == nullptr) owner_ptr = points.data();
-				vertices[c].generators[0]=owner_ptr;
-				vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
-			}
+				{
+					const CellId owner_id = cornerOwners[c];
+					cellPtr owner_ptr = cell_ptr_from_id(owner_id);
+					if(owner_ptr == nullptr) throw MyException();
+					vertices[c].generators[0]=owner_ptr;
+					vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
+				}
 			for(const VertexId invalid_id : Invalids)
 			{
 				vertexPtr it = vertex_ptr_from_id(invalid_id);
@@ -1751,11 +1751,11 @@ private:
 				if(it->generators[dimension-1]->isReal(*this))
 					for(int endpoint_idx=(hasVirtualGenerators(it))*3;endpoint_idx<=dimension;++endpoint_idx)
 					{
-						vertexPtr endpoint = it->endPoints[endpoint_idx];
-						if(endpoint == nullptr) continue;
-						VertexId endpoint_id = it->endPointIds[endpoint_idx];
-						if(endpoint_id == kInvalidId) endpoint_id = get_vertex_id(*endpoint);
-						if(endpoint_id != kInvalidId && endpoint_id > vertex_index)
+							vertexPtr endpoint = it->endPoints[endpoint_idx];
+							if(endpoint == nullptr) continue;
+							VertexId endpoint_id = it->endPointIds[endpoint_idx];
+							if(endpoint_id == kInvalidId) endpoint_id = vertex_id_or_invalid(endpoint);
+							if(endpoint_id != kInvalidId && endpoint_id > vertex_index)
 						{
 							if(it->powerValue>0)
 							{
