@@ -1843,17 +1843,12 @@ private:
 		}
 			for(unsigned int i=fromZero;i<zeros.size();i++)
 			{
-				sync_zero_link_mirrors(zeros[i]);
 				for(int g = 0; g < dimension; ++g)
 				{
 					const GeneratorRef& ref = zeros[i].generatorRefs[g];
 					if(ref.is_valid() && ref.kind == GeneratorKind::point && ref.index < points.size())
 					{
 						points[ref.index].myZeroPoints.push_back(i);
-					}
-					else if(zeros[i].generators[g] != nullptr)
-					{
-						zeros[i].generators[g]->myZeroPoints.push_back(i);
 					}
 				}
 			}
