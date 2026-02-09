@@ -1014,8 +1014,8 @@ if(!params.without_check){
 			if((&point!=vertices[vi].generators[0])&&(&point!=vertices[vi].generators[1])&&(&point!=vertices[vi].generators[2])&&(&point!=vertices[vi].generators[3]))
 					{checkconst=point.power(vertices[vi].position)-vertices[vi].powerValue;
 		
-						std::cout<<"totaly wrong are "<<(&point-&points[0])<<" "<<point.power(vertices[vi].position)<<" "<<vertices[vi].generators[0]->power(vertices[vi].position)<<" "<<vertices[vi].generators[1]->power(vertices[vi].position)<<"          "<<vertices[vi].generators[0]->position[0]<<" "<<vertices[vi].generators[0]->position[1]<<" "<<vertices[vi].generators[0]->position[2]<<std::endl;
-std::cout<<vertices[vi].generators[0]-&points[0]<<" "<<vertices[vi].generators[1]-&points[0]<<" "<<vertices[vi].generators[2]-&points[0]<<" "<<vertices[vi].generators[3]-&points[0]<<std::endl;
+						std::cout<<"totaly wrong are "<<get_cell_id(point)<<" "<<point.power(vertices[vi].position)<<" "<<vertices[vi].generators[0]->power(vertices[vi].position)<<" "<<vertices[vi].generators[1]->power(vertices[vi].position)<<"          "<<vertices[vi].generators[0]->position[0]<<" "<<vertices[vi].generators[0]->position[1]<<" "<<vertices[vi].generators[0]->position[2]<<std::endl;
+std::cout<<cell_id_or_invalid(vertices[vi].generators[0])<<" "<<cell_id_or_invalid(vertices[vi].generators[1])<<" "<<cell_id_or_invalid(vertices[vi].generators[2])<<" "<<cell_id_or_invalid(vertices[vi].generators[3])<<std::endl;
 std::cout<<point.power(vertices[vi].endPoints[0]->position)<<" "<<point.power(vertices[vi].endPoints[1]->position)<<std::endl;
 std::cout<<vertices[vi].generators[0]->power(vertices[vi].endPoints[0]->position)<<" "<<vertices[vi].generators[0]->power(vertices[vi].endPoints[1]->position)<<std::endl;
 std::cout<<vertices[vi].generators[1]->power(vertices[vi].endPoints[0]->position)<<" "<<vertices[vi].generators[1]->power(vertices[vi].endPoints[1]->position)<<std::endl;
