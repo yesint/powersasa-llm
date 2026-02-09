@@ -215,12 +215,12 @@ public :
 			std::vector<VertexId> myVerticesIds;
 			std::vector<int> myZeroPoints;
 
-			inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power,const cellPtr /*bond*/):visitedAs(0),position(pos),r(root),r2(power),bondToId(kInvalidId)
+			inline cell(PDCoord const& pos, PDFloat const& root,PDFloat const& power):visitedAs(0),position(pos),r(root),r2(power),bondToId(kInvalidId)
 			{
 				myVertices.reserve(12);
 				myVerticesIds.reserve(12);
 			}
-			inline cell(PDCoord const& pos,const PDFloat& str,const cellPtr /*bond*/):visitedAs(0),position(pos),r(str),r2(str*str),bondToId(kInvalidId)
+			inline cell(PDCoord const& pos,const PDFloat& str):visitedAs(0),position(pos),r(str),r2(str*str),bondToId(kInvalidId)
 			{
 				myVertices.reserve(12);
 				myVerticesIds.reserve(12);
@@ -709,7 +709,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				{
 					if(params.radiiGiven)
 					{
-						points.push_back(cell(*pos_it-center,*strength_it,nullptr));
+						points.push_back(cell(*pos_it-center,*strength_it));
 						set_bond_to(points.back(), nullptr);
 						for(unsigned int i=1;i<_params.size;i++)
 						{
@@ -717,13 +717,13 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							++strength_it;
 							++bondTo_it;
 							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
-							points.push_back(cell(*pos_it-center,*strength_it,nullptr));
+							points.push_back(cell(*pos_it-center,*strength_it));
 							set_bond_to_id(points.back(), bond_to);
 						}
 					}
 					else
 					{
-						points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,nullptr));
+						points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it));
 						set_bond_to(points.back(), nullptr);
 						for(unsigned int i=1;i<_params.size;i++)
 						{
@@ -731,7 +731,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							++strength_it;
 							++bondTo_it;
 							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
-							points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,nullptr));
+							points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it));
 							set_bond_to_id(points.back(), bond_to);
 						}
 					}
@@ -862,7 +862,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 						for(std::size_t i=points.size();i<static_cast<std::size_t>(size);i++)
 						{
-							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
+							points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i))));
 							if(points.size() > 1) set_bond_to_id(points.back(), points.size()-2);
 							else set_bond_to(points.back(), nullptr);
 						}
@@ -879,7 +879,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				}
 						for(std::size_t i=points.size();i<static_cast<std::size_t>(size);i++)
 						{
-							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
+							points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i)));
 							if(points.size() > 1) set_bond_to_id(points.back(), points.size()-2);
 							else set_bond_to(points.back(), nullptr);
 						}
@@ -931,7 +931,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					const std::size_t add_count = newSize-nRevertPoints;
 					for(std::size_t i=0;i<add_count;i++)
 					{
-						points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i)),nullptr));
+						points.push_back(cell((*(pos_it+i))-center,(*(strength_it+i))));
 						const std::size_t new_idx = points.size()-1;
 						if(new_idx >= gap) set_bond_to_id(points.back(), new_idx-gap);
 						else set_bond_to(points.back(), nullptr);
@@ -942,7 +942,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					const std::size_t add_count = newSize-nRevertPoints;
 					for(std::size_t i=0;i<add_count;i++)
 					{
-						points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i),nullptr));
+						points.push_back(cell((*(pos_it+i))-center,sqrt(*(strength_it+i)),*(strength_it+i)));
 						const std::size_t new_idx = points.size()-1;
 						if(new_idx >= gap) set_bond_to_id(points.back(), new_idx-gap);
 						else set_bond_to(points.back(), nullptr);
@@ -1052,7 +1052,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		_nVertices=1<<dimension;
 		sideGenerators.clear();
 		for(int i=0;i<2*dimension;i++)
-			sideGenerators.push_back(cell(PDCoord(0,0,0),0,nullptr));
+			sideGenerators.push_back(cell(PDCoord(0,0,0),0));
 		PDCoord lhc=lowest;
 		vertices[0].setTo(lowest);
 		for(int j=dimension-1;j>=0;j--)
