@@ -1769,16 +1769,36 @@ private:
 
 		for(unsigned int i=0;i<_nVertices;++i)
 			vertices[i].refreshAfterRealloc(oldMemoryPointer+i);
-		vertices.resize(vertices.capacity());
+			vertices.resize(vertices.capacity());
 
-		for(unsigned int i=0;i<Replaced.size();i++)
-			Replaced[i]=&vertices.front()+_replaced[i];
-		for(unsigned int i=0;i<unused.size();i++)
-			unused[i]=&vertices.front()+_unused[i];
-			for(unsigned int i=0;i<Involved.front()->myVertices.size();i++)
-				set_cell_my_vertex(*Involved.front(), i, &vertices.front()+_currentmyVertices[i]);
-			for(int i=0;i<Involved.front()-&points.front();i++)
-				set_cell_my_vertex(points[i], 0, &vertices.front()+_first[i]);
+			for(unsigned int i=0;i<Replaced.size();i++)
+			{
+				vertexPtr restored = NULL;
+				if(_replaced[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_replaced[i]));
+				if(restored == NULL) restored = &vertices.front()+_replaced[i];
+				Replaced[i]=restored;
+			}
+			for(unsigned int i=0;i<unused.size();i++)
+			{
+				vertexPtr restored = NULL;
+				if(_unused[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_unused[i]));
+				if(restored == NULL) restored = &vertices.front()+_unused[i];
+				unused[i]=restored;
+			}
+				for(unsigned int i=0;i<Involved.front()->myVertices.size();i++)
+				{
+					vertexPtr restored = NULL;
+					if(_currentmyVertices[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_currentmyVertices[i]));
+					if(restored == NULL) restored = &vertices.front()+_currentmyVertices[i];
+					set_cell_my_vertex(*Involved.front(), i, restored);
+				}
+				for(std::size_t i=0;i<involved_prefix;i++)
+				{
+					vertexPtr restored = NULL;
+					if(_first[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_first[i]));
+					if(restored == NULL) restored = &vertices.front()+_first[i];
+					set_cell_my_vertex(points[i], 0, restored);
+				}
 
 	}
 	void UpdateUnused()
