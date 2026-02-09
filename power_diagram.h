@@ -29,7 +29,7 @@ If you have no license please contact SASA-support@kit.edu
 #define PD_ENABLE_TOPOLOGY_ASSERTS 0
 #endif
 #ifndef PD_STRICT_INVOLVED_IDS
-#define PD_STRICT_INVOLVED_IDS 0
+#define PD_STRICT_INVOLVED_IDS 1
 #endif
 #include <array>
 #include <iostream>
