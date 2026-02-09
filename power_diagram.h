@@ -334,19 +334,15 @@ public :
 	{
 		return ref.is_valid() && ref.kind == GeneratorKind::point && ref.index < points.size();
 	}
-	inline void sync_cell_link_mirrors(cell& a_cell) const
+	inline void sync_cell_link_mirrors(cell& a_cell)
 	{
 		if(a_cell.bondToId >= points.size()) a_cell.bondToId = kInvalidId;
-		a_cell.neighboursIds.resize(a_cell.neighbours.size(), kInvalidId);
-		for (std::size_t i = 0; i < a_cell.neighbours.size(); ++i)
-		{
-			a_cell.neighboursIds[i] = cell_id_or_invalid(a_cell.neighbours[i]);
-		}
-		a_cell.myVerticesIds.resize(a_cell.myVertices.size(), kInvalidId);
-		for (std::size_t i = 0; i < a_cell.myVertices.size(); ++i)
-		{
-			a_cell.myVerticesIds[i] = vertex_id_or_invalid(a_cell.myVertices[i]);
-		}
+		a_cell.neighbours.resize(a_cell.neighboursIds.size(), nullptr);
+		for(std::size_t i=0;i<a_cell.neighboursIds.size();++i)
+			a_cell.neighbours[i] = cell_ptr_from_id(a_cell.neighboursIds[i]);
+		a_cell.myVertices.resize(a_cell.myVerticesIds.size(), nullptr);
+		for(std::size_t i=0;i<a_cell.myVerticesIds.size();++i)
+			a_cell.myVertices[i] = vertex_ptr_from_id(a_cell.myVerticesIds[i]);
 	}
 	inline void sync_vertex_link_mirrors(vertex& a_vertex) const
 	{
