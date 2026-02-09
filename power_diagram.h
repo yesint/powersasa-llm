@@ -827,13 +827,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			std::vector<std::array<GeneratorRef,dimension+1> > old_vertex_generator_refs(_nVertices);
 			for(std::size_t i=0;i<nRevertPoints;++i)
 			{
-				old_bond_ids[i] = (points[i].bondToId != kInvalidId) ? points[i].bondToId : cell_id_or_invalid(points[i].bondTo);
+				old_bond_ids[i] = points[i].bondToId;
 				old_neighbour_ids[i].resize(points[i].neighbours.size(), kInvalidId);
 				for(std::size_t j=0;j<points[i].neighbours.size();++j)
 				{
-					old_neighbour_ids[i][j] = (!points[i].neighboursIds.empty() && j < points[i].neighboursIds.size())
-						? points[i].neighboursIds[j]
-						: cell_id_or_invalid(points[i].neighbours[j]);
+					old_neighbour_ids[i][j] = (j < points[i].neighboursIds.size()) ? points[i].neighboursIds[j] : kInvalidId;
 				}
 			}
 			for(unsigned int vi=0;vi<_nVertices;++vi)
@@ -1418,23 +1416,10 @@ if(std::abs(checkconst)>0.001)
 		CellId hint_id = cell_id_or_invalid(hint);
 		if(hint_id == kInvalidId) hint_id = points.size()/2;
 		const cell& hint_cell = points[hint_id];
-			if(!hint_cell.neighboursIds.empty())
+			for(const CellId neighbour_id : hint_cell.neighboursIds)
 			{
-				for(const CellId neighbour_id : hint_cell.neighboursIds)
-				{
-					const_cellPtr neighbour = cell_ptr_from_id_const(neighbour_id);
-					if(neighbour != nullptr && neighbour->power(pos)<hint_cell.power(pos))return findCellInsideCube(pos,neighbour);
-				}
-			}
-			else
-			{
-				for(const cellPtr neighbour_ptr : hint_cell.neighbours)
-				{
-					const CellId neighbour_id = cell_id_or_invalid(neighbour_ptr);
-					if(neighbour_id == kInvalidId) continue;
-					const_cellPtr neighbour = cell_ptr_from_id_const(neighbour_id);
-					if(neighbour != nullptr && neighbour->power(pos)<hint_cell.power(pos))return findCellInsideCube(pos,neighbour);
-				}
+				const_cellPtr neighbour = cell_ptr_from_id_const(neighbour_id);
+				if(neighbour != nullptr && neighbour->power(pos)<hint_cell.power(pos))return findCellInsideCube(pos,neighbour);
 			}
 			return &points[hint_id];
 		}
@@ -1446,18 +1431,9 @@ private:
 		{
 			return vertices.data();
 		}
-		const std::size_t n_vertices = This->myVerticesIds.empty() ? This->myVertices.size() : This->myVerticesIds.size();
-		for(std::size_t i = 0; i < n_vertices; ++i)
+		for(const VertexId vid : This->myVerticesIds)
 		{
-			vertexPtr candidate = nullptr;
-			if(!This->myVerticesIds.empty())
-			{
-				candidate = vertex_ptr_from_id(This->myVerticesIds[i]);
-			}
-			if(candidate == nullptr && i < This->myVertices.size())
-			{
-				candidate = This->myVertices[i];
-			}
+			vertexPtr candidate = vertex_ptr_from_id(vid);
 			if(candidate != nullptr && candidate->isConnected() && candidate->hasGenerator(This))
 				{
 					return candidate;
@@ -1469,7 +1445,7 @@ private:
 			if(bond != nullptr && bond != This) return getRepresentative(bond);
 		}
 		const CellId this_id = cell_id_or_invalid(This);
-		if(this_id != 0 && This->bondTo != nullptr && This->bondTo != This) return getRepresentative(This->bondTo);
+		if(this_id != 0 && This->bondToId != kInvalidId) return getRepresentative(cell_ptr_from_id(This->bondToId));
 		else
 		{
 			return vertices.data();
@@ -1480,7 +1456,7 @@ private:
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
-			hint=getRepresentative((This.bondToId != kInvalidId) ? cell_ptr_from_id(This.bondToId) : This.bondTo);
+			hint=getRepresentative(cell_ptr_from_id(This.bondToId));
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
 			findReplacedVertex(hint,value,This);
 			if(__power_diagram_internal_timing__)t2+=clock();
@@ -1973,8 +1949,7 @@ private:
 				for(std::size_t point_idx=0;point_idx<involved_prefix;++point_idx)
 				{
 					const cell& point = points[point_idx];
-					if(!point.myVerticesIds.empty()) _first.push_back(static_cast<int>(point.myVerticesIds.front()));
-					else _first.push_back(static_cast<int>(get_vertex_id(*point.myVertices.front())));
+					_first.push_back(point.myVerticesIds.empty() ? -1 : static_cast<int>(point.myVerticesIds.front()));
 				}
 
 		vertices.reserve(2*vertices.capacity()+1);
@@ -2008,8 +1983,8 @@ private:
 				{
 					vertexPtr restored = nullptr;
 					if(_first[i] >= 0) restored = vertex_ptr_from_id(static_cast<VertexId>(_first[i]));
-					if(restored == nullptr) restored = vertices.data()+_first[i];
-					set_cell_my_vertex(points[i], 0, restored);
+					if(restored == nullptr && _first[i] >= 0) restored = vertices.data()+_first[i];
+					if(restored != nullptr) set_cell_my_vertex(points[i], 0, restored);
 				}
 
 	}
