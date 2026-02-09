@@ -122,8 +122,13 @@ public:
 	// Convert local neighbour index to global atom index.
 	unsigned int AtomNo(unsigned int i_atom, unsigned int i_neighbour) const
 	{
-		return static_cast<unsigned int>(power_diagram->get_points()[i_atom].neighbours[i_neighbour]
-			- &power_diagram->get_points()[0]);
+		const auto& points = power_diagram->get_points();
+		const auto& atom = points[i_atom];
+		if (!atom.neighboursIds.empty() && i_neighbour < atom.neighboursIds.size())
+		{
+			return static_cast<unsigned int>(atom.neighboursIds[i_neighbour]);
+		}
+		return static_cast<unsigned int>(atom.neighbours[i_neighbour] - &points[0]);
 	}
 
 	template<class Coordcontainer, class Floatcontainer, class Intcontainer>
