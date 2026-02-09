@@ -1525,11 +1525,16 @@ private:
 			if(bond != nullptr && bond != This) return getRepresentative(bond);
 		}
 		const CellId this_id = cell_id_or_invalid(This);
-		if(this_id != 0 && This->bondToId != kInvalidId) return getRepresentative(cell_ptr_from_id(This->bondToId));
+		if(this_id != 0)
+		{
+			cellPtr const bond = cell_ptr_from_id(This->bondToId);
+			if(bond != nullptr && bond != This) return getRepresentative(bond);
+		}
 		else
 		{
 			return vertices.data();
 		}
+		return vertices.data();
 	}
 	vertexPtr prepareInsertion(cell & This,vertexPtr hint=nullptr)
 	{
