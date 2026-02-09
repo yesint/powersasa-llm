@@ -1710,35 +1710,17 @@ private:
 							break;
 						}
 				}
-				if(!involved_cell->myVerticesIds.empty())
+				for(const VertexId vid : involved_cell->myVerticesIds)
 				{
-					for(const VertexId vid : involved_cell->myVerticesIds)
+					vertexPtr vtx = vertex_ptr_from_id(vid);
+					if(vtx == nullptr) continue;
+					for(int g=dimension;g>=0;g--)
+						if(vtx->generators[g]->isReal(*this))
 					{
-						vertexPtr vtx = vertex_ptr_from_id(vid);
-						if(vtx == nullptr) continue;
-						for(int g=dimension;g>=0;g--)
-							if(vtx->generators[g]->isReal(*this))
+							if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=involved_cell)
 							{
-								if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=involved_cell)
-								{
-									push_cell_neighbour(*involved_cell, vtx->generators[g]);
-									vtx->generators[g]->visitedAs=current_cell_order+1;
-								}
-							}
-					}
-				}
-				else
-				{
-					for(const vertexPtr vertex_ptr : involved_cell->myVertices)
-					{
-						for(int g=dimension;g>=0;g--)
-							if(vertex_ptr->generators[g]->isReal(*this))
-							{
-									if(vertex_ptr->generators[g]->visitedAs!=0&&vertex_ptr->generators[g]->visitedAs<=current_cell_order&&vertex_ptr->generators[g]!=involved_cell)
-									{
-										push_cell_neighbour(*involved_cell, vertex_ptr->generators[g]);
-										vertex_ptr->generators[g]->visitedAs=current_cell_order+1;
-									}
+								push_cell_neighbour(*involved_cell, vtx->generators[g]);
+								vtx->generators[g]->visitedAs=current_cell_order+1;
 							}
 					}
 				}
