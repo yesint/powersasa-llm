@@ -521,28 +521,36 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		Strength_iterator strength_it=_params.strength_begin;
 		BondTo_iterator bondTo_it=_params.bondTo_begin;
 
-			if(_params.size>0)
-			{
-				if(params.radiiGiven)
+				if(_params.size>0)
 				{
-					points.push_back(cell(*pos_it-center,*strength_it,nullptr));
-					set_bond_to(points.back(), nullptr);
-					for(unsigned int i=1;i<_params.size;i++)
+					if(params.radiiGiven)
 					{
-						points.push_back(cell(*(++pos_it)-center,*(++strength_it),&points[*(++bondTo_it)]));
-						set_bond_to(points.back(), &points[*(bondTo_it)]);
+						points.push_back(cell(*pos_it-center,*strength_it,nullptr));
+						set_bond_to(points.back(), nullptr);
+						for(unsigned int i=1;i<_params.size;i++)
+						{
+							++pos_it;
+							++strength_it;
+							++bondTo_it;
+							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
+							points.push_back(cell(*pos_it-center,*strength_it,&points[bond_to]));
+							set_bond_to(points.back(), &points[bond_to]);
+						}
 					}
-				}
-				else
-				{
-					points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,nullptr));
-					set_bond_to(points.back(), nullptr);
-					for(unsigned int i=1;i<_params.size;i++)
+					else
 					{
-						points.push_back(cell(*(++pos_it)-center,sqrt(*(++strength_it)),*(strength_it),&points[*(++bondTo_it)]));
-						set_bond_to(points.back(), &points[*(bondTo_it)]);
+						points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,nullptr));
+						set_bond_to(points.back(), nullptr);
+						for(unsigned int i=1;i<_params.size;i++)
+						{
+							++pos_it;
+							++strength_it;
+							++bondTo_it;
+							const unsigned int bond_to = static_cast<unsigned int>(*bondTo_it);
+							points.push_back(cell(*pos_it-center,sqrt(*strength_it),*strength_it,&points[bond_to]));
+							set_bond_to(points.back(), &points[bond_to]);
+						}
 					}
-				}
 			}
 
 		if(_params.create_vertices)
