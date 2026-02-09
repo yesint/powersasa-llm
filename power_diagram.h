@@ -834,9 +834,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			}
 			for(unsigned int vi=0;vi<_nVertices;++vi)
 				for(int g=0;g<=dimension;++g)
-					old_vertex_generator_refs[vi][g] = vertices[vi].generatorRefs[g].is_valid()
-						? vertices[vi].generatorRefs[g]
-						: generator_ref_or_invalid(vertices[vi].generators[g]);
+					old_vertex_generator_refs[vi][g] = vertices[vi].generatorRefs[g];
 			for(int c=0;c<(1<<dimension);c++)
 				cornerOwners[c]=cell_id_or_invalid(vertices[c].generators[0]);
 			const const_cellPtr old_points_data=points.data();
