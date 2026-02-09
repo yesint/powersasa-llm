@@ -5,16 +5,13 @@
 #include <string>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <Eigen/StdVector>
-
 #include <power_sasa.h>
+#include "vec3.h"
 
 int main()
 {
 	using Scalar = float;
-	using Coord = Eigen::Vector3f;
+	using Coord = Vec3<Scalar>;
 	std::cout << "Precision: float" << std::endl;
 
 	std::vector<Coord> coords; // Vector of coordinates

@@ -1,9 +1,6 @@
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <Eigen/StdVector>
-
 #include <power_diagram.h>
 #include <testincludes.h>
+#include "vec3.h"
 
 
 using namespace POWER_DIAGRAM;
@@ -13,12 +10,12 @@ int main()
 #ifdef _FLOATTEST
 	//Specifying Number Type and Vector Type
 	typedef float number_type;
-	typedef Eigen::Vector3f Coord; //fake vector4->3f might be even faster
+	typedef Vec3<number_type> Coord; //fake vector4->3f might be even faster
 #else
 	typedef double number_type;
-	typedef Eigen::Vector3d Coord;
+	typedef Vec3<number_type> Coord;
 #endif
-        typedef std::vector<Coord,Eigen::aligned_allocator<Coord> > PDVector;
+        typedef std::vector<Coord> PDVector;
 	PDVector coords; //Vector of coordinates
 	std::vector<number_type> weights; //Vector of weights
 	std::vector<int> bond_to; //best guess for connectivity

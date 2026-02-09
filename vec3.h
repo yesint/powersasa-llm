@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <ostream>
+#include <type_traits>
 
 template <class T>
 struct Vec3 {
@@ -52,17 +53,21 @@ struct Vec3 {
     return *this;
   }
 
-  constexpr Vec3& operator*=(const T& scalar) {
-    data[0] *= scalar;
-    data[1] *= scalar;
-    data[2] *= scalar;
+  template <class U, std::enable_if_t<std::is_arithmetic_v<U>, int> = 0>
+  constexpr Vec3& operator*=(const U& scalar) {
+    const T s = static_cast<T>(scalar);
+    data[0] *= s;
+    data[1] *= s;
+    data[2] *= s;
     return *this;
   }
 
-  constexpr Vec3& operator/=(const T& scalar) {
-    data[0] /= scalar;
-    data[1] /= scalar;
-    data[2] /= scalar;
+  template <class U, std::enable_if_t<std::is_arithmetic_v<U>, int> = 0>
+  constexpr Vec3& operator/=(const U& scalar) {
+    const T s = static_cast<T>(scalar);
+    data[0] /= s;
+    data[1] /= s;
+    data[2] /= s;
     return *this;
   }
 
@@ -93,20 +98,20 @@ constexpr Vec3<T> operator-(Vec3<T> lhs, const Vec3<T>& rhs) {
   return lhs;
 }
 
-template <class T>
-constexpr Vec3<T> operator*(Vec3<T> lhs, const T& scalar) {
+template <class T, class U, std::enable_if_t<std::is_arithmetic_v<U>, int> = 0>
+constexpr Vec3<T> operator*(Vec3<T> lhs, const U& scalar) {
   lhs *= scalar;
   return lhs;
 }
 
-template <class T>
-constexpr Vec3<T> operator*(const T& scalar, Vec3<T> rhs) {
+template <class U, class T, std::enable_if_t<std::is_arithmetic_v<U>, int> = 0>
+constexpr Vec3<T> operator*(const U& scalar, Vec3<T> rhs) {
   rhs *= scalar;
   return rhs;
 }
 
-template <class T>
-constexpr Vec3<T> operator/(Vec3<T> lhs, const T& scalar) {
+template <class T, class U, std::enable_if_t<std::is_arithmetic_v<U>, int> = 0>
+constexpr Vec3<T> operator/(Vec3<T> lhs, const U& scalar) {
   lhs /= scalar;
   return lhs;
 }
