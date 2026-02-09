@@ -247,11 +247,11 @@ public :
 	std::vector< cell > const & get_points() const { return points; }
 	inline CellId get_cell_id(const cell& my_cell) const
 	{
-		return static_cast<CellId>(&my_cell - &points[0]);
+		return static_cast<CellId>(&my_cell - points.data());
 	}
 	inline VertexId get_vertex_id(const vertex& my_vertex) const
 	{
-		return static_cast<VertexId>(&my_vertex - &vertices[0]);
+		return static_cast<VertexId>(&my_vertex - vertices.data());
 	}
 	inline CellId cell_id_or_invalid(const cellPtr ptr) const
 	{
