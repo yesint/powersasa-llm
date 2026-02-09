@@ -749,9 +749,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				std::vector<CellId> old_bond_ids(points.size(), kInvalidId);
 				for(std::size_t i=1;i<points.size();++i)
 				{
-					old_bond_ids[i] = (points[i].bondToId != kInvalidId)
-						? points[i].bondToId
-						: cell_id_or_invalid(points[i].bondTo);
+					old_bond_ids[i] = points[i].bondToId;
 				}
 				const cellPtr old = points.empty() ? nullptr : points.data();
 				points.reserve(size);
@@ -1639,15 +1637,14 @@ private:
 					if(involved_cell == nullptr) continue;
 					std::size_t neighbour_idx=0;
 						while(neighbour_idx<involved_cell->neighbours.size())
-					{
-						cellPtr neighbour = involved_cell->neighbours[neighbour_idx];
-						if(!involved_cell->neighboursIds.empty() && neighbour_idx < involved_cell->neighboursIds.size())
 						{
-							cellPtr id_neighbour = cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx]);
+							cellPtr neighbour = involved_cell->neighbours[neighbour_idx];
+							cellPtr id_neighbour = (neighbour_idx < involved_cell->neighboursIds.size())
+								? cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx])
+								: nullptr;
 							if(id_neighbour != nullptr) neighbour = id_neighbour;
-						}
-						if(neighbour == nullptr || neighbour->visitedAs==-1)
-							erase_cell_neighbour(*involved_cell, neighbour_idx);
+							if(neighbour == nullptr || neighbour->visitedAs==-1)
+								erase_cell_neighbour(*involved_cell, neighbour_idx);
 						else
 							++neighbour_idx;
 					}
