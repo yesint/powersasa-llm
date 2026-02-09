@@ -1421,31 +1421,34 @@ private:
 					clear_cell_my_vertices(points[point_idx]);
 
 
-		for(unsigned int vi=fromVertex;vi<_nVertices;++vi)
-		if(!(vertices[vi].invalid))
-		{
-				if(!(hasVirtualGenerators(&vertices[vi])))
-					for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end();++itg)
-					{
-						push_cell_my_vertex(*(*itg), &vertices[vi]);
-						if(fromPoint>0)
-							if((*itg)->visitedAs==0)
+			for(unsigned int vi=fromVertex;vi<_nVertices;++vi)
+			if(!(vertices[vi].invalid))
+			{
+					if(!(hasVirtualGenerators(&vertices[vi])))
+						for(int g=0;g<=dimension;++g)
 						{
-							(*itg)->visitedAs=-1;
-							Involved.push_back(*itg);
-						}
-					}
-					else if(!vertices[vi].isCorner())
-						for(typename std::array<cellPtr,dimension+1>::iterator itg=vertices[vi].generators.begin();itg!=vertices[vi].generators.end()&&(generator_ref_or_invalid(*itg).kind != GeneratorKind::side);++itg)
-						{
-								push_cell_my_vertex(*(*itg), &vertices[vi]);
-								if(fromPoint>0)
-									if((*itg)->visitedAs==0)
+							cellPtr generator = vertices[vi].generators[g];
+							push_cell_my_vertex(*generator, &vertices[vi]);
+							if(fromPoint>0)
+								if(generator->visitedAs==0)
 							{
-								(*itg)->visitedAs=-1;
-								Involved.push_back(*itg);
+								generator->visitedAs=-1;
+								Involved.push_back(generator);
 							}
-					}
+						}
+						else if(!vertices[vi].isCorner())
+							for(int g=0;g<=dimension;++g)
+							{
+									cellPtr generator = vertices[vi].generators[g];
+									if(generator_ref_or_invalid(generator).kind == GeneratorKind::side) break;
+									push_cell_my_vertex(*generator, &vertices[vi]);
+									if(fromPoint>0)
+										if(generator->visitedAs==0)
+								{
+									generator->visitedAs=-1;
+									Involved.push_back(generator);
+								}
+						}
 					else
 					{/*dont give corners to sasa code, it doesnt check for it... so we define myVertices as not holding corners!*/
 						std::cout<<"wrong internal order, SASA stopped"<<std::endl;
