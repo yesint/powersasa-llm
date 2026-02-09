@@ -1625,37 +1625,20 @@ private:
 				int current_cell_order = static_cast<int>(point_idx);
 				const CellId current_cell_id = cell_id_or_invalid(&point);
 				if(current_cell_id != kInvalidId) current_cell_order = static_cast<int>(current_cell_id);
-				if(!point.myVerticesIds.empty())
+				for(const VertexId vid : point.myVerticesIds)
 				{
-					for(const VertexId vid : point.myVerticesIds)
-					{
-						vertexPtr vtx = vertex_ptr_from_id(vid);
-						if(vtx == nullptr || vtx->isCorner()) continue;
-							for(int g=dimension;g>=0;g--)
-								if(vtx->generators[g]->isReal(*this))
+					vertexPtr vtx = vertex_ptr_from_id(vid);
+					if(vtx == nullptr || vtx->isCorner()) continue;
+						for(int g=dimension;g>=0;g--)
+							if(vtx->generators[g]->isReal(*this))
+							{
+								if(vtx->generators[g]->visitedAs<current_cell_order&&vtx->generators[g]!=&point)
 								{
-									if(vtx->generators[g]->visitedAs<current_cell_order&&vtx->generators[g]!=&point)
-									{
-										push_cell_neighbour(point, vtx->generators[g]);
-										vtx->generators[g]->visitedAs=current_cell_order;
-									}
+									push_cell_neighbour(point, vtx->generators[g]);
+									vtx->generators[g]->visitedAs=current_cell_order;
 								}
-						}
+							}
 				}
-				else
-				{
-					for(const vertexPtr vertex_ptr : point.myVertices)
-						if(!vertex_ptr->isCorner())
-								for(int g=dimension;g>=0;g--)
-									if(vertex_ptr->generators[g]->isReal(*this))
-									{
-										if(vertex_ptr->generators[g]->visitedAs<current_cell_order&&vertex_ptr->generators[g]!=&point)
-											{
-												push_cell_neighbour(point, vertex_ptr->generators[g]);
-												vertex_ptr->generators[g]->visitedAs=current_cell_order;
-											}
-									}
-					}
 			}
 
 		for(cell& point : points)
