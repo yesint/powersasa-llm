@@ -358,12 +358,12 @@ public :
 #if PD_ENABLE_TOPOLOGY_ASSERTS
 		for(std::size_t i=0;i<involved_size();++i)
 		{
-			if(cell_ptr_from_ref(InvolvedRefs[i]) == nullptr) throw MyException();
+			if(!valid_generator_ref(InvolvedRefs[i])) throw MyException();
 		}
 		for(std::size_t i=0;i<ReplacedIds.size();++i)
 		{
 			if(ReplacedIds[i] == kInvalidId) throw MyException();
-			if(vertex_ptr_from_id(ReplacedIds[i]) == nullptr) throw MyException();
+			if(!valid_vertex_id(ReplacedIds[i])) throw MyException();
 		}
 #endif
 	}
@@ -390,31 +390,24 @@ public :
 		validate_all_cell_mirror_invariants();
 #endif
 	}
-	inline cell* cell_ptr_from_id(const CellId id)
+	inline bool valid_cell_id(const CellId id) const { return id != kInvalidId && id < points.size(); }
+	inline bool valid_vertex_id(const VertexId id) const { return id != kInvalidId && id < vertices.size(); }
+	inline bool valid_generator_ref(const GeneratorRef& ref) const
 	{
-		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
+		if(!ref.is_valid()) return false;
+		if(ref.kind == GeneratorKind::point) return ref.index < points.size();
+		if(ref.kind == GeneratorKind::side) return ref.index < sideGenerators.size();
+		return false;
 	}
-	inline const cell* cell_ptr_from_id_const(const CellId id) const
+	inline const cell& cell_from_ref(const GeneratorRef& ref) const
 	{
-		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
+		if(!valid_generator_ref(ref)) throw MyException();
+		return (ref.kind == GeneratorKind::point) ? points[ref.index] : sideGenerators[ref.index];
 	}
-	inline const cell* cell_ptr_from_ref_const(const GeneratorRef& ref) const
+	inline cell& cell_from_ref(const GeneratorRef& ref)
 	{
-		if (!ref.is_valid()) return nullptr;
-		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
-		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
-		return nullptr;
-	}
-	inline cell* cell_ptr_from_ref(const GeneratorRef& ref)
-	{
-		if (!ref.is_valid()) return nullptr;
-		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
-		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
-		return nullptr;
-	}
-	inline vertex* vertex_ptr_from_id(const VertexId id)
-	{
-		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertex_at(id);
+		if(!valid_generator_ref(ref)) throw MyException();
+		return (ref.kind == GeneratorKind::point) ? points[ref.index] : sideGenerators[ref.index];
 	}
 	inline void set_vertex_generator(vertex& a_vertex, const int slot, cell* ptr)
 	{
@@ -519,13 +512,12 @@ public :
 	{
 		if(index >= InvolvedRefs.size()) return nullptr;
 		const GeneratorRef& ref = InvolvedRefs[index];
-		cell* ptr = cell_ptr_from_ref(ref);
-		if(ptr == nullptr)
+		if(!valid_generator_ref(ref))
 		{
 			std::cerr << "INVOLVED_REFS: null involved ptr for ref index " << static_cast<long long>(ref.index) << std::endl;
 			throw MyException();
 		}
-		return ptr;
+		return &cell_from_ref(ref);
 	}
 	inline CellId involved_id_at(const std::size_t index) const
 	{
@@ -1489,7 +1481,7 @@ if(std::abs(checkconst)>0.001)
 			const cell* gptr = that.generators[dimension];
 			if (ref.is_valid())
 		{
-			const cell* ref_ptr = cell_ptr_from_ref_const(ref);
+			const cell* ref_ptr = &cell_from_ref(ref);
 			if (ref_ptr == gptr)
 			{
 					return !ref_is_real_point(ref);
@@ -1504,7 +1496,7 @@ if(std::abs(checkconst)>0.001)
 			bool dim_is_real = (cell_id_or_invalid(gptr) != kInvalidId);
 			if (ref.is_valid())
 			{
-				const cell* ref_ptr = cell_ptr_from_ref_const(ref);
+				const cell* ref_ptr = &cell_from_ref(ref);
 				if (ref_ptr == gptr)
 			{
 					dim_is_real = ref_is_real_point(ref);
@@ -2027,7 +2019,7 @@ private:
 				set_replaced_id(i, _replaced[i]);
 			}
 			for(std::size_t i=0;i<unused.size();++i)
-				if(unused[i] == kInvalidId || vertex_ptr_from_id(unused[i]) == nullptr) throw MyException();
+				if(!valid_vertex_id(unused[i])) throw MyException();
 				for(std::size_t i=0;i<involved_front.myVerticesIds.size();++i)
 				{
 					const VertexId restored_id = _currentmyVertices[i];
