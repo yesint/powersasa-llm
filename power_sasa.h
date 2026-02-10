@@ -864,7 +864,8 @@ calc_sasa_single(const unsigned int iatom)
 
         int ic1, ic2, ic_0, ic_1, ip2, ip_next, ivx, count;
 	PDFloat phi, co, dirdet, ds1, ds2, scone;
-        PDCoord *p_ini, *pt, *pt0, vv;
+        int p_ini_idx, pt_idx, pt0_idx;
+	PDCoord vv;
 	PDFloat vol2 = 0.0, vol3 = 0.0;
 
 	PDFloat sasa_ia = 0.0;
@@ -873,12 +874,12 @@ calc_sasa_single(const unsigned int iatom)
 	for (int iv = 0; iv < nvx; iv++)
 	{
 		if (off[iv]) continue;
-		p_ini = &vx[iv];
+		p_ini_idx = iv;
 		ic_0 = br_c[iv][0];
 		ic_1 = br_c[iv][1];
 
 		// determine which directoin
-		dirdet = (e[ic_1].cross(e[ic_0])).dot(*p_ini);
+		dirdet = (e[ic_1].cross(e[ic_0])).dot(vx[p_ini_idx]);
 		if (dirdet == 0.0)
 		{
 		    std::cerr << "PowerSasa: dirdet == 0.0" << std::endl;
@@ -900,7 +901,7 @@ calc_sasa_single(const unsigned int iatom)
 			ip2 = br_p[iv][0];
 		}
 
-		pt = p_ini;
+		pt_idx = p_ini_idx;
 		if (do_sasa) sasa_ia += static_cast<PDFloat>(2.0) * std::numbers::pi_v<PDFloat>;
 		count = 0;
 
@@ -930,8 +931,8 @@ calc_sasa_single(const unsigned int iatom)
 			ic1 = ic2;
 
 			ivx = p[ic1][ip_next];
-			pt0 = pt;
-			pt = &vx[ivx];
+			pt0_idx = pt_idx;
+			pt_idx = ivx;
 			
 			if (br_c[ivx][0] == ic1)
 			{
@@ -948,11 +949,11 @@ calc_sasa_single(const unsigned int iatom)
 					ds1 = 0.5 * RAD * phi * 
 						( 1.0 + (nb_RAD2[ic1] - RAD2)/(nb_dist[ic1] * nb_dist[ic1]) );
 					ds2 = RAD2 / nb_dist[ic1];
-					DSasa_parts[iatom][ic1]+= ds1 * e[ic1] - ds2 * (*pt - *pt0).cross(e[ic1]);
+					DSasa_parts[iatom][ic1]+= ds1 * e[ic1] - ds2 * (vx[pt_idx] - vx[pt0_idx]).cross(e[ic1]);
 				}
 
 				if (withVol || withDVol) {
-					vv = (pos + RAD * (*pt0)).cross(pos + RAD * (*pt));
+					vv = (pos + RAD * vx[pt0_idx]).cross(pos + RAD * vx[pt_idx]);
 					scone = sintheta[ic1]*sintheta[ic1]*(phi - sin(phi));
 				}
 				
@@ -962,10 +963,10 @@ calc_sasa_single(const unsigned int iatom)
 				if (fknot[ic1] == 0)
 				{
 				  fknot[ic1] = 1;
-				  knot[ic1] = pos+RAD*(*pt0);
+				  knot[ic1] = pos+RAD*vx[pt0_idx];
 				}
 				else volnb[ic1] +=
-				  std::abs((pos+RAD*(*pt0) - knot[ic1]).cross(pos+RAD*(*pt) - knot[ic1]).dot(e[ic1]));
+				  std::abs((pos+RAD*vx[pt0_idx] - knot[ic1]).cross(pos+RAD*vx[pt_idx] - knot[ic1]).dot(e[ic1]));
 			}
 			
 				if (withDVol)
@@ -974,7 +975,7 @@ calc_sasa_single(const unsigned int iatom)
 				}
 
 
-		} while (pt != p_ini);
+		} while (pt_idx != p_ini_idx);
 		
 		if (do_sasa && sasa_ia > static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat>) {
 			sasa_ia -= static_cast<PDFloat>(4.0) * std::numbers::pi_v<PDFloat>;
