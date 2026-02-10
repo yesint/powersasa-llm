@@ -1641,7 +1641,7 @@ private:
 		// Seed the diagram: assign the first real generator to all cube corners.
 		clear_interna();
 		for(int i=0;i<(1<<dimension);i++)
-			vertices[i].setPowerData(points.data());
+			vertices[i].setPowerData(points[0]);
 		for(int i=0;i<(1<<dimension);i++)
 			set_vertex_generator(vertices[i], 0, points.data());
 			for(int i=0;i<(1<<dimension);i++)
@@ -1975,7 +1975,7 @@ private:
 			for(unsigned int vertex_idx=0;vertex_idx<(1u<<dimension);++vertex_idx)
 				if(vertices[vertex_idx].rrv>0)
 				{
-					vertices[vertex_idx].setPowerData(&involved_front);
+					vertices[vertex_idx].setPowerData(involved_front);
 					set_vertex_generator(vertices[vertex_idx], 0, &involved_front);
 				}
 
@@ -2264,7 +2264,7 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 				const CellId involved_front_id = owner.involved_id_at(0);
 				if(involved_front_id == kInvalidId) return false;
 				cell& involved_front = owner.cell_at(involved_front_id);
-				this->setPowerData(&involved_front);
+				this->setPowerData(involved_front);
 
 			for(int g=dimension;g>0;g--)
 				owner.set_vertex_generator(*this, g, This->generators[g-(g<=keep)]);
@@ -2302,9 +2302,9 @@ inline PDCoord getPowerPointOnLine2(vertex const* const& persist)const
 			rrv=that.rrv;
 		}
 private :
-	inline void setPowerData(const const_cellPtr& aCell)
+	inline void setPowerData(const cell& aCell)
 	{
-		powerValue=(aCell->position-position).squaredNorm()-aCell->r2;
+		powerValue=(aCell.position-position).squaredNorm()-aCell.r2;
 	}
 		inline void setTo(const PDCoord pos)
 		{
