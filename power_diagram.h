@@ -1150,21 +1150,23 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							if(involved_front == nullptr) throw MyException();
 							//is this an Identical point problem?
 								{
-									cellPtr closest = involved_ptr_at(1);
-									if(closest == nullptr) throw MyException();
-									PDFloat mindist=(closest->position-involved_front->position).squaredNorm();
-									for(std::size_t involved_idx=2;involved_idx<involved_size();++involved_idx)
+									cellPtr closest = nullptr;
+									PDFloat mindist = 0;
+									for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 									{
-										cellPtr candidate = involved_ptr_at(involved_idx);
+										const CellId candidate_id = involved_id_at(involved_idx);
+										if(candidate_id == kInvalidId) continue;
+										cellPtr candidate = cell_ptr_from_id(candidate_id);
 										if(candidate == nullptr) continue;
-										if((candidate->position-involved_front->position).squaredNorm()<mindist)
+										const PDFloat dist = (candidate->position-involved_front->position).squaredNorm();
+										if(closest == nullptr || dist < mindist)
 										{
-											mindist=(candidate->position-involved_front->position).squaredNorm();
-											closest=candidate;
+											mindist = dist;
+											closest = candidate;
 										}
 									}
-										if(error(involved_front->r)>sqrt(mindist))
-										{
+									if(closest != nullptr && error(involved_front->r)>sqrt(mindist))
+									{
 										identicalPoint=closest;
 										if(params.with_warnings)
 										{
@@ -1172,7 +1174,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 											std::cout<<get_cell_id(*involved_front)+1<<" is ignored"<<std::endl;
 										}
 									}
-							}
+								}
 							//delete new vertices built directly into vertices (when unused has been empty)
 								if(_nUnused==0)
 								{
@@ -1226,7 +1228,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								vertexPtr fallback_replaced = vertex_ptr_from_id(fallback_replaced_id);
 								for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 								{
-									cellPtr involved_cell = involved_ptr_at(involved_idx);
+									const CellId involved_id = involved_id_at(involved_idx);
+									if(involved_id == kInvalidId) continue;
+									cellPtr involved_cell = cell_ptr_from_id(involved_id);
 									if(involved_cell == nullptr || involved_cell->myVerticesIds.empty()) continue;
 									vertexPtr representative = vertex_ptr_from_id(involved_cell->myVerticesIds[0]);
 									if(representative != nullptr && !representative->isConnected() && fallback_replaced != nullptr)
