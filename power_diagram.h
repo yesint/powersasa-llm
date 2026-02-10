@@ -783,38 +783,41 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 			for(int c=0;c<(1<<dimension);c++)
 				{
 					const CellId owner_id = cornerOwners[c];
-					cellPtr owner_ptr = cell_ptr_from_id(owner_id);
-					if(owner_ptr == nullptr) throw MyException();
-					set_vertex_generator(vertices[c], 0, owner_ptr);
+					if(owner_id == kInvalidId || owner_id >= points.size()) throw MyException();
+					cell& owner = cell_at(owner_id);
+					set_vertex_generator(vertices[c], 0, &owner);
 					vertices[c].powerValue=vertices[c].generators[0]->power(vertices[c].position);
 				}
 			for(const VertexId invalid_id : Invalids)
 			{
-				vertexPtr it = vertex_ptr_from_id(invalid_id);
-				if(it == nullptr) continue;
-				it->invalid=0;
-				it->rrv=0;
-				for(int endpoint_idx=it->isCorner();endpoint_idx<=dimension;++endpoint_idx)
+				if(invalid_id == kInvalidId || invalid_id >= vertices.size()) continue;
+				vertex& it = vertex_at(invalid_id);
+				it.invalid=0;
+				it.rrv=0;
+				for(int endpoint_idx=it.isCorner();endpoint_idx<=dimension;++endpoint_idx)
 				{
-					vertexPtr endpoint = it->endPoints[endpoint_idx];
-					for(int g1=it->isCorner();g1<=dimension;g1++)
-					for(int g2=endpoint->isCorner();g2<=dimension;g2++)
+					VertexId endpoint_id = it.endPointIds[endpoint_idx];
+					if(endpoint_id == kInvalidId) endpoint_id = vertex_id_or_invalid(it.endPoints[endpoint_idx]);
+					if(endpoint_id == kInvalidId || endpoint_id >= vertices.size()) continue;
+					vertex& endpoint = vertex_at(endpoint_id);
+					for(int g1=it.isCorner();g1<=dimension;g1++)
+					for(int g2=endpoint.isCorner();g2<=dimension;g2++)
 					{
-						if(it->generators[nth(0,g1)]==endpoint->generators[nth(0,g2)]&&it->generators[nth(1,g1)]==endpoint->generators[nth(1,g2)]&&it->generators[nth(2,g1)]==endpoint->generators[nth(2,g2)])
+						if(it.generators[nth(0,g1)]==endpoint.generators[nth(0,g2)]&&it.generators[nth(1,g1)]==endpoint.generators[nth(1,g2)]&&it.generators[nth(2,g1)]==endpoint.generators[nth(2,g2)])
 						{
 	//						(*it)->endPoints[g1]=*it2;		//is already set 
-							set_vertex_endpoint(*endpoint, g2, &(*it));
+							set_vertex_endpoint(endpoint, g2, &it);
 						}
 					}
 				}
 					for(int g=0;g<=dimension;++g)
-						if(it->generators[g]->isReal(*this))
+						if(it.generators[g]->isReal(*this))
 						{
-							push_cell_my_vertex(*it->generators[g], &(*it));
-							if(it->generators[g]->visitedAs==0)
+							push_cell_my_vertex(*it.generators[g], &it);
+							if(it.generators[g]->visitedAs==0)
 							{
-							it->generators[g]->visitedAs=-1;
-							push_involved(it->generators[g]);
+							it.generators[g]->visitedAs=-1;
+							push_involved(it.generators[g]);
 						}
 					}
 			}
