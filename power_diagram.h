@@ -1294,7 +1294,14 @@ if(!params.without_check){
 						if(vertices[vi].isConnected())
 							for(cell& point : points)
 								if(point.power(vertices[vi].position)-vertices[vi].powerValue<-checkconst)
-			if((&point!=vertices[vi].generators[0])&&(&point!=vertices[vi].generators[1])&&(&point!=vertices[vi].generators[2])&&(&point!=vertices[vi].generators[3]))
+			{
+				const CellId point_id = get_cell_id(point);
+				const auto& v = vertices[vi];
+				const auto is_point_ref = [point_id](const GeneratorRef& ref) -> bool
+				{
+					return ref.kind == GeneratorKind::point && ref.index == point_id;
+				};
+			if(!is_point_ref(v.generatorRefs[0])&&!is_point_ref(v.generatorRefs[1])&&!is_point_ref(v.generatorRefs[2])&&!is_point_ref(v.generatorRefs[3]))
 					{checkconst=point.power(vertices[vi].position)-vertices[vi].powerValue;
 		
 						std::cout<<"totaly wrong are "<<get_cell_id(point)<<" "<<point.power(vertices[vi].position)<<" "<<vertices[vi].generators[0]->power(vertices[vi].position)<<" "<<vertices[vi].generators[1]->power(vertices[vi].position)<<"          "<<vertices[vi].generators[0]->position[0]<<" "<<vertices[vi].generators[0]->position[1]<<" "<<vertices[vi].generators[0]->position[2]<<std::endl;
@@ -1308,6 +1315,7 @@ std::cout<<vertices[vi].endPoints[1]->position<<std::endl;
 	throw MyException();
 
 	}
+			}
 
 if(std::abs(checkconst)>0.001)
 	std::cout<<"the error of the worst vertex is around "<<checkconst<<std::endl;
