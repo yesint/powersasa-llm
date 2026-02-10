@@ -524,10 +524,6 @@ calc_sasa_single(const unsigned int iatom)
 		{
 			is_owner = true;
 		}
-		else if (first_vertex.generators[0] == &atom)
-		{
-			is_owner = true;
-		}
 		if (is_owner)
 		{
 			if (withSasa)Sasa[iatom] = 4*3.1415926535897932384626433832795*RAD2;
@@ -545,16 +541,15 @@ calc_sasa_single(const unsigned int iatom)
 	const std::size_t my_vertex_count = atom.myVerticesIds.size();
 	for (std::size_t n = 0; n < my_vertex_count; ++n)
 	{
-		const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex* atom_vertex = nullptr;
 		const std::size_t vid = atom.myVerticesIds[n];
-		if (vid < pd_vertices.size()) atom_vertex = &pd_vertices[vid];
-		if (atom_vertex == nullptr) continue;
-		if (std::fabs(atom_vertex->powerValue) < tol_pow)
+		if (vid >= pd_vertices.size()) continue;
+		const auto& atom_vertex = pd_vertices[vid];
+		if (std::fabs(atom_vertex.powerValue) < tol_pow)
 		{
 			std::cerr << "PowerSasa: Vertex power value is too close to zero" << std::endl;
 			throw PowerSasaException();
 		}
-		if (atom_vertex->powerValue > 0.0) covered = false;
+		if (atom_vertex.powerValue > 0.0) covered = false;
 	}
 
 	if (covered && !withVol) return;
@@ -626,30 +621,32 @@ calc_sasa_single(const unsigned int iatom)
 //------ register surface vertices ------------------------
 
         int partner[2], ptn, ptn0, ptn1;
-        const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::zeroPoint* zp;
 	PDCoord zp_pos;
 
 	int nvx = 0;
 	for (unsigned int k = 0; k < atom.myZeroPoints.size(); ++k)
-		if(power_diagram->zeroPointValid(power_diagram->get_zeroPoints()[atom.myZeroPoints[k]]))
 	{
-		zp = &(power_diagram->get_zeroPoints()[atom.myZeroPoints[k]]);
-		zp_pos = power_diagram->zeroPointPos(*zp);
+		const std::size_t zp_id = static_cast<std::size_t>(atom.myZeroPoints[k]);
+		if (zp_id >= power_diagram->get_zeroPoints().size()) continue;
+		const auto& zp = power_diagram->get_zeroPoints()[zp_id];
+		if(power_diagram->zeroPointValid(zp))
+	{
+		zp_pos = power_diagram->zeroPointPos(zp);
 		ptn = 0;
 		for (int kg = 0; kg < 3; ++kg)
 		{
-			const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::cell* const zp_generator =
-				power_diagram->zeroPointGenerator(*zp, kg);
-			if (zp_generator != &atom)
+			const auto& zp_generator_ref = zp.generatorRefs[kg];
+			if (!zp_generator_ref.is_valid()) continue;
+			if (zp_generator_ref.kind != GeneratorKind::point || zp_generator_ref.index != iatom)
 			{
-				partner[ptn] = zp_generator->visitedAs;
+				partner[ptn] = power_diagram->get_generator(zp_generator_ref).visitedAs;
 				++ptn;
 			}
 		}
 		ptn0 = partner[0];
 		ptn1 = partner[1];
 
-		if (zp->pos < 0.0 || 1.0 < zp->pos)
+		if (zp.pos < 0.0 || 1.0 < zp.pos)
 		{
 			++nt[ptn0];
 			++nt[ptn1];
@@ -686,72 +683,77 @@ calc_sasa_single(const unsigned int iatom)
 		++np[ptn0];
 		++np[ptn1];
 
-			const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1 =
-				power_diagram->zeroPointFrom(*zp);
-			const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node2 = nullptr;
-			const VertexId zp_end_id = node1->endPointIds[zp->branch];
-			if (zp_end_id != PowerDiagram3D::kInvalidId && zp_end_id < pd_vertices.size())
+			const VertexId node1_id = zp.fromId;
+			if (node1_id == PowerDiagram3D::kInvalidId || node1_id >= pd_vertices.size())
 			{
-				node2 = &pd_vertices[zp_end_id];
+				std::cerr << "PowerSasa: Invalid zeroPoint source vertex" << std::endl;
+				throw PowerSasaException();
 			}
-			if (node2 == nullptr) node2 = node1->endPoints[zp->branch];
-			if (node2 == nullptr)
+			const auto& node1 = pd_vertices[node1_id];
+			VertexId node2_id = node1.endPointIds[zp.branch];
+			if (node2_id == PowerDiagram3D::kInvalidId)
+			{
+				const auto* endpoint_ptr = node1.endPoints[zp.branch];
+				if (endpoint_ptr != nullptr) node2_id = power_diagram->get_vertex_id(*endpoint_ptr);
+			}
+			if (node2_id == PowerDiagram3D::kInvalidId || node2_id >= pd_vertices.size())
 			{
 				std::cerr << "PowerSasa: Invalid zeroPoint endpoint" << std::endl;
 				throw PowerSasaException();
 			}
-			if (node1->powerValue < 0.0 && node2->powerValue > 0.0)
+			const auto& node2 = pd_vertices[node2_id];
+			if (node1.powerValue < 0.0 && node2.powerValue > 0.0)
 			{
 			if (fknot[ptn0] == 0)
 			{
 				fknot[ptn0] = 1;
-				knot[ptn0] = node1->position;
+				knot[ptn0] = node1.position;
 			}
 			else volnb[ptn0] +=
-			  std::abs((node1->position - knot[ptn0]).cross(zp_pos - knot[ptn0]).dot(e[ptn0]));
+			  std::abs((node1.position - knot[ptn0]).cross(zp_pos - knot[ptn0]).dot(e[ptn0]));
 			if (fknot[ptn1] == 0)
 			{
 				fknot[ptn1] = 1;
-				knot[ptn1] = node1->position;
+				knot[ptn1] = node1.position;
 			}
 			else volnb[ptn1] +=
-			  std::abs((node1->position - knot[ptn1]).cross(zp_pos - knot[ptn1]).dot(e[ptn1]));
+			  std::abs((node1.position - knot[ptn1]).cross(zp_pos - knot[ptn1]).dot(e[ptn1]));
 		}
-		else if (node1->powerValue > 0.0 && node2->powerValue < 0.0)
+		else if (node1.powerValue > 0.0 && node2.powerValue < 0.0)
 		{
 			if (fknot[ptn0] == 0)
 			{
 				fknot[ptn0] = 1;
-				knot[ptn0] = node2->position;
+				knot[ptn0] = node2.position;
 			}
 			else volnb[ptn0] +=
-			  std::abs((node2->position - knot[ptn0]).cross(zp_pos - knot[ptn0]).dot(e[ptn0]));
+			  std::abs((node2.position - knot[ptn0]).cross(zp_pos - knot[ptn0]).dot(e[ptn0]));
 			if (fknot[ptn1] == 0)
 			{
 				fknot[ptn1] = 1;
-				knot[ptn1] = node2->position;
+				knot[ptn1] = node2.position;
 			}
 			else volnb[ptn1] +=
-			  std::abs((node2->position - knot[ptn1]).cross(zp_pos - knot[ptn1]).dot(e[ptn1]));
+			  std::abs((node2.position - knot[ptn1]).cross(zp_pos - knot[ptn1]).dot(e[ptn1]));
 		}
-		else if (node1->powerValue > 0.0 && node2->powerValue > 0.0)
+		else if (node1.powerValue > 0.0 && node2.powerValue > 0.0)
 		{
-			PDFloat dpos = node1->powerValue*(1.0 - zp->pos) /
-			  (node2->powerValue*zp->pos + node1->powerValue*(1.0 - zp->pos)) - zp->pos;
+			PDFloat dpos = node1.powerValue*(1.0 - zp.pos) /
+			  (node2.powerValue*zp.pos + node1.powerValue*(1.0 - zp.pos)) - zp.pos;
 			if (fknot[ptn0] == 0)
 			{
 				fknot[ptn0] = 1;
 				knot[ptn0] = zp_pos;
 			}
 			else volnb[ptn0] += 0.5 *
-			  std::abs(dpos*(zp_pos - knot[ptn0]).cross(node2->position - node1->position).dot(e[ptn0]));
+			  std::abs(dpos*(zp_pos - knot[ptn0]).cross(node2.position - node1.position).dot(e[ptn0]));
 			if (fknot[ptn1] == 0)
 			{
 				fknot[ptn1] = 1;
 				knot[ptn1] = zp_pos;
 			}
 			else volnb[ptn1] += 0.5 *
-			  std::abs(dpos*(zp_pos - knot[ptn1]).cross(node2->position - node1->position).dot(e[ptn1]));
+			  std::abs(dpos*(zp_pos - knot[ptn1]).cross(node2.position - node1.position).dot(e[ptn1]));
 		}
 		else
 		{
@@ -759,9 +761,9 @@ calc_sasa_single(const unsigned int iatom)
 			throw PowerSasaException();
 		}
 	}
+	}
 
 	const std::size_t node_count = atom.myVerticesIds.size();
-	const typename POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3>::vertex *node1, *node2;
 	const auto generators_match = [](const typename PowerDiagram3D::GeneratorRef& a, const typename PowerDiagram3D::GeneratorRef& b) -> bool
 	{
 		return a.is_valid() && b.is_valid() && a.kind == b.kind && a.index == b.index;
@@ -769,27 +771,27 @@ calc_sasa_single(const unsigned int iatom)
 
 	for (j = 0; j < static_cast<int>(node_count); ++j)
 	{
-		node1 = nullptr;
-		const std::size_t vid = atom.myVerticesIds[j];
-		if (vid < pd_vertices.size()) node1 = &pd_vertices[vid];
-		if (node1 == nullptr) continue;
-		VertexId node1_id = atom.myVerticesIds[j];
+		const VertexId node1_id = atom.myVerticesIds[j];
+		if (node1_id == PowerDiagram3D::kInvalidId || node1_id >= pd_vertices.size()) continue;
+		const auto& node1 = pd_vertices[node1_id];
 		for (kn = 0; kn < 4; ++kn)
 		{
-					node2 = node1->endPoints[kn];
-					if (node2 == nullptr) continue;
-					VertexId node2_id = node1->endPointIds[kn];
+					VertexId node2_id = node1.endPointIds[kn];
 					if (node2_id == PowerDiagram3D::kInvalidId)
 					{
-						node2_id = power_diagram->get_vertex_id(*node2);
+						const auto* node2_ptr = node1.endPoints[kn];
+						if (node2_ptr == nullptr) continue;
+						node2_id = power_diagram->get_vertex_id(*node2_ptr);
 					}
 					if (node2_id == PowerDiagram3D::kInvalidId || node1_id == PowerDiagram3D::kInvalidId) continue;
+					if (node2_id >= pd_vertices.size()) continue;
+					const auto& node2 = pd_vertices[node2_id];
 					if (node2_id > node1_id) continue;
-					if (node1->powerValue > 0.0 || node2->powerValue > 0.0) continue;
+					if (node1.powerValue > 0.0 || node2.powerValue > 0.0) continue;
 				bool node2_contains_atom = false;
 				for (int kg = 0; kg < 4; ++kg)
 				{
-					const auto& g2ref = node2->generatorRefs[kg];
+					const auto& g2ref = node2.generatorRefs[kg];
 					if (g2ref.is_valid())
 					{
 						if (g2ref.kind == GeneratorKind::point && g2ref.index == iatom)
@@ -798,32 +800,19 @@ calc_sasa_single(const unsigned int iatom)
 							break;
 						}
 					}
-					else if (node2->generators[kg] == &atom)
-					{
-						node2_contains_atom = true;
-						break;
-					}
 				}
 				if (!node2_contains_atom) continue;
 				ptn = 0;
 				for (int kg = 0; kg < 4; ++kg)
 				{
-					const auto& g1ref = node1->generatorRefs[kg];
-					const typename PowerDiagram3D::cell* at = nullptr;
-					if (g1ref.is_valid())
-					{
-						at = &power_diagram->get_generator(g1ref);
-					}
-					if (at == nullptr)
-					{
-						at = node1->generators[kg];
-					}
-					if (at == nullptr || at == &atom) continue;
+					const auto& g1ref = node1.generatorRefs[kg];
+					if (!g1ref.is_valid()) continue;
+					if (g1ref.kind == GeneratorKind::point && g1ref.index == iatom) continue;
 					bool shared_generator = false;
 					for (int kh = 0; kh < 4; ++kh)
 					{
-						const auto& g2ref = node2->generatorRefs[kh];
-						if (generators_match(g1ref, g2ref) || at == node2->generators[kh])
+						const auto& g2ref = node2.generatorRefs[kh];
+						if (generators_match(g1ref, g2ref))
 						{
 							shared_generator = true;
 							break;
@@ -831,7 +820,7 @@ calc_sasa_single(const unsigned int iatom)
 					}
 					if (shared_generator)
 					{
-						partner[ptn] = at->visitedAs;
+						partner[ptn] = power_diagram->get_generator(g1ref).visitedAs;
 						++ptn;
 					}
 				}
@@ -842,17 +831,17 @@ calc_sasa_single(const unsigned int iatom)
 			if (fknot[ptn0] == 0)
 			{
 				fknot[ptn0] = 1;
-				knot[ptn0] = node1->position;
+				knot[ptn0] = node1.position;
 			}
 			else volnb[ptn0] +=
-			  std::abs((node1->position - knot[ptn0]).cross(node2->position - knot[ptn0]).dot(e[ptn0]));
+			  std::abs((node1.position - knot[ptn0]).cross(node2.position - knot[ptn0]).dot(e[ptn0]));
 			if (fknot[ptn1] == 0)
 			{
 				fknot[ptn1] = 1;
-				knot[ptn1] = node1->position;
+				knot[ptn1] = node1.position;
 			}
 			else volnb[ptn1] +=
-			  std::abs((node1->position - knot[ptn1]).cross(node2->position - knot[ptn1]).dot(e[ptn1]));
+			  std::abs((node1.position - knot[ptn1]).cross(node2.position - knot[ptn1]).dot(e[ptn1]));
 		}
 	}
 
