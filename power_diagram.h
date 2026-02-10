@@ -590,6 +590,15 @@ public :
 		a_cell.myVerticesIds.erase(a_cell.myVerticesIds.begin() + index);
 		validate_cell_mirror_invariants(a_cell);
 	}
+	inline void erase_cell_my_vertex_by_id(cell& a_cell, const VertexId id)
+	{
+		for(std::size_t i=0;i<a_cell.myVerticesIds.size();++i)
+		{
+			if(a_cell.myVerticesIds[i] != id) continue;
+			erase_cell_my_vertex(a_cell, i);
+			return;
+		}
+	}
 	inline void clear_cell_neighbours(cell& a_cell)
 	{
 		a_cell.neighboursIds.clear();
@@ -2096,12 +2105,7 @@ private:
 						unused.push_back(replaced_id);
 							else
 							for(const cellPtr generator : replaced_vertex->generators)
-								for(unsigned int i=0;i<generator->myVerticesIds.size();i++)
-									if(generator->myVerticesIds[i]==replaced_id)
-									{
-										erase_cell_my_vertex(*generator, i);
-										break;
-									}
+								erase_cell_my_vertex_by_id(*generator, replaced_id);
 			}
 				_nUnused=unused.size();
 		}
