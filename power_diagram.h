@@ -1157,8 +1157,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							done++;
 							if(done>100)
 								throw MyException();
-							cellPtr involved_front = involved_front_ptr();
-							if(involved_front == nullptr) throw MyException();
+							cell& insertion_cell = points[i];
 							//is this an Identical point problem?
 								{
 									cellPtr closest = nullptr;
@@ -1169,20 +1168,20 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 										if(candidate_id == kInvalidId) continue;
 										cellPtr candidate = cell_ptr_from_id(candidate_id);
 										if(candidate == nullptr) continue;
-										const PDFloat dist = (candidate->position-involved_front->position).squaredNorm();
+										const PDFloat dist = (candidate->position-insertion_cell.position).squaredNorm();
 										if(closest == nullptr || dist < mindist)
 										{
 											mindist = dist;
 											closest = candidate;
 										}
 									}
-									if(closest != nullptr && error(involved_front->r)>sqrt(mindist))
+									if(closest != nullptr && error(insertion_cell.r)>sqrt(mindist))
 									{
 										identicalPoint=closest;
 										if(params.with_warnings)
 										{
 											std::cout<<"numerical similar point to "<<get_cell_id(*closest)+1<<" found. ";
-											std::cout<<get_cell_id(*involved_front)+1<<" is ignored"<<std::endl;
+											std::cout<<get_cell_id(insertion_cell)+1<<" is ignored"<<std::endl;
 										}
 									}
 								}
@@ -1190,8 +1189,8 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								if(_nUnused==0)
 								{
 									//here comes the deletion ;)
-									_nVertices-=involved_front->myVerticesIds.size()-unused.size()+_nUnused;
-									for(const VertexId involved_vid : involved_front->myVerticesIds)
+									_nVertices-=insertion_cell.myVerticesIds.size()-unused.size()+_nUnused;
+									for(const VertexId involved_vid : insertion_cell.myVerticesIds)
 									{
 										vertexPtr involved_vertex = vertex_ptr_from_id(involved_vid);
 										if(involved_vertex == nullptr) continue;
@@ -1251,7 +1250,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 								//set everything zero again
 								SetInvolvedPersistingVisitedToZero();
-								clear_cell_my_vertices(*involved_front);
+								clear_cell_my_vertices(insertion_cell);
 							 	for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 								{
 									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
@@ -1267,19 +1266,19 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								if(!identicalPoint->myVerticesIds.empty())
 									identical_representative = vertex_ptr_from_id(identicalPoint->myVerticesIds.front());
 								if(identical_representative != nullptr)
-									push_cell_my_vertex(*involved_front, identical_representative);
+									push_cell_my_vertex(insertion_cell, identical_representative);
 								break;
 							}
 								else
 								{
-									const PDFloat oldr2=involved_front->r2;
+									const PDFloat oldr2=insertion_cell.r2;
 									if(params.with_warnings)
-										std::cout<<" Numerical Zero Warning: Power of "<<get_cell_id(*involved_front)+1<<" is reduced from "<<involved_front->r2;
-									involved_front->r2-=pow(2.0,done)*(errorScale);
-								if(involved_front->r2>=0)	involved_front->r= sqrt(involved_front->r2);
-								else 		involved_front->r=-sqrt(-involved_front->r2);
+										std::cout<<" Numerical Zero Warning: Power of "<<get_cell_id(insertion_cell)+1<<" is reduced from "<<insertion_cell.r2;
+									insertion_cell.r2-=pow(2.0,done)*(errorScale);
+								if(insertion_cell.r2>=0)	insertion_cell.r= sqrt(insertion_cell.r2);
+								else 		insertion_cell.r=-sqrt(-insertion_cell.r2);
 								if(params.with_warnings)
-									std::cout<<" to "<<involved_front->r2<<" ( Change was "<<involved_front->r2-oldr2<<" )"<<std::endl;
+									std::cout<<" to "<<insertion_cell.r2<<" ( Change was "<<insertion_cell.r2-oldr2<<" )"<<std::endl;
 							}
 
 
