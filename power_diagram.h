@@ -1855,7 +1855,7 @@ private:
 			}
 		}
 
-		inline bool tryToBuildVertexOnEdge(const const_vertexPtr& This,const int& here)//,const cellPtr s1, const cellPtr s2,const cellPtr s3,const PDCoord& direction);
+		inline bool tryToBuildVertexOnEdge(const vertex& This,const int& here)//,const cellPtr s1, const cellPtr s2,const cellPtr s3,const PDCoord& direction);
 		{
 			// Create one new finite vertex on a surviving edge between replaced and persisting regions.
 			//edge between This (replaced and finite) and that defined by generators s1,s2,s3 will get a vertex (of newest,s1,s2,s3)
@@ -1865,7 +1865,7 @@ private:
 				{
 					if(nVertices()==vertices.capacity())
 						throw MyException();
-					vertices[_nVertices].endPointsAndPositionOverwrite(This->endPoints[here],This->getPowerPointOnLine2(This->endPoints[here]));
+					vertices[_nVertices].endPointsAndPositionOverwrite(This.endPoints[here],This.getPowerPointOnLine2(This.endPoints[here]));
 					builtVertex = &vertices[++_nVertices-1];
 				}
 				else
@@ -1873,11 +1873,11 @@ private:
 					const VertexId unused_id = unused[_nUnused-1];
 					vertexPtr unused_vertex = vertex_ptr_from_id(unused_id);
 					if(unused_vertex == nullptr) throw MyException();
-					unused_vertex->endPointsAndPositionOverwrite(This->endPoints[here],This->getPowerPointOnLine2(This->endPoints[here]));
+					unused_vertex->endPointsAndPositionOverwrite(This.endPoints[here],This.getPowerPointOnLine2(This.endPoints[here]));
 					builtVertex = unused_vertex;
 					--_nUnused;
 				}
-				if(!builtVertex->Init(This,here,*this))
+				if(!builtVertex->Init(&This,here,*this))
 				{
 					insertionErrorScale=powerErr;
 					return false;
@@ -2450,7 +2450,7 @@ private :
 			{
 				if(this->endPoints[g]->rrv<=0)
 				{
-					if(!pd->tryToBuildVertexOnEdge(this,g))
+					if(!pd->tryToBuildVertexOnEdge(*this,g))
 						return false;
 				}
 			}
