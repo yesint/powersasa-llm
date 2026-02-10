@@ -1,6 +1,7 @@
 #include <cmath>
 #include <fstream>
 #include <numeric>
+#include <print>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -12,7 +13,7 @@ int main()
 {
 	using Scalar = float;
 	using Coord = Vec3<Scalar>;
-	std::cout << "Precision: float" << std::endl;
+	std::println("Precision: float");
 
 	std::vector<Coord> coords; // Vector of coordinates
 	std::vector<Scalar> weights; // Vector of radii including probe
@@ -46,14 +47,14 @@ int main()
 		}
 	}
 
-	std::cout << "Loaded " << atomCount << " atoms from " << coordFile << std::endl;
+	std::println("Loaded {} atoms from {}", atomCount, coordFile);
 
 	if (coords.empty()) {
 		std::cerr << "Error: No atoms loaded from " << coordFile << std::endl;
 		return 1;
 	}
 
-	std::cout << "Computing SASA..." << std::endl;
+	std::println("Computing SASA...");
 	POWERSASA::PowerSasa<Scalar,Coord> ps = POWERSASA::PowerSasa<Scalar,Coord>(coords, weights, 1, 0, 1, 0);
 	ps.calc_sasa_all();
 
@@ -64,8 +65,8 @@ int main()
 	const Scalar totalSasa = std::accumulate(sasa.begin(), sasa.end(), Scalar(0));
 	const Scalar totalVol = std::accumulate(vol.begin(), vol.end(), Scalar(0));
 
-	std::cout << "Total SASA: " << totalSasa << " nm^2" << std::endl;
-	std::cout << "Total Volume: " << totalVol << " nm^3" << std::endl;
+	std::println("Total SASA: {} nm^2", totalSasa);
+	std::println("Total Volume: {} nm^3", totalVol);
 
 	// Regression test: Check against Golden Values
 	constexpr Scalar goldenSasa = 144.812f;
@@ -82,7 +83,7 @@ int main()
 		return 1;
 	}
 
-	std::cout << "REGRESSION PASS: SASA and Volume match golden values." << std::endl;
+	std::println("REGRESSION PASS: SASA and Volume match golden values.");
 
 	return 0;
 }

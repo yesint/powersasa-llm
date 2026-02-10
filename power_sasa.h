@@ -31,6 +31,7 @@ If you have no license please contact SASA-support@kit.edu
 #include <cmath>
 #include <iostream>
 #include <numbers>
+#include <print>
 #include "power_diagram.h"
 #include <vector>
 
@@ -151,6 +152,10 @@ private:
 	// Allocate all per-atom/per-neighbour scratch buffers to default capacities.
 	inline void Init()
 	{
+		// Geometry:
+		//   No geometric computation; prepares storage for subsequent geometric integration.
+		// Code structure:
+		//   Delegates to Resize_* helpers in dependency order (atoms, neighbours, vertices, contour points).
 		Resize_NA();
 		Resize_NB(kMaxNb);
 		Resize_VX(kMaxVx);
@@ -159,6 +164,10 @@ private:
 	// Ensure neighbour-indexed scratch arrays are large enough for current atom degree.
 	inline void Resize_NB(unsigned int nnb)
 	{
+		// Geometry:
+		//   No geometric change; allocate per-neighbor work arrays for circle intersections.
+		// Code structure:
+		//   Resizes scalar/vector buffers and optionally DSasa_parts neighbor width.
 		np.resize(nnb);
 		nt.resize(nnb);
 		e.resize(nnb);
@@ -189,6 +198,10 @@ private:
 	// Ensure global surface-vertex storage arrays are large enough.
         inline void Resize_VX(unsigned int nvx)
 	{
+		// Geometry:
+		//   No geometric change; reserve temporary storage for contour vertices and bridge metadata.
+		// Code structure:
+		//   Resizes vx/off and 2-entry bridge index tables.
 		off.resize(nvx);
 		vx.resize(nvx);
 		br_c.resize(nvx);
@@ -202,6 +215,10 @@ private:
 	// Ensure per-neighbour contour-point arrays are large enough.
 	inline void Resize_PNT(unsigned int npnt)
 	{
+		// Geometry:
+		//   No geometric change; reserve angle-ordering buffers per neighbor circle.
+		// Code structure:
+		//   Resizes next/p/ang and ranking arrays used by Get_Next.
 		for (std::size_t i = 0; i < p.size(); ++i)
 		{
 			next[i].resize(npnt);
@@ -214,6 +231,10 @@ private:
 	// Resize per-atom outputs and refresh global tolerance derived from current maximum radius^2.
 	inline void Resize_NA()
 	{
+		// Geometry:
+		//   No geometric change; update container sizes and numerical tolerances for current atom set.
+		// Code structure:
+		//   Resizes output vectors and recomputes tol_pow from max r^2.
 		const std::size_t n = power_diagram.get_points().size();
 		if (withSasa) Sasa.resize(n,0);
 		if(withDSasa)
@@ -249,6 +270,10 @@ private:
 	template<class Coordcontainer, class Floatcontainer>
 	static PowerDiagramT create_with_chain_bond(Coordcontainer const& coords, Floatcontainer const& radii)
 	{
+		// Geometry:
+		//   Build initial diagram with simple chain bond hints for insertion seed heuristics.
+		// Code structure:
+		//   Synthesizes bond_to[i]=i-1 and forwards to PowerDiagram::create() parameter pipeline.
 		std::vector<int> bond_to;
 		bond_to.reserve(coords.size());
 		bond_to.push_back(0);
@@ -299,8 +324,12 @@ private:
 	std::vector<int> pos;
 	// special thing
 public:
-	template <const int n>
-	// Evaluate SASA/volume response of each atom to n probe-radius perturbations via temporary add/revert.
+template <const int n>
+	// Geometry:
+	//   Sample local SASA/volume response of each atom under probe-radius perturbations.
+	// Code structure:
+	//   For each atom and step, temporarily inserts a modified atom, computes single-atom SASA/volume,
+	//   stores the response, then reverts the diagram.
 	void calc_sasa_all(const PDFloat steps[n],PDFloat resultS[][n+1],PDFloat resultV[][n+1])
 	{
 		for (unsigned int i = 0; i < power_diagram.getPoints().size(); ++i)
@@ -333,6 +362,11 @@ public:
 template <class PDFloat, class PDCoord> PDFloat PowerSasa<PDFloat, PDCoord>::
 Ang_About(PDCoord const& a, PDCoord const& b, PDCoord const& c)
 {
+	// Geometry:
+	//   Oriented angle from a to b around axis c in [0, 2*pi).
+	// Code structure:
+	//   Uses robust branch selection around near-collinear cases and determines orientation from
+	//   the dominant axis component to reduce floating-point ambiguity.
 	PDFloat ang, co, vp;
 	PDCoord  v;
 
@@ -383,6 +417,10 @@ Get_Ang(const int & np,                              // total number of s-vertic
 	std::vector<PDFloat> & ang)                          // output
 	
 {
+	// Geometry:
+	//   Compute contour angles (phi parameterization) of intersection vertices on one neighbor circle.
+	// Code structure:
+	//   Projects each surface vertex onto the circle basis and computes oriented angle relative to first point.
 //	if (np == 0) return;//is tested outside
 	static PDCoord pu0, pu;
 	ang[0] = 0.0;
@@ -404,6 +442,10 @@ Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 	 const std::vector<int> & p, const PDCoord & e)
 
 {
+	// Geometry:
+	//   Build angular successor mapping along each circle contour.
+	// Code structure:
+	//   Rank-sorts angles with tolerance-aware tie breaking by orientation sign around e.
 	int j, k, m;
 	//static int rang[MAX_PNT], pos[MAX_PNT];
 	if (n == 0) return;
@@ -415,7 +457,7 @@ Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 		if (dp < 0.0) ang[j] = 0.0;
 		else if (dp == 0.0)
 		{
-			std::cout << "PowerSasa: Precision insufficient to resolve angles" << std::endl;
+			std::println("PowerSasa: Precision insufficient to resolve angles");
 			throw PowerSasaException();
 		}
 	}
@@ -444,7 +486,7 @@ Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 			        }
 			        else if (dp == 0.0)
 				{
-					std::cout << "PowerSasa: Precision insufficient to resolve angles" << std::endl;
+					std::println("PowerSasa: Precision insufficient to resolve angles");
 					throw PowerSasaException();
 				}
 			}
@@ -465,6 +507,13 @@ Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 template <class PDFloat, class PDCoord> void PowerSasa<PDFloat, PDCoord>::
 calc_sasa_single(const unsigned int iatom)
 {
+// Geometry:
+//   Compute SASA/volume (and optional derivatives) contribution for one atom from power-diagram topology.
+// Code structure:
+//   1) Gather neighbours and angular geometry.
+//   2) Register zero-point and fully-covered-edge contour vertices.
+//   3) Build contour cycles, integrate area/volume terms, and accumulate derivatives.
+//   4) Handle isolated single-circle caps and reset temporary visited flags.
 
 // ----- some initialisations  --------------------
 
@@ -619,6 +668,11 @@ calc_sasa_single(const unsigned int iatom)
 	
 
 //------ register surface vertices ------------------------
+// Geometry:
+//   Collect all contour vertices where the atom boundary intersects neighbors or zero-power edges.
+// Code structure:
+//   Converts zero-point and fully-covered-edge events into normalized sphere-space vertices vx[] and
+//   maps them to neighbor-circle bins p[] with branch bookkeeping arrays.
 
         int partner[2], ptn, ptn0, ptn1;
 	PDCoord zp_pos;
@@ -835,6 +889,10 @@ calc_sasa_single(const unsigned int iatom)
 	}
 
 // ----- get angles of s-vertices within each circle ---------
+// Geometry:
+//   Order contour vertices around each neighbor circle to define closed arcs.
+// Code structure:
+//   Validates parity/topology constraints and fills next[] successor links via Get_Ang/Get_Next.
 
 	for (i = 0; i < nnb; i++)
 	{
@@ -850,6 +908,10 @@ calc_sasa_single(const unsigned int iatom)
 	}
 
 // ---------- get sasa from contours ---------------------------
+// Geometry:
+//   Integrate spherical polygon arcs that bound the exposed atom surface.
+// Code structure:
+//   Walk each contour cycle once, summing angular area terms and corresponding volume/gradient contributions.
 
         int ic1, ic2, ic_0, ic_1, ip2, ip_next, ivx, count;
 	PDFloat phi, co, dirdet, ds1, ds2, scone;
@@ -972,6 +1034,10 @@ calc_sasa_single(const unsigned int iatom)
 	}
 
 // ---------- sasa from single circles ----------------------------
+// Geometry:
+//   Add isolated cap contributions from neighbors that have no explicit contour vertices.
+// Code structure:
+//   Tests cap center visibility against all other neighbors, then adds closed-form area/volume terms.
 
 	PDFloat pw_i, pw_j;
 	PDCoord  cc;
@@ -1048,6 +1114,10 @@ calc_sasa_single(const unsigned int iatom)
 template <class PDFloat, class PDCoord> void PowerSasa<PDFloat, PDCoord>::
 calc_sasa_all()
 {
+	// Geometry:
+	//   Evaluate SASA for every atom in current diagram.
+	// Code structure:
+	//   Sequentially dispatches calc_sasa_single() over all cells.
 	for (std::size_t i = 0; i < power_diagram.get_points().size(); ++i)
 	{
 		calc_sasa_single(static_cast<unsigned int>(i));

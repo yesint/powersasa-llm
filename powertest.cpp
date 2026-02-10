@@ -1,4 +1,5 @@
 #include <power_diagram.h>
+#include <print>
 #include <testincludes.h>
 #include "vec3.h"
 
@@ -37,7 +38,7 @@ int main()
 	weights.push_back(1.67);
 	bond_to.push_back(5);
 
-	std::cout << "Testing Power Diagram, 7 verts: " << std::endl;
+	std::println("Testing Power Diagram, 7 verts:");
 	PowerDiagram<number_type,Coord,3> pd = PowerDiagram<number_type,Coord,3>::create(coords.size(),coords.begin(),weights.begin(),bond_to.begin())
 		.with_radiiGiven(1).with_calculate(1).with_cells(1).with_Warnings(0);
 	bond_to.clear();
@@ -52,7 +53,7 @@ int main()
 		weights[i]*=scale;
 		bond_to.push_back(i-1);
 	}
-	std::cout << "Testing Power Diagram, bunny_set: " << std::endl;
+	std::println("Testing Power Diagram, bunny_set:");
 	PowerDiagram<number_type,Coord,3> pd2 = PowerDiagram<number_type,Coord,3>::create(coords.size(),coords.begin(),weights.begin(),bond_to.begin())
 		.with_radiiGiven(1).with_calculate(1).with_cells(1).with_Warnings(0);
 	//pd2.update_coords(coords);

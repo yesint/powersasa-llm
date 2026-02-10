@@ -30,7 +30,10 @@ If you have no license please contact SASA-support@kit.edu
 #endif
 #include <array>
 #include <iostream>
+#include <print>
 #include <fstream>
+#include <sstream>
+#include <string>
 #include <vector>
 #include <deque>
 #include <algorithm>
@@ -59,6 +62,13 @@ class VerticesFullException : public std::exception {};
 inline int nth(const int n,const int without)
 {
 	return n+(without<=n);
+}
+template <typename T>
+inline std::string pd_to_string(const T& value)
+{
+	std::ostringstream oss;
+	oss << value;
+	return oss.str();
 }
 template <class PDCoord, class PDFloat, class Pos_iterator, class Strength_iterator, const int dimension>
 void getBoundingBox(PDCoord& lowestCorner,PDCoord& highestCorner,const unsigned int& size,const Pos_iterator pos_begin,const Strength_iterator  strength_begin,const PDFloat additionalCubeSize=pow(2.0,1.0/dimension)-1)
@@ -226,7 +236,10 @@ public :
 	};
 	inline void AddToInvolved(const GeneratorRef& ref)
 	{
-		// Mark a cell as part of the local insertion neighborhood.
+		// Geometry:
+		//   Tag one generator cell as part of the active local insertion neighborhood.
+		// Code structure:
+		//   Converts ref->cell, stores traversal mark in visitedAs, and appends ref to InvolvedRefs.
 		cell& thit = cell_from_ref(ref);
 		thit.visitedAs=involved_size();
 		push_involved(ref);
@@ -252,10 +265,18 @@ public :
 	}
 	inline bool ref_is_real_point(const GeneratorRef& ref) const
 	{
+		// Geometry:
+		//   Distinguish true input generators from synthetic side generators.
+		// Code structure:
+		//   Checks GeneratorRef validity, kind, and bounds against points[].
 		return ref.is_valid() && ref.kind == GeneratorKind::point && ref.index < points.size();
 	}
 	inline void sync_cell_link_mirrors(cell& a_cell)
 	{
+		// Geometry:
+		//   No geometric change; clamp stale adjacency/ownership ids after edits.
+		// Code structure:
+		//   Bounds-checks bondToId, neighboursIds, and myVerticesIds against current vector sizes.
 		if(a_cell.bondToId >= points.size()) a_cell.bondToId = kInvalidId;
 		for(std::size_t i=0;i<a_cell.neighboursIds.size();++i)
 			if(a_cell.neighboursIds[i] >= points.size()) a_cell.neighboursIds[i] = kInvalidId;
@@ -264,6 +285,10 @@ public :
 	}
 	inline void sync_vertex_link_mirrors(vertex& a_vertex) const
 	{
+		// Geometry:
+		//   No geometric change; sanitize vertex generator/endpoint references.
+		// Code structure:
+		//   Invalidates out-of-range GeneratorRefs and endpoint ids.
 		for (int g = 0; g <= dimension; ++g)
 		{
 			const GeneratorRef& ref = a_vertex.generatorRefs[g];
@@ -274,6 +299,10 @@ public :
 	}
 	inline void sync_zero_link_mirrors(zeroPoint& a_zero) const
 	{
+		// Geometry:
+		//   No geometric change; sanitize zero-point origin and generator refs.
+		// Code structure:
+		//   Invalidates fromId/ref entries that no longer point into owner arrays.
 		if(a_zero.fromId >= vertices.size()) a_zero.fromId = kInvalidId;
 		for (int g = 0; g < dimension; ++g)
 		{
@@ -284,6 +313,10 @@ public :
 	}
 	inline void push_zero_from_edge(const VertexId source_id, const int branch, const PDFloat sol)
 	{
+		// Geometry:
+		//   Record one edge-parameterized zero crossing event.
+		// Code structure:
+		//   Copies the 3 defining generator refs from source vertex excluding branch slot.
 		const vertex& source_vertex = vertex_at(source_id);
 		zeroPoint zp(
 			sol,
@@ -296,12 +329,20 @@ public :
 	}
 	inline void sync_all_link_mirrors()
 	{
+		// Geometry:
+		//   No geometric change; global ID/ref sanitation pass.
+		// Code structure:
+		//   Applies sync_* helpers to all cells, active vertices, and zero points.
 		for (cell& a_cell : points) sync_cell_link_mirrors(a_cell);
 		for (unsigned int vi = 0; vi < _nVertices; ++vi) sync_vertex_link_mirrors(vertices[vi]);
 		for (zeroPoint& a_zero : zeros) sync_zero_link_mirrors(a_zero);
 	}
 	inline void validate_transient_mirror_invariants() const
 	{
+		// Geometry:
+		//   Debug-only integrity assertion for transient insertion containers.
+		// Code structure:
+		//   Ensures involved refs and replaced vertex ids are valid when asserts are enabled.
 #if PD_ENABLE_TOPOLOGY_ASSERTS
 		for(std::size_t i=0;i<involved_size();++i)
 		{
@@ -316,6 +357,10 @@ public :
 	}
 	inline void validate_cell_mirror_invariants(const cell& a_cell) const
 	{
+		// Geometry:
+		//   Debug-only integrity assertion for one cell link mirror.
+		// Code structure:
+		//   Verifies bounds of myVerticesIds/neighboursIds/bondToId under assert guard.
 #if PD_ENABLE_TOPOLOGY_ASSERTS
 		for(std::size_t i=0;i<a_cell.myVerticesIds.size();++i)
 			if(a_cell.myVerticesIds[i] != kInvalidId && a_cell.myVerticesIds[i] >= vertices.size()) throw MyException();
@@ -341,6 +386,10 @@ public :
 	inline bool valid_vertex_id(const VertexId id) const { return id != kInvalidId && id < vertices.size(); }
 	inline bool valid_generator_ref(const GeneratorRef& ref) const
 	{
+		// Geometry:
+		//   Determine whether generator ref maps to a currently existing real/side cell.
+		// Code structure:
+		//   Checks kind-specific bounds in points[] or sideGenerators[].
 		if(!ref.is_valid()) return false;
 		if(ref.kind == GeneratorKind::point) return ref.index < points.size();
 		if(ref.kind == GeneratorKind::side) return ref.index < sideGenerators.size();
@@ -358,10 +407,18 @@ public :
 	}
 	inline void set_vertex_generator(vertex& a_vertex, const int slot, const GeneratorRef& ref)
 	{
+		// Geometry:
+		//   Assign one generator in vertex-defining tuple.
+		// Code structure:
+		//   Direct write to generatorRefs[slot].
 		a_vertex.generatorRefs[slot] = ref;
 	}
 	inline void set_vertex_endpoint(vertex& a_vertex, const int slot, const VertexId id)
 	{
+		// Geometry:
+		//   Assign one endpoint link of a vertex edge branch.
+		// Code structure:
+		//   Direct write to endPointIds[slot].
 		a_vertex.endPointIds[slot] = id;
 	}
 	inline void set_vertex_endpoint_deferred(vertex& a_vertex, const int slot, const VertexId id)
@@ -370,6 +427,10 @@ public :
 	}
 	inline void swap_vertex_link_slots(vertex& a_vertex, const int a, const int b)
 	{
+		// Geometry:
+		//   Permute local generator/endpoint slot ordering without changing represented vertex.
+		// Code structure:
+		//   Swaps generatorRefs and endPointIds in lockstep.
 		std::swap(a_vertex.generatorRefs[a], a_vertex.generatorRefs[b]);
 		std::swap(a_vertex.endPointIds[a], a_vertex.endPointIds[b]);
 	}
@@ -385,6 +446,10 @@ public :
 	}
 	inline void clear_replaced()
 	{
+		// Geometry:
+		//   Reset replaced-vertex frontier container.
+		// Code structure:
+		//   Clears ReplacedIds and validates transient invariants.
 		ReplacedIds.clear();
 		validate_transient_mirror_invariants();
 	}
@@ -419,6 +484,10 @@ public :
 	}
 	inline void sort_involved_by_ref()
 	{
+		// Geometry:
+		//   Canonicalize involved-generator ordering for deterministic local processing.
+		// Code structure:
+		//   Stable rank by (kind, index) through index permutation then container rewrite.
 		std::vector<std::size_t> order(InvolvedRefs.size());
 		for(std::size_t i=0;i<order.size();++i) order[i] = i;
 		auto ref_rank = [](const GeneratorRef& ref) -> int
@@ -447,6 +516,10 @@ public :
 	}
 	inline void push_involved(const GeneratorRef& ref)
 	{
+		// Geometry:
+		//   Add one generator to active local neighborhood.
+		// Code structure:
+		//   Pushes into InvolvedRefs and revalidates transient invariants.
 		InvolvedRefs.push_back(ref);
 		validate_transient_mirror_invariants();
 	}
@@ -464,6 +537,10 @@ public :
 	}
 	inline void clear_cell_my_vertices(cell& a_cell)
 	{
+		// Geometry:
+		//   Clear inverse cell->vertex incidence for one cell.
+		// Code structure:
+		//   Empties myVerticesIds and validates cell invariants.
 		a_cell.myVerticesIds.clear();
 		validate_cell_mirror_invariants(a_cell);
 	}
@@ -498,6 +575,10 @@ public :
 	}
 	inline void clear_cell_neighbours(cell& a_cell)
 	{
+		// Geometry:
+		//   Clear cell-cell adjacency list.
+		// Code structure:
+		//   Empties neighboursIds and validates cell invariants.
 		a_cell.neighboursIds.clear();
 		validate_cell_mirror_invariants(a_cell);
 	}
@@ -550,6 +631,10 @@ public :
 	}
 	inline bool zeroPointValid(const zeroPoint& zp) const
 	{
+		// Geometry:
+		//   Test whether a stored zero-crossing still references two valid active edge endpoints.
+		// Code structure:
+		//   Validates fromId, branch endpoint id, and endpoint connectivity flags.
 		const VertexId from_id = zeroPointFromId(zp);
 		if (from_id == kInvalidId) return false;
 		const vertex& from = vertex_at(from_id);
@@ -560,6 +645,10 @@ public :
 	}
 	inline PDCoord zeroPointPos(const zeroPoint& zp) const
 	{
+		// Geometry:
+		//   Evaluate 3D position of zero crossing by affine interpolation along its source edge.
+		// Code structure:
+		//   Resolves source/target endpoints and computes linear blend via zp.pos.
 		const VertexId from_id = zeroPointFromId(zp);
 		if (from_id == kInvalidId) throw MyException();
 		const vertex& from = vertex_at(from_id);
@@ -587,13 +676,16 @@ public :
 template <class Pos_iterator, class Strength_iterator, class BondTo_iterator>
 static PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_iterator> create(unsigned int size, Pos_iterator pos_begin, Strength_iterator strength_begin, BondTo_iterator bondTo_begin)
 {
-	// Factory helper: derive bounding cube and return a fully parameterized construction object.
+	// Geometry:
+	//   Build initial global clipping bounds from weighted input sites.
+	// Code structure:
+	//   Computes bounding box and returns deferred parameter object for fluent construction flags.
 	PDCoord highestCorner;
 	PDCoord lowestCorner;
 	{
 		if(size>=1)
 			getBoundingBox<PDCoord,PDFloat,Pos_iterator,Strength_iterator,3>(lowestCorner,highestCorner,size,pos_begin,strength_begin);
-		else{std::cout<<"create empty PD(not implemented, yet)"<<std::endl;throw MyException();}
+		else{std::println("create empty PD(not implemented, yet)");throw MyException();}
 		return PowerDiagramParams<PDFloat,PDCoord,Pos_iterator,Strength_iterator,BondTo_iterator>	(size,pos_begin,strength_begin,bondTo_begin,lowestCorner,highestCorner);
 	}
 }
@@ -671,8 +763,12 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 			void revert()
 			{
-			//if addmore was used this function can revert to the diagram without the added atoms
-			// Roll back topology and cached adjacency/zero-point state to the snapshot taken before addMore().
+			// Geometry:
+			//   Undo incremental insertions and restore the exact previously valid power-diagram state
+			//   (corner ownership, finite-vertex connectivity, and derived adjacency/zero sets).
+			// Code structure:
+			//   Uses snapshot fields captured in addMore() (nRevert* and cornerOwners), rebuilds mirror IDs,
+			//   restores corner generators, reconnects preserved invalidated vertices, and trims inserted points/zeros.
 					for(unsigned int vi=nRevertVertices;vi<_nVertices;++vi)
 						for(int gi=1;gi<=dimension;++gi)
 							if(vertices[vi].generatorRefs[gi].kind == GeneratorKind::point && vertices[vi].generatorRefs[gi].index < points.size())
@@ -751,7 +847,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	inline void recalculate(const Pos_iterator pos_it,const Strength_iterator strength_it,const unsigned int size)
 	//does standard deletion and calculation of Vertices, neighbour information, ...
 	{
-		// Rebuild the full diagram from scratch for updated coordinates/radii.
+		// Geometry:
+		//   Recompute the complete clipped power diagram for a new full point set.
+		// Code structure:
+		//   Resets transient and per-cell caches, rebuilds the cube, updates all sites, then recomputes
+		//   vertices / myVertices / neighbours / zero points in that strict dependency order.
 		clearAllmyVertices();
 		clear_interna();
 			if(size>points.size())
@@ -824,7 +924,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	inline void addMore(const Pos_iterator pos_it,const Strength_iterator strength_it,const int _newSize)
 	//does standard deletion and calculation of Vertices, neighbour information, ...
 	{
-		// Incrementally insert additional points while preserving a revert snapshot.
+		// Geometry:
+		//   Insert additional weighted sites incrementally into the existing tessellation.
+		// Code structure:
+		//   Captures a full revert snapshot, appends points, optionally rebuilds the outer cube if needed,
+		//   updates generator refs after reallocations, then processes only new insertions and touched caches.
 		const unsigned int gap=_newSize<points.size()?points.size()-_newSize:1;
 		const unsigned int newSize=_newSize<points.size()?points.size()+1:_newSize;
 			nRevertVertices=_nVertices;
@@ -969,7 +1073,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	{
 		for (unsigned int i = 0; i < position.size(); ++i)
 		{
-			std::cout << position[i].x() << " " <<  position[i].y() << " " << position[i].z() << " " <<power[i] << std::endl;
+			std::println("{} {} {} {}", position[i].x(), position[i].y(), position[i].z(), power[i]);
 		}
 	}
 
@@ -984,7 +1088,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 		}
 	void buildCube(const PDCoord& lowest,const PDCoord& highest)
 	{
-		// Initialize the outer clipping cube and its connectivity as the starting polytope.
+		// Geometry:
+		//   Construct the artificial bounding polytope (axis-aligned cube) that clips the unbounded diagram.
+		// Code structure:
+		//   Creates 2^d corner vertices, assigns side generators, wires corner-corner edges by dimension bits,
+		//   and normalizes local generator slot ordering for deterministic downstream matching.
 		_nVertices=1<<dimension;
 		sideGenerators.clear();
 		for(int i=0;i<2*dimension;i++)
@@ -1039,7 +1147,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 	}
 	void buildVertices(const unsigned int& nPoints,const int from=0)
 	{
-		// Insert points one-by-one and maintain a consistent power-diagram vertex network.
+		// Geometry:
+		//   Perform incremental regular triangulation/power-cell update by inserting points one by one.
+		// Code structure:
+		//   For each insertion: prepare replacement frontier, attempt local rebuild, fallback on numerical
+		//   dampening when ambiguous, then run consistency checks and optional cache recomputation.
 		//	try
 		{
 
@@ -1094,8 +1206,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 										identicalPointId=closest_id;
 										if(params.with_warnings)
 										{
-											std::cout<<"numerical similar point to "<<closest_id+1<<" found. ";
-											std::cout<<i+1<<" is ignored"<<std::endl;
+											std::println("numerical similar point to {} found. {} is ignored", closest_id+1, i+1);
 										}
 									}
 								}
@@ -1197,18 +1308,18 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								{
 									const PDFloat oldr2=insertion_cell.r2;
 									if(params.with_warnings)
-										std::cout<<" Numerical Zero Warning: Power of "<<i+1<<" is reduced from "<<insertion_cell.r2;
+										std::print(" Numerical Zero Warning: Power of {} is reduced from {}", i+1, insertion_cell.r2);
 									insertion_cell.r2-=pow(2.0,done)*(errorScale);
 								if(insertion_cell.r2>=0)	insertion_cell.r= sqrt(insertion_cell.r2);
 								else 		insertion_cell.r=-sqrt(-insertion_cell.r2);
 								if(params.with_warnings)
-									std::cout<<" to "<<insertion_cell.r2<<" ( Change was "<<insertion_cell.r2-oldr2<<" )"<<std::endl;
+									std::println(" to {} ( Change was {} )", insertion_cell.r2, insertion_cell.r2-oldr2);
 							}
 
 
 
 
-							if(done>100){std::cout<<"Exception : cannot get stable results"<<std::endl; throw MyException();}
+							if(done>100){std::println("Exception : cannot get stable results"); throw MyException();}
 						}
 					}
 
@@ -1222,7 +1333,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 if(!params.without_check){
 					PDFloat checkconst=0;
-//				std::cout<<"checking diagram"<<std::endl;
+//				std::println("checking diagram");
 					for(unsigned int vi=0;vi<_nVertices;++vi)
 						if(vertices[vi].isConnected())
 							for(std::size_t point_id=0;point_id<points.size();++point_id)
@@ -1245,14 +1356,18 @@ if(!params.without_check){
 						if(e0_id == kInvalidId || e0_id >= vertices.size() || e1_id == kInvalidId || e1_id >= vertices.size()) throw MyException();
 						const vertex& e0 = vertex_at(e0_id);
 						const vertex& e1 = vertex_at(e1_id);
-						std::cout<<"totaly wrong are "<<point_id<<" "<<point.power(vertices[vi].position)<<" "<<g0.power(vertices[vi].position)<<" "<<g1.power(vertices[vi].position)<<"          "<<g0.position[0]<<" "<<g0.position[1]<<" "<<g0.position[2]<<std::endl;
-std::cout<<((vertices[vi].generatorRefs[0].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[0].index):-1)<<" "<<((vertices[vi].generatorRefs[1].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[1].index):-1)<<" "<<((vertices[vi].generatorRefs[2].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[2].index):-1)<<" "<<((vertices[vi].generatorRefs[3].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[3].index):-1)<<std::endl;
-std::cout<<point.power(e0.position)<<" "<<point.power(e1.position)<<std::endl;
-std::cout<<g0.power(e0.position)<<" "<<g0.power(e1.position)<<std::endl;
-std::cout<<g1.power(e0.position)<<" "<<g1.power(e1.position)<<std::endl;
-std::cout<<vertices[vi].position<<std::endl<<std::endl;
-std::cout<<e0.position<<std::endl<<std::endl;
-std::cout<<e1.position<<std::endl;
+						std::println("totaly wrong are {} {} {} {}          {} {} {}", point_id, point.power(vertices[vi].position), g0.power(vertices[vi].position), g1.power(vertices[vi].position), g0.position[0], g0.position[1], g0.position[2]);
+std::println("{} {} {} {}",
+	((vertices[vi].generatorRefs[0].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[0].index):-1),
+	((vertices[vi].generatorRefs[1].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[1].index):-1),
+	((vertices[vi].generatorRefs[2].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[2].index):-1),
+	((vertices[vi].generatorRefs[3].kind==GeneratorKind::point)?static_cast<long long>(vertices[vi].generatorRefs[3].index):-1));
+std::println("{} {}", point.power(e0.position), point.power(e1.position));
+std::println("{} {}", g0.power(e0.position), g0.power(e1.position));
+std::println("{} {}", g1.power(e0.position), g1.power(e1.position));
+std::println("{}\n", pd_to_string(vertices[vi].position));
+std::println("{}\n", pd_to_string(e0.position));
+std::println("{}", pd_to_string(e1.position));
 	throw MyException();
 
 	}
@@ -1260,7 +1375,7 @@ std::cout<<e1.position<<std::endl;
 						}
 
 if(std::abs(checkconst)>0.001)
-	std::cout<<"the error of the worst vertex is around "<<checkconst<<std::endl;
+	std::println("the error of the worst vertex is around {}", checkconst);
 //dump_vertices();
 }
 
@@ -1298,7 +1413,11 @@ if(std::abs(checkconst)>0.001)
 	}
 	inline void findReplacedVertex(VertexId& this_id, PDFloat& value,const cell& insertionPoint)
 	{
-		// Starting from a hint vertex, descend the local graph to a vertex most clearly dominated by insertionPoint.
+		// Geometry:
+		//   Gradient-like walk on power values to find a seed vertex likely inside the replaced region.
+		// Code structure:
+		//   Uses 1-hop/2-hop/3-hop neighborhood scans with tie-handling; falls back to full scan only under
+		//   near-degenerate numeric conditions.
 		if(value<0)
 			return;
 		vertex& This = vertex_at(this_id);
@@ -1381,7 +1500,7 @@ if(std::abs(checkconst)>0.001)
 			if(smallVal!=value)
 				return;
 		if(params.with_warnings)
-			std::cout<<"warning : program slowed down because of too small accuracy"<<std::endl;
+			std::println("warning : program slowed down because of too small accuracy");
 		//...so the numerical problem wants to be tough? A fat lot we care!
 				for(unsigned int vi=0;vi<nVertices();++vi)
 				if(vertices[vi].isConnected())
@@ -1397,7 +1516,10 @@ if(std::abs(checkconst)>0.001)
 	inline ReplaceState finiteReplaced(vertex& This, const CellId cell_id)
 	{
 		if(cell_id == kInvalidId) return ReplaceState::ambiguous;
-		// Classify whether vertex This is replaced by aCell, persists, or is numerically ambiguous.
+		// Geometry:
+		//   Compare power of candidate insertion site against current owner at this vertex.
+		// Code structure:
+		//   Writes signed replacement margin into rrv and classifies using robust tolerance thresholds.
 		This.rrv=This.powerdiff3D(cell_at(cell_id),cell_from_ref(This.generatorRefs[0]));
 		if(above_power_err(This.rrv)) return ReplaceState::replaced;
 		if(below_neg_power_err(This.rrv)) return ReplaceState::persisting;
@@ -1406,7 +1528,11 @@ if(std::abs(checkconst)>0.001)
 	}
 	void dump_vertices(std::ostream& out=std::cout)
 	{
-		std::cout<<"vertices, generators and neighbours "<<std::endl;
+		// Geometry:
+		//   Diagnostic dump of current local combinatorics and vertex power consistency.
+		// Code structure:
+		//   Emits one line per vertex plus neighbor endpoint lines using GeneratorRef-derived IDs.
+		out << "vertices, generators and neighbours " << std::endl;
 		const auto generator_idx = [this](const GeneratorRef& ref) -> long long
 		{
 			if(ref.kind != GeneratorKind::point || ref.index >= points.size()) return -1;
@@ -1443,9 +1569,9 @@ if(std::abs(checkconst)>0.001)
 			}
 			else
 			{
-				std::cout<<"outtake"<<std::endl;
+				out << "outtake" << std::endl;
 			}
-			std::cout<<std::endl;
+			out << std::endl;
 		}
 	}
 
@@ -1505,7 +1631,11 @@ private:
 		}
 	VertexId prepareInsertion(const CellId this_id, VertexId hint_id=kInvalidId)
 	{
-		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
+		// Geometry:
+		//   Compute the local conflict region for a new site and stabilize it if near degeneracy appears.
+		// Code structure:
+		//   Picks a representative hint, runs replacement flood-fill, and if ambiguous repeatedly perturbs
+		//   radius/power until a stable replaced/persisting partition is obtained or throws.
 		if(this_id == kInvalidId || this_id >= points.size()) throw MyException();
 		cell& This = cell_at(this_id);
 		if(__power_diagram_internal_timing__)t2-=clock();
@@ -1530,7 +1660,7 @@ private:
 
 				const PDFloat oldr2=This.r2;
 					if(params.with_warnings)
-						std::cout<<"Numerical Warning: Power of "<<this_id+1<<" is reduced from "<<This.r2;
+						std::print("Numerical Warning: Power of {} is reduced from {}", this_id+1, This.r2);
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
 						for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
@@ -1550,9 +1680,9 @@ private:
 				if(This.r2>0)	This.r= sqrt(This.r2);
 				else 		This.r=-sqrt(-This.r2);
 				if(params.with_warnings)
-					std::cout<<" to "<<This.r2<<" ( Change was "<<This.r2-oldr2<<" )"<<std::endl;
+					std::println(" to {} ( Change was {} )", This.r2, This.r2-oldr2);
 				done++;
-				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<this_id<<" "<<This.position+center<<std::endl;
+				if(done>100){std::println("exception : cannot get stable results with atom {} {}", this_id, pd_to_string(This.position+center));
 					throw MyException();}
 			}
 			return hint_id;
@@ -1560,7 +1690,11 @@ private:
 
 	bool doInsertion(const VertexId hint_id)
 	{
-		// Materialize insertion after prepareInsertion(): create new finite vertices, connect, and update caches.
+		// Geometry:
+		//   Materialize the topological transition after the conflict region is known.
+		// Code structure:
+		//   Creates all required new finite vertices on cut edges, connects them, compacts invalid vertices,
+		//   then refreshes representative ownership and visited flags.
 //			if(hint exists)
 				{
 						if(__power_diagram_internal_timing__){const unsigned int zeit=clock();t3-=zeit;t4-=zeit;}
@@ -1586,9 +1720,12 @@ private:
 //		planes.clear();//should always be clean
 	}
 
-		inline void insertFirst()
+	inline void insertFirst()
 		{
-		// Seed the diagram: assign the first real generator to all cube corners.
+		// Geometry:
+		//   Initialize first finite cell against the clipping cube.
+		// Code structure:
+		//   Sets corner power values from the first site and marks all corners as owned by that site.
 		clear_interna();
 		for(int i=0;i<(1<<dimension);i++)
 			vertices[i].setPowerData(points[0]);
@@ -1599,7 +1736,11 @@ private:
 		}
 	void FillAllMyVertices(const int fromPoint=0,const int fromVertex=1<<dimension)
 	{
-		// Recompute per-cell vertex ownership lists from the current global vertex array.
+		// Geometry:
+		//   Build inverse incidence: for each real cell, list all finite boundary vertices.
+		// Code structure:
+		//   Scans vertices, filters corners/virtual generators based on mode, and populates myVerticesIds;
+		//   optionally marks involved cells for incremental neighbour refresh.
 		{
 				if(fromPoint>0)
 					clear_involved();
@@ -1641,7 +1782,7 @@ private:
 						}
 					else
 					{/*dont give corners to sasa code, it doesnt check for it... so we define myVertices as not holding corners!*/
-						std::cout<<"wrong internal order, SASA stopped"<<std::endl;
+						std::println("wrong internal order, SASA stopped");
 						throw MyException();
 					}
 
@@ -1651,7 +1792,11 @@ private:
 
 		void FillAllNeighbours()
 		{
-			// Recompute full cell adjacency from shared finite vertices.
+			// Geometry:
+			//   Derive cell-cell adjacency graph from shared finite vertices.
+			// Code structure:
+			//   Clears neighbour lists, then for each cell traverses incident vertices and collects distinct
+			//   point generators using visitedAs as a temporary duplicate filter.
 			for(cell& point : points)
 			{
 				clear_cell_neighbours(point);
@@ -1688,7 +1833,11 @@ private:
 
 		void FillAllNeighboursOfInvolved()
 			{
-				// Incrementally refresh adjacency only for cells touched by recent insertion/revert operations.
+				// Geometry:
+				//   Incremental adjacency update restricted to recently touched cells.
+				// Code structure:
+				//   Removes stale neighbours, adds new ones from local vertex incidence, and finally clears
+				//   temporary visited markers on the involved subset.
 				sort_involved_by_ref();
 				for(std::size_t involved_idx=0;involved_idx<involved_size();++involved_idx)
 				{
@@ -1741,7 +1890,11 @@ private:
 		}
 	void FillAllZeroPoints(	unsigned int fromVertex=(1<<dimension),const unsigned int fromZero=0)
 	{
-		// Recompute intersections where power value crosses zero along diagram edges.
+		// Geometry:
+		//   Locate all edge parameters where interpolated power crosses zero (surface intersection seeds).
+		// Code structure:
+		//   Iterates eligible edges, solves quadratic/degenerate crossing equations, stores zeroPoint records,
+		//   then back-links them to real cells via myZeroPoints.
 		zeros.erase(zeros.begin()+fromZero,zeros.end());
 		for(unsigned int vertex_index=fromVertex;vertex_index<this->_nVertices;++vertex_index)
 		{
@@ -1838,7 +1991,11 @@ private:
 
 	inline bool tryToBuildVertexOnEdge(const vertex& This, const int& here, const VertexId this_id)
 		{
-			// Create one new finite vertex on a surviving edge between replaced and persisting regions.
+			// Geometry:
+			//   Spawn one new finite vertex at the cut point on a replaced->persisting edge.
+			// Code structure:
+			//   Takes either free slot from unused or appends new vertex, initializes endpoint and generator
+			//   tuple, then validates finite power consistency.
 			//edge between This (replaced and finite) and that defined by generators s1,s2,s3 will get a vertex (of newest,s1,s2,s3)
 			{
 				VertexId persisting_id = This.resolved_endpoint_id(*this, here);
@@ -1877,7 +2034,11 @@ private:
 
 	bool FillReplacedPersistingAndInvolved(const CellId this_id, const VertexId start_id)
 	{
-		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
+		// Geometry:
+		//   Classify local subgraph into replaced/persisting regions around insertion site.
+		// Code structure:
+		//   Seeds with start vertex, pushes insertion site into involved refs, then recursively propagates
+		//   replacement state using vertex-level checks.
 		if(this_id == kInvalidId || this_id >= points.size()) return false;
 		cell& This = cell_at(this_id);
 		clear_interna();
@@ -1899,7 +2060,11 @@ private:
 		}
 	bool CreateFiniteVerticesFromReplaced()
 	{
-		// For every replaced vertex, build the new finite vertices that lie on cut edges.
+		// Geometry:
+		//   Generate the complete set of new finite vertices induced by replaced/persisting interface edges.
+		// Code structure:
+		//   Counts required edge cuts per replaced vertex, reserves memory if needed, then dispatches to
+		//   corner/non-corner build paths.
 		//best procedure for new vertices : knowledge : each new (finite) vertex MUST lie on
 		//exactly one old EXISTING edge which is NOT disappearing totally
 		//all possible edges are the ones coming out our "replaced" vertices
@@ -1937,7 +2102,11 @@ private:
 
 	inline void ConnectNewFinitesAmongThemselves3D()
 	{
-		// Wire newly created finite vertices using shared old-generator pairs as edge keys.
+		// Geometry:
+		//   Connect newly created vertices into valid polyhedral topology.
+		// Code structure:
+		//   Uses pair-of-old-generator keys into planes[] as a sparse matching table and stitches both edge
+		//   endpoints when second endpoint for a key arrives.
 		//we use an InvolvedSize*InvolvedSize-matrix (sparse) and fill in all new edges
 		//these are generated by the new Cell and two older Cells
 		//we identify vertices to be connected over an new edge by only the two old cells! (new one is everywhere)
@@ -1971,7 +2140,11 @@ private:
 	// const int GoAlongFace(const vertexIter& former, const vertexIter& current,const vertexIter& finish,const CellPtr& Generator1,const Ptr& Generator2,const int function(const int&))const;
 	void ReserveNewVertices()
 	{
-		// Grow vertex storage while preserving all pointer-based topology links.
+		// Geometry:
+		//   Capacity management only; no geometric state change.
+		// Code structure:
+		//   Reserves larger vertex storage, refreshes index mirrors after reallocation, and restores all
+		//   transient containers (replaced/involved/front representatives).
 		std::vector<VertexId> _replaced;
 		std::vector<VertexId> _currentmyVertices;
 		std::vector<VertexId> _first;
@@ -2027,7 +2200,11 @@ private:
 	}
 	void UpdateUnused()
 	{
-		// Mark replaced vertices as invalid/unused and update per-cell myVertices ownership lists.
+		// Geometry:
+		//   Finalize removed-region cleanup after an insertion.
+		// Code structure:
+		//   Keeps corners alive, marks finite replaced vertices disconnected, collects reusable slots,
+		//   and erases stale myVertices references from non-new cells.
 		unused.resize(_nUnused);
 		//mark replaced as unused
 		for(std::size_t replaced_idx=0;replaced_idx<replaced_size();)
@@ -2082,7 +2259,10 @@ private:
 		}
 			void AssignRepresentativeVerticesToCells(const VertexId default_id)
 		{
-			// Ensure each involved cell keeps at least one representative connected vertex after insertion.
+			// Geometry:
+			//   Maintain one stable connected representative vertex per involved real cell.
+			// Code structure:
+			//   Uses new cell representative as fallback and patches cells whose previous representative became invalid.
 				const CellId involved_front_id = involved_id_at(0);
 				if(involved_front_id == kInvalidId) return;
 				cell& involved_front = cell_at(involved_front_id);
@@ -2112,7 +2292,10 @@ private:
 
 		void SetInvolvedPersistingVisitedToZero() 
 		{
-			// Clear temporary rrv/visited marks used during local insertion traversal.
+			// Geometry:
+			//   Reset temporary traversal state after insertion/revert local operations.
+			// Code structure:
+			//   Clears visitedAs on involved refs and resets rrv on involved-front vertices and their incident endpoints.
 			for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 			{
 				if(involved_idx >= InvolvedRefs.size()) continue;
@@ -2224,7 +2407,11 @@ template <class VectorSubtraction>
 				const VertexId self_id,
 				const VertexId this_id)
 		{
-			// Initialize a newly created finite vertex generated by cutting one edge.
+			// Geometry:
+			//   Define one new finite vertex from parent replaced vertex by substituting one generator.
+			// Code structure:
+			//   Copies generator tuple with one dropped slot, assigns insertion generator in slot 0,
+			//   rewires reciprocal endpoint in neighbor, and rejects near-zero power unstable cases.
 				const CellId involved_front_id = owner.involved_id_at(0);
 				if(involved_front_id == kInvalidId) return false;
 				cell& involved_front = owner.cell_at(involved_front_id);
@@ -2251,7 +2438,10 @@ template <class VectorSubtraction>
 
 inline PDCoord getPowerPointOnLine2(const vertex& persist)const
 {
-	// Linear interpolation point where the replacement score crosses zero on an edge.
+	// Geometry:
+	//   Parametric edge interpolation at rrv=0 crossing between replaced and persisting endpoint.
+	// Code structure:
+	//   Uses already computed endpoint rrv values to avoid recomputing power differences.
 //	const PDCoord PlaneNormal=(b->position-a->position)/*/(a->position-b->position).norm()*/;
 //	const PDFloat PlaneValue=0.5*(PlaneNormal.squaredNorm()+(a->r2-b->r2)/*(a->position-b->position).norm()*/);
 	//PlaneNormal and PlaneValue are a factor of (a->position-b->position).norm() too big but they cancel each other out
@@ -2284,8 +2474,12 @@ private :
 			}
 		}
 
-	inline	PDFloat powerdiff3D(const cell& aCell,const cell& bCell)const
+inline	PDFloat powerdiff3D(const cell& aCell,const cell& bCell)const
 	{
+		// Geometry:
+		//   Signed power(bCell)-power(aCell) variant evaluated at this vertex.
+		// Code structure:
+		//   Uses numerically stable algebraic rearrangement to reduce cancellation when cells are close.
 		//this has best accuracy when vertex is far away and atoms are close. something similar for a far atom is :
 		// -bCall->r2+aCell->r2-(closeCell->position-position).squaredNorm()+2.0*((closeCell->position-position).dot(position-farCell->position)
 		return -bCell.r2+aCell.r2-(aCell.position-bCell.position).squaredNorm()+2.0*((aCell.position-bCell.position).dot(position-bCell.position));
@@ -2294,6 +2488,10 @@ private :
 	template<class PDCalc>
 	inline void endPointsAndPositionOverwrite(const VertexId endPointId, const PDCalc& pos)
 	{
+		// Geometry:
+		//   Reinitialize a vertex slot as a provisional cut-vertex with one known endpoint.
+		// Code structure:
+		//   Writes minimal fields required before full Init(): endpoint 0, position, rrv/invalid reset.
 		endPointIds[0]=endPointId;
 		rrv=0;
 		invalid=0;
@@ -2302,6 +2500,10 @@ private :
 
 		void refreshAfterRealloc(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId copy_id)
 		{
+			// Geometry:
+			//   No geometric transformation; only preserves incidence consistency after storage move.
+			// Code structure:
+			//   Revalidates point-generator ownership front entries that track this vertex ID.
 			for(int g=dimension;g>=0;g--)
 			{
 				GeneratorRef ref = resolved_generator_ref(owner, g);
@@ -2318,7 +2520,11 @@ private :
 			const VertexId this_id,
 			const VertexId where_to_id)
 		{
-			// Move one vertex object to a new address and patch neighboring endpoint links.
+			// Geometry:
+			//   Topology-preserving move of a vertex record into a recycled slot.
+			// Code structure:
+			//   Rewrites reciprocal endpoint links in all incident neighbors from this_id to where_to_id,
+			//   then copies full payload.
 			{
 				const VertexId endpoint_id = resolved_endpoint_id(owner, dimension);
 				if(endpoint_id != kInvalidId && endpoint_id < owner.vertices.size())
@@ -2341,6 +2547,10 @@ private :
 		}
 		inline int endpoint_slot_to(const VertexId comp_id) const
 		{
+			// Geometry:
+			//   Find local edge branch index that points to a given adjacent vertex.
+			// Code structure:
+			//   Linear scan over endpoint slots; slot 0 is corner sentinel and scanned last by caller contracts.
 			for(int g=dimension;g>0;--g)
 				if(endPointIds[g]==comp_id)return g;
 			return 0;
@@ -2357,12 +2567,20 @@ private :
 		}
 		inline vertex& resolved_endpoint(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const int g) const
 		{
+			// Geometry:
+			//   Access adjacent vertex at branch g.
+			// Code structure:
+			//   Validates id range before dereference and throws on broken topology.
 			const VertexId id = resolved_endpoint_id(owner, g);
 			if(id == kInvalidId || id >= owner.vertices.size()) throw MyException();
 			return owner.vertex_at(id);
 		}
 		inline cell& resolved_generator(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const int g) const
 		{
+			// Geometry:
+			//   Access generator cell defining this vertex at slot g.
+			// Code structure:
+			//   Validates GeneratorRef against owner arrays and throws on stale refs.
 			GeneratorRef ref = resolved_generator_ref(owner, g);
 			if(!owner.valid_generator_ref(ref)) throw MyException();
 			return owner.cell_from_ref(ref);
@@ -2373,7 +2591,11 @@ private :
 
 			bool cornerToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId self_id)
 			{
-				// Mark a corner vertex as replaced and continue replacement flood-fill through neighbors.
+				// Geometry:
+				//   Replacement flood-fill branch for corner vertex.
+				// Code structure:
+				//   Marks self replaced, accumulates involved generators, assigns corner to insertion front,
+				//   and recursively checks incident endpoints.
 				owner.push_replaced_id(self_id);
 				for(int g=0;g<=dimension;++g)
 				{
@@ -2406,7 +2628,10 @@ private :
 		}
 			bool finiteToReplacedAndGo(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId self_id)
 			{
-				// Mark a finite vertex as replaced and continue replacement flood-fill through neighbors.
+				// Geometry:
+				//   Replacement flood-fill branch for finite (non-corner) vertex.
+				// Code structure:
+				//   Marks self, accumulates involved generators, and recursively propagates replace checks.
 				owner.push_replaced_id(self_id);
 			for(int g=0;g<=dimension;++g)
 			{
@@ -2432,7 +2657,10 @@ private :
 		}
 		inline bool replaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId self_id)
 		{
-			// Dispatch replacement test according to corner/non-corner vertex type.
+			// Geometry:
+			//   Decide if this vertex is replaced by insertion site.
+			// Code structure:
+			//   Dispatches to corner/non-corner logic because endpoint traversal domains differ.
 			if(this->isCorner())
 				return this->cornerReplaceCheck(owner, self_id);
 			return this->finiteReplaceCheck(owner, self_id);
@@ -2440,6 +2668,10 @@ private :
 
 		bool finiteReplaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId self_id)
 		{
+			// Geometry:
+			//   Replacement predicate for finite vertex.
+			// Code structure:
+			//   Calls finiteReplaced() and executes replacement expansion only on positive classification.
 			const CellId involved_front_id = owner.involved_id_at(0);
 			if(involved_front_id == kInvalidId) return false;
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
@@ -2452,6 +2684,10 @@ private :
 		}
 		bool cornerReplaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId self_id)
 		{
+			// Geometry:
+			//   Replacement predicate for corner vertex.
+			// Code structure:
+			//   Same classifier as finite case, but expansion path preserves corner-specific endpoint handling.
 			const CellId involved_front_id = owner.involved_id_at(0);
 			if(involved_front_id == kInvalidId) return false;
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
@@ -2465,7 +2701,10 @@ private :
 		template <const int cornerInfo>
 		bool buildIn(PowerDiagram<PDFloat,PDCoord,dimension>& pd, const VertexId self_id)const
 		{
-			// Build all required new vertices on outgoing edges whose far endpoint persists.
+			// Geometry:
+			//   For each surviving outgoing edge, create one intersection vertex with insertion boundary.
+			// Code structure:
+			//   Scans valid endpoint branches and delegates actual creation to tryToBuildVertexOnEdge().
 			for(int g=dimension;g>=cornerInfo;g--)
 			{
 				VertexId endpoint_id = this->resolved_endpoint_id(pd, g);
@@ -2482,7 +2721,10 @@ private :
 
 inline void registerForConnection3D(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId self_id)
 	{
-		// Register candidate edge endpoints so matching generator pairs can be connected.
+		// Geometry:
+		//   Register a newly built vertex into the edge-matching map for 3D cell-facet stitching.
+		// Code structure:
+		//   Uses visitedAs indices of old generators to compute deterministic key pairs in planes[].
 		const int g1 = resolved_generator(owner, 1).visitedAs;
 		const int g2 = resolved_generator(owner, 2).visitedAs;
 		const int g3 = resolved_generator(owner, 3).visitedAs;
