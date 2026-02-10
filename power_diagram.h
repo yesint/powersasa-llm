@@ -1480,10 +1480,10 @@ if(std::abs(checkconst)>0.001)
 	inline int nPoints()const{return points.size();}
 	inline unsigned int const& nVertices() const {return _nVertices;}
 
-		bool hasVirtualGenerators(const const_vertexPtr& that)const
+		bool hasVirtualGenerators(const vertex& that)const
 		{
-			const GeneratorRef& ref = that->generatorRefs[dimension];
-			const const_cellPtr gptr = that->generators[dimension];
+			const GeneratorRef& ref = that.generatorRefs[dimension];
+			const const_cellPtr gptr = that.generators[dimension];
 			if (ref.is_valid())
 		{
 			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
@@ -1494,10 +1494,10 @@ if(std::abs(checkconst)>0.001)
 			}
 			return (cell_id_or_invalid(gptr) == kInvalidId);
 		}
-		int nVirtualGenerators(const const_vertexPtr& that)const
+		int nVirtualGenerators(const vertex& that)const
 		{
-			const GeneratorRef& ref = that->generatorRefs[dimension];
-			const const_cellPtr gptr = that->generators[dimension];
+			const GeneratorRef& ref = that.generatorRefs[dimension];
+			const const_cellPtr gptr = that.generators[dimension];
 			bool dim_is_real = (cell_id_or_invalid(gptr) != kInvalidId);
 			if (ref.is_valid())
 			{
@@ -1508,7 +1508,7 @@ if(std::abs(checkconst)>0.001)
 				}
 			}
 			if(dim_is_real) return 0;
-			return that->isCorner() ? 3 : 2;
+			return that.isCorner() ? 3 : 2;
 		}
 	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=nullptr)
 	{
@@ -1647,7 +1647,7 @@ private:
 			for(unsigned int vi=fromVertex;vi<_nVertices;++vi)
 			if(!(vertices[vi].invalid))
 			{
-					if(!(hasVirtualGenerators(&vertices[vi])))
+					if(!(hasVirtualGenerators(vertices[vi])))
 						for(int g=0;g<=dimension;++g)
 						{
 							cellPtr generator = vertices[vi].generators[g];
@@ -1772,7 +1772,7 @@ private:
 			const_vertexPtr it=&vertices[vertex_index];
 			if(!(it->invalid))
 				if(it->generators[dimension-1]->isReal(*this))
-					for(int endpoint_idx=(hasVirtualGenerators(it))*3;endpoint_idx<=dimension;++endpoint_idx)
+					for(int endpoint_idx=(hasVirtualGenerators(*it))*3;endpoint_idx<=dimension;++endpoint_idx)
 					{
 							vertexPtr endpoint = it->endPoints[endpoint_idx];
 							if(endpoint == nullptr) continue;
