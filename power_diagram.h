@@ -858,7 +858,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				{
 					old_bond_ids[i] = points[i].bondToId;
 				}
-				const cellPtr old = points.empty() ? nullptr : points.data();
+				const cell* old = points.empty() ? nullptr : points.data();
 				points.reserve(size);
 					if(old != nullptr && old != points.data())
 						for(std::size_t i=1;i<points.size();++i)
@@ -944,7 +944,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					old_vertex_generator_refs[vi][g] = vertices[vi].generatorRefs[g];
 			for(int c=0;c<(1<<dimension);c++)
 				cornerOwners[c]=cell_id_or_invalid(vertices[c].generators[0]);
-			const const_cellPtr old_points_data=points.data();
+			const cell* old_points_data=points.data();
 			points.reserve(newSize);
 			const bool points_reallocated = (points.data()!= old_points_data);
 			if(params.radiiGiven)
@@ -1358,9 +1358,8 @@ if(std::abs(checkconst)>0.001)
 				const VertexId unused_id = unused[i];
 				if(unused_id != (_nVertices-1))
 				{
-					vertexPtr where_to = vertex_ptr_from_id(unused_id);
-					if(where_to == nullptr) throw MyException();
-					vertices[--_nVertices].moveAddressNetworkUpdateOnly(where_to);
+					if(unused_id == kInvalidId || unused_id >= vertices.size()) throw MyException();
+					vertices[--_nVertices].moveAddressNetworkUpdateOnly(vertex_at(unused_id));
 				}
 				else {--_nVertices;}
 			}
@@ -1462,7 +1461,7 @@ if(std::abs(checkconst)>0.001)
 	void dump_vertices(std::ostream& out=std::cout)
 	{
 		std::cout<<"vertices, generators and neighbours "<<std::endl;
-		const auto generator_idx = [this](const_cellPtr generator) -> long long
+		const auto generator_idx = [this](const cell* generator) -> long long
 		{
 			const CellId id = cell_id_or_invalid(generator);
 			return (id == kInvalidId) ? -1 : static_cast<long long>(id);
@@ -1507,10 +1506,10 @@ if(std::abs(checkconst)>0.001)
 		bool hasVirtualGenerators(const vertex& that)const
 		{
 			const GeneratorRef& ref = that.generatorRefs[dimension];
-			const const_cellPtr gptr = that.generators[dimension];
+			const cell* gptr = that.generators[dimension];
 			if (ref.is_valid())
 		{
-			const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
+			const cell* ref_ptr = cell_ptr_from_ref_const(ref);
 			if (ref_ptr == gptr)
 			{
 					return !ref_is_real_point(ref);
@@ -1521,11 +1520,11 @@ if(std::abs(checkconst)>0.001)
 		int nVirtualGenerators(const vertex& that)const
 		{
 			const GeneratorRef& ref = that.generatorRefs[dimension];
-			const const_cellPtr gptr = that.generators[dimension];
+			const cell* gptr = that.generators[dimension];
 			bool dim_is_real = (cell_id_or_invalid(gptr) != kInvalidId);
 			if (ref.is_valid())
 			{
-				const const_cellPtr ref_ptr = cell_ptr_from_ref_const(ref);
+				const cell* ref_ptr = cell_ptr_from_ref_const(ref);
 				if (ref_ptr == gptr)
 			{
 					dim_is_real = ref_is_real_point(ref);
@@ -1558,11 +1557,12 @@ private:
 			cell& current = cell_at(current_id);
 			for(const VertexId vid : current.myVerticesIds)
 			{
-				vertexPtr candidate = vertex_ptr_from_id(vid);
-				if(candidate == nullptr || !candidate->isConnected()) continue;
+				if(vid == kInvalidId || vid >= vertices.size()) continue;
+				vertex& candidate = vertex_at(vid);
+				if(!candidate.isConnected()) continue;
 				for(int g=0;g<=dimension;++g)
 				{
-					const GeneratorRef& ref = candidate->generatorRefs[g];
+					const GeneratorRef& ref = candidate.generatorRefs[g];
 					if(ref.kind == GeneratorKind::point && ref.index == current_id) return vid;
 				}
 			}
@@ -1577,11 +1577,9 @@ private:
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
 			hint_id=getRepresentative(This.bondToId);
-			vertexPtr hint=vertex_ptr_from_id(hint_id);
-			if(hint == nullptr) hint = vertices.data();
-			PDFloat value=hint->powerdiff3D(*hint->generators[0],This);
+			if(hint_id == kInvalidId || hint_id >= vertices.size()) hint_id = 0;
+			PDFloat value=vertex_at(hint_id).powerdiff3D(*vertex_at(hint_id).generators[0],This);
 			findReplacedVertex(hint_id,value,This);
-			hint=vertex_ptr_from_id(hint_id);
 			if(__power_diagram_internal_timing__)t2+=clock();
 
 			unsigned int done=1;
@@ -1589,10 +1587,8 @@ private:
 			{
 				if(done!=1)
 				{
-					value=hint->powerdiff3D(*hint->generators[0],This);
-					hint_id=get_vertex_id(*hint);
+					value=vertex_at(hint_id).powerdiff3D(*vertex_at(hint_id).generators[0],This);
 					findReplacedVertex(hint_id,value,This);
-					hint=vertex_ptr_from_id(hint_id);
 				}
 
 				if(FillReplacedPersistingAndInvolved(This,hint_id))
@@ -1605,11 +1601,12 @@ private:
 					clear_cell_my_vertices(This);
 						for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 						{
-							vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
-							if(replaced_vertex == nullptr) continue;
-						replaced_vertex->rrv=0;
-						for(int g=replaced_vertex->isCorner();g<=dimension;g++)
-							replaced_vertex->endPoints[g]->rrv=0;
+							const VertexId replaced_id = replaced_id_at(replaced_idx);
+							if(replaced_id == kInvalidId || replaced_id >= vertices.size()) continue;
+							vertex& replaced_vertex = vertex_at(replaced_id);
+						replaced_vertex.rrv=0;
+						for(int g=replaced_vertex.isCorner();g<=dimension;g++)
+							replaced_vertex.endPoints[g]->rrv=0;
 					}
 				clear_replaced();
 				This.r2-=pow(2.0,done)*(PowerDiagram<PDFloat,PDCoord,dimension>::powerErr);
@@ -1891,24 +1888,24 @@ private:
 			// Create one new finite vertex on a surviving edge between replaced and persisting regions.
 			//edge between This (replaced and finite) and that defined by generators s1,s2,s3 will get a vertex (of newest,s1,s2,s3)
 			{
-				vertexPtr builtVertex = nullptr;
+				VertexId builtVertexId = kInvalidId;
 				if(_nUnused==0)
 				{
 					if(nVertices()==vertices.capacity())
 						throw MyException();
 					vertices[_nVertices].endPointsAndPositionOverwrite(This.endPoints[here],This.getPowerPointOnLine2(This.endPoints[here]));
-					builtVertex = &vertices[++_nVertices-1];
+					builtVertexId = ++_nVertices-1;
 				}
 				else
 				{
 					const VertexId unused_id = unused[_nUnused-1];
-					vertexPtr unused_vertex = vertex_ptr_from_id(unused_id);
-					if(unused_vertex == nullptr) throw MyException();
-					unused_vertex->endPointsAndPositionOverwrite(This.endPoints[here],This.getPowerPointOnLine2(This.endPoints[here]));
-					builtVertex = unused_vertex;
+					if(unused_id == kInvalidId || unused_id >= vertices.size()) throw MyException();
+					vertex& unused_vertex = vertex_at(unused_id);
+					unused_vertex.endPointsAndPositionOverwrite(This.endPoints[here],This.getPowerPointOnLine2(This.endPoints[here]));
+					builtVertexId = unused_id;
 					--_nUnused;
 				}
-				if(!builtVertex->Init(&This,here,*this))
+				if(!vertex_at(builtVertexId).Init(&This,here,*this))
 				{
 					insertionErrorScale=powerErr;
 					return false;
@@ -1926,19 +1923,19 @@ private:
 	{
 		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
 		clear_interna();
-			vertexPtr start = vertex_ptr_from_id(start_id);
-			if(start == nullptr) return false;
+			if(start_id == kInvalidId || start_id >= vertices.size()) return false;
+			vertex& start = vertex_at(start_id);
 			push_involved(&This);
-			const ReplaceState startState = finiteReplaced(*start, get_cell_id(This));
+			const ReplaceState startState = finiteReplaced(start, get_cell_id(This));
 			if(startState==ReplaceState::ambiguous) return false;
 			if(startState==ReplaceState::replaced)
 			{
-				if(start->isCorner())
+				if(start.isCorner())
 				{
-					return start->cornerToReplacedAndGo(*this);
+					return start.cornerToReplacedAndGo(*this);
 				}
 				else
-					return start->finiteToReplacedAndGo(*this);
+					return start.finiteToReplacedAndGo(*this);
 			}
 			return true;
 		}
@@ -2016,7 +2013,7 @@ private:
 		std::vector<VertexId> _replaced;
 		std::vector<VertexId> _currentmyVertices;
 		std::vector<VertexId> _first;
-		const_vertexPtr const oldMemoryPointer=vertices.data();
+		const vertex* oldMemoryPointer=vertices.data();
 			_replaced.reserve(replaced_size());
 			_first.reserve(vertices.capacity());
 
@@ -2358,15 +2355,15 @@ private :
 		}
 		}
 
-		inline void moveAddressNetworkUpdateOnly(const vertexPtr& whereTo)
+		inline void moveAddressNetworkUpdateOnly(vertex& whereTo)
 		{
 			// Move one vertex object to a new address and patch neighboring endpoint links.
 			if(this->endPoints[dimension]!=nullptr)
-				(this->endPoints[dimension]->fastWhichis(this))=whereTo;
+				(this->endPoints[dimension]->fastWhichis(this))=&whereTo;
 		for(int g=0;g<dimension;++g)
-			((endPoints[g])->fastWhichis(this))=whereTo;
+			((endPoints[g])->fastWhichis(this))=&whereTo;
 
-			*whereTo=*this;
+			whereTo=*this;
 		}
 		inline vertexPtr& fastWhichis (const const_vertexPtr& comp)
 		{
