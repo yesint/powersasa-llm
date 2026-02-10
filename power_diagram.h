@@ -645,11 +645,6 @@ public :
 	{
 		return (zp.fromId != kInvalidId && zp.fromId < _nVertices) ? zp.fromId : kInvalidId;
 	}
-	inline GeneratorRef zeroPointGeneratorRef(const zeroPoint& zp, const int g) const
-	{
-		if (g < 0 || g >= dimension) return GeneratorRef();
-		return zp.generatorRefs[g];
-	}
 	inline bool zeroPointValid(const zeroPoint& zp) const
 	{
 		const VertexId from_id = zeroPointFromId(zp);
