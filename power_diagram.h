@@ -1525,34 +1525,34 @@ if(std::abs(checkconst)>0.001)
 			return &points[hint_id];
 		}
 private:
-	vertexPtr getRepresentative(const const_cellPtr This)
+	vertexPtr getRepresentative(const CellId start_id)
 	{
-		// Retrieve a connected representative vertex for This, following bondToId if needed.
-		if(This == nullptr)
+		// Retrieve a connected representative vertex following bondToId chain by IDs.
+		CellId current_id = start_id;
+		while(current_id != kInvalidId && current_id < points.size())
 		{
-			return vertices.data();
-		}
-		for(const VertexId vid : This->myVerticesIds)
-		{
-			vertexPtr candidate = vertex_ptr_from_id(vid);
-			if(candidate != nullptr && candidate->isConnected() && candidate->hasGenerator(This))
+			cell& current = cell_at(current_id);
+			for(const VertexId vid : current.myVerticesIds)
+			{
+				vertexPtr candidate = vertex_ptr_from_id(vid);
+				if(candidate == nullptr || !candidate->isConnected()) continue;
+				for(int g=0;g<=dimension;++g)
 				{
-					return candidate;
+					const GeneratorRef& ref = candidate->generatorRefs[g];
+					if(ref.kind == GeneratorKind::point && ref.index == current_id) return candidate;
 				}
+			}
+			if(current.bondToId == current_id) break;
+			current_id = current.bondToId;
 		}
-		if(This->bondToId != kInvalidId)
-		{
-			cellPtr const bond = cell_ptr_from_id(This->bondToId);
-			if(bond != nullptr && bond != This) return getRepresentative(bond);
-		}
-			return vertices.data();
+		return vertices.data();
 		}
 	vertexPtr prepareInsertion(cell & This,vertexPtr hint=nullptr)
 	{
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
-			hint=getRepresentative(cell_ptr_from_id(This.bondToId));
+			hint=getRepresentative(This.bondToId);
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
 			findReplacedVertex(hint,value,This);
 			if(__power_diagram_internal_timing__)t2+=clock();
