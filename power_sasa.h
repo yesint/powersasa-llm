@@ -691,11 +691,6 @@ calc_sasa_single(const unsigned int iatom)
 			}
 			const auto& node1 = pd_vertices[node1_id];
 			VertexId node2_id = node1.endPointIds[zp.branch];
-			if (node2_id == PowerDiagram3D::kInvalidId)
-			{
-				const auto* endpoint_ptr = node1.endPoints[zp.branch];
-				if (endpoint_ptr != nullptr) node2_id = power_diagram->get_vertex_id(*endpoint_ptr);
-			}
 			if (node2_id == PowerDiagram3D::kInvalidId || node2_id >= pd_vertices.size())
 			{
 				std::cerr << "PowerSasa: Invalid zeroPoint endpoint" << std::endl;
@@ -774,15 +769,9 @@ calc_sasa_single(const unsigned int iatom)
 		const VertexId node1_id = atom.myVerticesIds[j];
 		if (node1_id == PowerDiagram3D::kInvalidId || node1_id >= pd_vertices.size()) continue;
 		const auto& node1 = pd_vertices[node1_id];
-		for (kn = 0; kn < 4; ++kn)
+				for (kn = 0; kn < 4; ++kn)
 		{
 					VertexId node2_id = node1.endPointIds[kn];
-					if (node2_id == PowerDiagram3D::kInvalidId)
-					{
-						const auto* node2_ptr = node1.endPoints[kn];
-						if (node2_ptr == nullptr) continue;
-						node2_id = power_diagram->get_vertex_id(*node2_ptr);
-					}
 					if (node2_id == PowerDiagram3D::kInvalidId || node1_id == PowerDiagram3D::kInvalidId) continue;
 					if (node2_id >= pd_vertices.size()) continue;
 					const auto& node2 = pd_vertices[node2_id];
