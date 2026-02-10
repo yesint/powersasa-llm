@@ -1584,7 +1584,7 @@ private:
 					hint=vertex_ptr_from_id(hint_id);
 				}
 
-				if(FillReplacedPersistingAndInvolved(This,hint))
+				if(FillReplacedPersistingAndInvolved(This,hint_id))
 					break;
 
 				const PDFloat oldr2=This.r2;
@@ -1910,10 +1910,12 @@ private:
 	//  void replace_a_vertex(vertex& old_vertex,const Cell& newGenerator);
 	//  void checkvertex(vertexIter& myvertex,Cell& newGenerator,std::vector<vertexIter>& replaced,std::vector <vertexIter>&surroundings,const vertexIter former);
 
-	bool FillReplacedPersistingAndInvolved(cell& This,vertexPtr start)
+	bool FillReplacedPersistingAndInvolved(cell& This, const VertexId start_id)
 	{
 		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
 		clear_interna();
+			vertexPtr start = vertex_ptr_from_id(start_id);
+			if(start == nullptr) return false;
 			push_involved(&This);
 			const ReplaceState startState = finiteReplaced(*start, get_cell_id(This));
 			if(startState==ReplaceState::ambiguous) return false;
