@@ -2485,40 +2485,48 @@ private :
 	inline void registerForConnection3D(PowerDiagram<PDFloat,PDCoord,dimension>*const& owner)
 	{
 		// Register candidate edge endpoints so matching generator pairs can be connected.
-		owner->planes[generators[2]->visitedAs*owner->involved_size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[3]);
-		owner->planes[generators[3]->visitedAs*owner->involved_size()+generators[1]->visitedAs].storeOrConnect(this,endPoints[2]);
-		owner->planes[generators[3]->visitedAs*owner->involved_size()+generators[2]->visitedAs].storeOrConnect(this,endPoints[1]);
+		const VertexId self_id = owner->get_vertex_id(*this);
+		owner->planes[generators[2]->visitedAs*owner->involved_size()+generators[1]->visitedAs].storeOrConnect(*owner,self_id,3);
+		owner->planes[generators[3]->visitedAs*owner->involved_size()+generators[1]->visitedAs].storeOrConnect(*owner,self_id,2);
+		owner->planes[generators[3]->visitedAs*owner->involved_size()+generators[2]->visitedAs].storeOrConnect(*owner,self_id,1);
 	}
 
 
 };
 struct EdgeEnds
 {
-	vertexPtr a;
-	vertexPtr* b;
-	inline void storeOrConnect(const vertexPtr& pvertex, vertexPtr& itsEndPointStorage)
+	VertexId aId;
+	int aSlot;
+	inline EdgeEnds():aId(kInvalidId),aSlot(-1){}
+	inline void storeOrConnect(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId pvertex_id, const int slot)
 	{
 		// First endpoint stores itself; second endpoint closes the pair and connects both vertices.
-		if(this->a==nullptr)
+		if(this->aId==kInvalidId)
 		{
-			this->a=pvertex;								//we store ourself
-			this->b=&itsEndPointStorage; //and where the other should write itself into
+			this->aId=pvertex_id;
+			this->aSlot=slot;
 		}
 		else
 		{
-			itsEndPointStorage=this->a;//we connect ourself to the other
-			*(this->b)=pvertex;								//and the other to us
-			this->a=nullptr;
+			vertex& pvertex = owner.vertex_at(pvertex_id);
+			vertex& other = owner.vertex_at(this->aId);
+			owner.set_vertex_endpoint_deferred(pvertex, slot, &other);
+			owner.set_vertex_endpoint_deferred(other, this->aSlot, &pvertex);
+			this->aId=kInvalidId;
+			this->aSlot=-1;
 		}
 	}
-	inline void connect(const vertexPtr pvertex, vertexPtr& itsEndPointStorage)
+	inline void connect(PowerDiagram<PDFloat,PDCoord,dimension>& owner, const VertexId pvertex_id, const int slot)
 	{
 		// Connect against a previously stored endpoint if one exists for this key.
-		if(this->a!=nullptr)
+		if(this->aId!=kInvalidId)
 		{
-			itsEndPointStorage=this->a;//we connect ourself to the other
-			*(this->b)=pvertex;								//and the other to us
-			this->a=nullptr;
+			vertex& pvertex = owner.vertex_at(pvertex_id);
+			vertex& other = owner.vertex_at(this->aId);
+			owner.set_vertex_endpoint_deferred(pvertex, slot, &other);
+			owner.set_vertex_endpoint_deferred(other, this->aSlot, &pvertex);
+			this->aId=kInvalidId;
+			this->aSlot=-1;
 		}
 	}
 };
