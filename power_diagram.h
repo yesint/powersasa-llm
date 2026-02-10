@@ -1366,7 +1366,7 @@ if(std::abs(checkconst)>0.001)
 			{
 				//each powerdiff value defines a plane between insertionPoint and current cell (generator0) approach the direction perpendicular to that plane in direction of insertion point !
 				vertex& endpoint=*This.endPoints[idx];
-				newValue=endpoint.powerdiff3D(endpoint.generators[0],&insertionPoint);
+				newValue=endpoint.powerdiff3D(*endpoint.generators[0],insertionPoint);
 			 	if(newValue<value)
 				{
 					value=newValue;
@@ -1387,7 +1387,7 @@ if(std::abs(checkconst)>0.001)
 					if(This.endPoints[g]->endPoints[g2]!=&This)
 					{
 						vertex& candidate=*This.endPoints[g]->endPoints[g2];
-						newValue=candidate.powerdiff3D(candidate.generators[0],&insertionPoint);
+						newValue=candidate.powerdiff3D(*candidate.generators[0],insertionPoint);
 						if(newValue<value)
 						{
 							value=newValue;
@@ -1408,10 +1408,10 @@ if(std::abs(checkconst)>0.001)
 							if(This.endPoints[g]->endPoints[g2]->endPoints[g3]!=This.endPoints[g]&&This.endPoints[g]->endPoints[g2]->endPoints[g3]!=&This)
 							{
 								vertex& candidate=*This.endPoints[g]->endPoints[g2]->endPoints[g3];
-								newValue=candidate.powerdiff3D(candidate.generators[0],&insertionPoint);
+								newValue=candidate.powerdiff3D(*candidate.generators[0],insertionPoint);
 								if(newValue<value)
 								{
-									value=candidate.powerdiff3D(candidate.generators[0],&insertionPoint);
+									value=candidate.powerdiff3D(*candidate.generators[0],insertionPoint);
 									this_id=get_vertex_id(candidate);
 									return findReplacedVertex(this_id,value,insertionPoint);
 								}else if(newValue==value)
@@ -1425,9 +1425,9 @@ if(std::abs(checkconst)>0.001)
 				for(unsigned int vi=0;vi<nVertices();++vi)
 				if(vertices[vi].isConnected())
 				{
-					if(vertices[vi].powerdiff3D(vertices[vi].generators[0],&insertionPoint)<value)
+					if(vertices[vi].powerdiff3D(*vertices[vi].generators[0],insertionPoint)<value)
 				{
-					value=vertices[vi].powerdiff3D(vertices[vi].generators[0],&insertionPoint);
+					value=vertices[vi].powerdiff3D(*vertices[vi].generators[0],insertionPoint);
 						this_id=vi;
 					}
 				}
@@ -1437,7 +1437,7 @@ if(std::abs(checkconst)>0.001)
 	{
 		if(cell_id == kInvalidId) return ReplaceState::ambiguous;
 		// Classify whether vertex This is replaced by aCell, persists, or is numerically ambiguous.
-		This.rrv=This.powerdiff3D(&cell_at(cell_id),This.generators[0]);
+		This.rrv=This.powerdiff3D(cell_at(cell_id),*This.generators[0]);
 		if(above_power_err(This.rrv)) return ReplaceState::replaced;
 		if(below_neg_power_err(This.rrv)) return ReplaceState::persisting;
 		This.rrv=0;
@@ -1563,7 +1563,7 @@ private:
 			hint_id=getRepresentative(This.bondToId);
 			vertexPtr hint=vertex_ptr_from_id(hint_id);
 			if(hint == nullptr) hint = vertices.data();
-			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
+			PDFloat value=hint->powerdiff3D(*hint->generators[0],This);
 			findReplacedVertex(hint_id,value,This);
 			hint=vertex_ptr_from_id(hint_id);
 			if(__power_diagram_internal_timing__)t2+=clock();
@@ -1573,7 +1573,7 @@ private:
 			{
 				if(done!=1)
 				{
-					value=hint->powerdiff3D(hint->generators[0],&This);
+					value=hint->powerdiff3D(*hint->generators[0],This);
 					hint_id=get_vertex_id(*hint);
 					findReplacedVertex(hint_id,value,This);
 					hint=vertex_ptr_from_id(hint_id);
@@ -2318,11 +2318,11 @@ private :
 			}
 		}
 
-	inline	PDFloat powerdiff3D(const_cellPtr const& aCell,const_cellPtr const& bCell)const
+	inline	PDFloat powerdiff3D(const cell& aCell,const cell& bCell)const
 	{
 		//this has best accuracy when vertex is far away and atoms are close. something similar for a far atom is :
 		// -bCall->r2+aCell->r2-(closeCell->position-position).squaredNorm()+2.0*((closeCell->position-position).dot(position-farCell->position)
-		return -bCell->r2+aCell->r2-(aCell->position-bCell->position).squaredNorm()+2.0*((aCell->position-bCell->position).dot(position-bCell->position));
+		return -bCell.r2+aCell.r2-(aCell.position-bCell.position).squaredNorm()+2.0*((aCell.position-bCell.position).dot(position-bCell.position));
 	}
 
 	template<class PDCalc>
