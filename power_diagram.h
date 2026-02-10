@@ -1577,11 +1577,9 @@ private:
 				if(FillReplacedPersistingAndInvolved(This,hint))
 					break;
 
-				cellPtr involved_front = involved_front_ptr();
-				if(involved_front == nullptr) throw MyException();
-				const PDFloat oldr2=involved_front->r2;
+				const PDFloat oldr2=This.r2;
 					if(params.with_warnings)
-						std::cout<<"Numerical Warning: Power of "<<get_cell_id(*involved_front)+1<<" is reduced from "<<involved_front->r2;
+						std::cout<<"Numerical Warning: Power of "<<get_cell_id(This)+1<<" is reduced from "<<This.r2;
 					SetInvolvedPersistingVisitedToZero();
 					clear_cell_my_vertices(This);
 						for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
@@ -1597,9 +1595,9 @@ private:
 				if(This.r2>0)	This.r= sqrt(This.r2);
 				else 		This.r=-sqrt(-This.r2);
 				if(params.with_warnings)
-					std::cout<<" to "<<involved_front->r2<<" ( Change was "<<involved_front->r2-oldr2<<" )"<<std::endl;
+					std::cout<<" to "<<This.r2<<" ( Change was "<<This.r2-oldr2<<" )"<<std::endl;
 				done++;
-				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<get_cell_id(*involved_front)<<" "<<involved_front->position+center<<std::endl;
+				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<get_cell_id(This)<<" "<<This.position+center<<std::endl;
 					throw MyException();}
 			}
 			return hint;
