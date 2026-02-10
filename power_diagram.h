@@ -1768,23 +1768,22 @@ private:
 		zeros.erase(zeros.begin()+fromZero,zeros.end());
 		for(unsigned int vertex_index=fromVertex;vertex_index<this->_nVertices;++vertex_index)
 		{
-			const_vertexPtr it=&vertices[vertex_index];
-			if(!(it->invalid))
-				if(it->generators[dimension-1]->isReal(*this))
-					for(int endpoint_idx=(hasVirtualGenerators(*it))*3;endpoint_idx<=dimension;++endpoint_idx)
+			const vertex& current = vertices[vertex_index];
+			if(!(current.invalid))
+				if(current.generators[dimension-1]->isReal(*this))
+					for(int endpoint_idx=(hasVirtualGenerators(current))*3;endpoint_idx<=dimension;++endpoint_idx)
 					{
-							vertexPtr endpoint = it->endPoints[endpoint_idx];
-							if(endpoint == nullptr) continue;
-							VertexId endpoint_id = it->endPointIds[endpoint_idx];
-							if(endpoint_id == kInvalidId) endpoint_id = vertex_id_or_invalid(endpoint);
+							VertexId endpoint_id = current.endPointIds[endpoint_idx];
+							if(endpoint_id == kInvalidId) endpoint_id = vertex_id_or_invalid(current.endPoints[endpoint_idx]);
 							if(endpoint_id != kInvalidId && endpoint_id > vertex_index)
 						{
-							if(it->powerValue>0)
+							const vertex& endpoint = vertex_at(endpoint_id);
+							if(current.powerValue>0)
 							{
 								const int branch=endpoint_idx;
-								const PDFloat& v3=endpoint->powerValue;
-								const PDFloat& v2=it->powerValue;
-								const PDFloat& v1=it->generators[branch==0]->power(2*it->position-endpoint->position);
+								const PDFloat& v3=endpoint.powerValue;
+								const PDFloat& v2=current.powerValue;
+								const PDFloat& v1=current.generators[branch==0]->power(2*current.position-endpoint.position);
 								const PDFloat quot=2*(v1+v3-2*v2);
 								//const PDFloat rootsq=sqr(v1-v3)-4*quot*v2;
 								const PDFloat rootsq=(v1-v3)*(v1-v3)-4*quot*v2;
@@ -1797,26 +1796,26 @@ private:
 								const PDFloat sol1=min+rootquot;
 								const PDFloat sol2=min-rootquot;
 								if(sol1>0&&sol1<1)
-									if(endpoint->powerValue>0)
+									if(endpoint.powerValue>0)
 									{
-											push_zero_from_edge(it, vertex_index, branch, sol1);
-											push_zero_from_edge(it, vertex_index, branch, sol2);
+											push_zero_from_edge(&current, vertex_index, branch, sol1);
+											push_zero_from_edge(&current, vertex_index, branch, sol2);
 										}
 										else
-											push_zero_from_edge(it, vertex_index, branch, sol1);
+											push_zero_from_edge(&current, vertex_index, branch, sol1);
 									else if(sol2>0&&sol2<1)
-										push_zero_from_edge(it, vertex_index, branch, sol2);
+										push_zero_from_edge(&current, vertex_index, branch, sol2);
 									else
 									{//the covered zeros
-										push_zero_from_edge(it, vertex_index, branch, sol1);
-										push_zero_from_edge(it, vertex_index, branch, sol2);
+										push_zero_from_edge(&current, vertex_index, branch, sol1);
+										push_zero_from_edge(&current, vertex_index, branch, sol2);
 									}
-								}else if(endpoint->powerValue>0)
+								}else if(endpoint.powerValue>0)
 							{
 								const int branch=endpoint_idx;
-								const PDFloat& v3=endpoint->powerValue;
-								const PDFloat& v2=it->powerValue;
-								const PDFloat& v1=it->generators[branch==0]->power(2*it->position-endpoint->position);
+								const PDFloat& v3=endpoint.powerValue;
+								const PDFloat& v2=current.powerValue;
+								const PDFloat& v1=current.generators[branch==0]->power(2*current.position-endpoint.position);
 								const PDFloat quot=2*(v1+v3-2*v2);
 								//const PDFloat rootsq=sqr(v1-v3)-4*quot*v2;
 								const PDFloat rootsq=(v1-v3)*(v1-v3)-4*quot*v2;
@@ -1829,9 +1828,9 @@ private:
 								const PDFloat sol1=min+rootquot;
 								const PDFloat sol2=min-rootquot;
 								if(sol1>0&&sol1<1)
-										push_zero_from_edge(it, vertex_index, branch, sol1);
+										push_zero_from_edge(&current, vertex_index, branch, sol1);
 									else
-										push_zero_from_edge(it, vertex_index, branch, sol2);
+										push_zero_from_edge(&current, vertex_index, branch, sol2);
 								}
 							}
 						}
