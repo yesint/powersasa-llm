@@ -1436,6 +1436,11 @@ if(std::abs(checkconst)>0.001)
 			This.rrv=0;
 			return ReplaceState::ambiguous;
 		}
+	inline ReplaceState finiteReplaced(vertex& This, const CellId cell_id)
+	{
+		if(cell_id == kInvalidId) return ReplaceState::ambiguous;
+		return finiteReplaced(This, &cell_at(cell_id));
+	}
 	void dump_vertices(std::ostream& out=std::cout)
 	{
 		std::cout<<"vertices, generators and neighbours "<<std::endl;
@@ -1899,7 +1904,7 @@ private:
 		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
 		clear_interna();
 			push_involved(&This);
-			const ReplaceState startState = finiteReplaced(*start,&This);
+			const ReplaceState startState = finiteReplaced(*start, get_cell_id(This));
 			if(startState==ReplaceState::ambiguous) return false;
 			if(startState==ReplaceState::replaced)
 			{
@@ -2445,9 +2450,8 @@ private :
 		{
 			const CellId involved_front_id = owner.involved_id_at(0);
 			if(involved_front_id == kInvalidId) return false;
-			cell& involved_front = owner.cell_at(involved_front_id);
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
-				owner.finiteReplaced(*this,&involved_front);
+				owner.finiteReplaced(*this,involved_front_id);
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::ambiguous)
 				return false;
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::replaced)
@@ -2458,9 +2462,8 @@ private :
 		{
 			const CellId involved_front_id = owner.involved_id_at(0);
 			if(involved_front_id == kInvalidId) return false;
-			cell& involved_front = owner.cell_at(involved_front_id);
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
-				owner.finiteReplaced(*this,&involved_front);
+				owner.finiteReplaced(*this,involved_front_id);
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::ambiguous)
 				return false;
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::replaced)
