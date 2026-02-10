@@ -831,10 +831,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 					{
 						const CellId involved_id = involved_id_at(involved_idx);
 						if(involved_id == kInvalidId) continue;
-						cellPtr involved_cell = cell_ptr_from_id(involved_id);
-						if(involved_cell == nullptr) continue;
-						while(!involved_cell->myZeroPoints.empty()&&involved_cell->myZeroPoints.back()>static_cast<int>(nRevertZeros))
-							involved_cell->myZeroPoints.pop_back();
+						cell& involved_cell = cell_at(involved_id);
+						while(!involved_cell.myZeroPoints.empty()&&involved_cell.myZeroPoints.back()>static_cast<int>(nRevertZeros))
+							involved_cell.myZeroPoints.pop_back();
 					}
 					zeros.erase(zeros.begin()+nRevertZeros,zeros.end());
 				}
@@ -1162,8 +1161,7 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									{
 										const CellId candidate_id = involved_id_at(involved_idx);
 										if(candidate_id == kInvalidId) continue;
-										cellPtr candidate = cell_ptr_from_id(candidate_id);
-										if(candidate == nullptr) continue;
+										cellPtr candidate = &cell_at(candidate_id);
 										const PDFloat dist = (candidate->position-insertion_cell.position).squaredNorm();
 										if(closest == nullptr || dist < mindist)
 										{
@@ -1236,11 +1234,11 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								{
 									const CellId involved_id = involved_id_at(involved_idx);
 									if(involved_id == kInvalidId) continue;
-									cellPtr involved_cell = cell_ptr_from_id(involved_id);
-									if(involved_cell == nullptr || involved_cell->myVerticesIds.empty()) continue;
-									vertexPtr representative = vertex_ptr_from_id(involved_cell->myVerticesIds[0]);
+									cell& involved_cell = cell_at(involved_id);
+									if(involved_cell.myVerticesIds.empty()) continue;
+									vertexPtr representative = vertex_ptr_from_id(involved_cell.myVerticesIds[0]);
 									if(representative != nullptr && !representative->isConnected() && fallback_replaced != nullptr)
-										set_cell_my_vertex(*involved_cell, 0, fallback_replaced);
+										set_cell_my_vertex(involved_cell, 0, fallback_replaced);
 								}
 
 
@@ -1725,14 +1723,13 @@ private:
 				{
 					const CellId involved_id = involved_id_at(involved_idx);
 					if(involved_id == kInvalidId) continue;
-					cellPtr involved_cell = cell_ptr_from_id(involved_id);
-					if(involved_cell == nullptr) continue;
+					cell& involved_cell = cell_at(involved_id);
 					std::size_t neighbour_idx=0;
-						while(neighbour_idx<involved_cell->neighboursIds.size())
+						while(neighbour_idx<involved_cell.neighboursIds.size())
 						{
-								cellPtr neighbour = cell_ptr_from_id(involved_cell->neighboursIds[neighbour_idx]);
+								cellPtr neighbour = cell_ptr_from_id(involved_cell.neighboursIds[neighbour_idx]);
 								if(neighbour == nullptr || neighbour->visitedAs==-1)
-									erase_cell_neighbour(*involved_cell, neighbour_idx);
+									erase_cell_neighbour(involved_cell, neighbour_idx);
 								else
 							++neighbour_idx;
 					}
@@ -1741,19 +1738,18 @@ private:
 				{
 					const CellId current_cell_id = involved_id_at(involved_idx);
 					if(current_cell_id == kInvalidId) continue;
-					cellPtr involved_cell = cell_ptr_from_id(current_cell_id);
-					if(involved_cell == nullptr) continue;
+					cell& involved_cell = cell_at(current_cell_id);
 					const int current_cell_order = static_cast<int>(current_cell_id);
-				for(const VertexId vid : involved_cell->myVerticesIds)
+				for(const VertexId vid : involved_cell.myVerticesIds)
 				{
 					vertexPtr vtx = vertex_ptr_from_id(vid);
 					if(vtx == nullptr) continue;
 					for(int g=dimension;g>=0;g--)
 						if(vtx->generators[g]->isReal(*this))
 					{
-							if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=involved_cell)
+							if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=&involved_cell)
 							{
-								push_cell_neighbour(*involved_cell, vtx->generators[g]);
+								push_cell_neighbour(involved_cell, vtx->generators[g]);
 								vtx->generators[g]->visitedAs=current_cell_order+1;
 							}
 					}
@@ -1764,9 +1760,8 @@ private:
 			{
 				const CellId involved_id = involved_id_at(involved_idx);
 				if(involved_id == kInvalidId) continue;
-				cellPtr involved_cell = cell_ptr_from_id(involved_id);
-				if(involved_cell == nullptr) continue;
-				involved_cell->visitedAs=0;
+				cell& involved_cell = cell_at(involved_id);
+				involved_cell.visitedAs=0;
 			}
 		}
 	void FillAllZeroPoints(	unsigned int fromVertex=(1<<dimension),const unsigned int fromZero=0)
@@ -1963,17 +1958,16 @@ private:
 
 			const CellId involved_front_id = involved_id_at(0);
 			if(involved_front_id == kInvalidId) return;
-			cellPtr involved_front = cell_ptr_from_id(involved_front_id);
-			if(involved_front == nullptr) return;
+			cell& involved_front = cell_at(involved_front_id);
 			for(unsigned int vertex_idx=0;vertex_idx<(1u<<dimension);++vertex_idx)
 				if(vertices[vertex_idx].rrv>0)
 				{
-					vertices[vertex_idx].setPowerData(involved_front);
-					set_vertex_generator(vertices[vertex_idx], 0, involved_front);
+					vertices[vertex_idx].setPowerData(&involved_front);
+					set_vertex_generator(vertices[vertex_idx], 0, &involved_front);
 				}
 
 
-			for(const VertexId vid : involved_front->myVerticesIds)
+			for(const VertexId vid : involved_front.myVerticesIds)
 			//if(!(*it)->isCorner())
 			{
 				vertexPtr involved_vertex = vertex_ptr_from_id(vid);
@@ -2005,10 +1999,9 @@ private:
 			}
 				const CellId involved_front_id = involved_id_at(0);
 				if(involved_front_id == kInvalidId) throw MyException();
-				cellPtr involved_front = cell_ptr_from_id(involved_front_id);
-				if(involved_front == nullptr) throw MyException();
-				_currentmyVertices.reserve(involved_front->myVerticesIds.size());
-				for(const VertexId vid : involved_front->myVerticesIds)
+				cell& involved_front = cell_at(involved_front_id);
+				_currentmyVertices.reserve(involved_front.myVerticesIds.size());
+				for(const VertexId vid : involved_front.myVerticesIds)
 					_currentmyVertices.push_back(vid);
 				const std::size_t involved_prefix = involved_front_id;
 				for(std::size_t point_idx=0;point_idx<involved_prefix;++point_idx)
@@ -2029,13 +2022,13 @@ private:
 			}
 			for(std::size_t i=0;i<unused.size();++i)
 				if(unused[i] == kInvalidId || vertex_ptr_from_id(unused[i]) == nullptr) throw MyException();
-				for(std::size_t i=0;i<involved_front->myVerticesIds.size();++i)
+				for(std::size_t i=0;i<involved_front.myVerticesIds.size();++i)
 				{
 					const VertexId restored_id = _currentmyVertices[i];
 					if(restored_id == kInvalidId) throw MyException();
 					vertexPtr restored = vertex_ptr_from_id(restored_id);
 					if(restored == nullptr) throw MyException();
-					set_cell_my_vertex(*involved_front, i, restored);
+					set_cell_my_vertex(involved_front, i, restored);
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
@@ -2107,26 +2100,24 @@ private:
 			// Ensure each involved cell keeps at least one representative connected vertex after insertion.
 				const CellId involved_front_id = involved_id_at(0);
 				if(involved_front_id == kInvalidId) return;
-				cellPtr involved_front = cell_ptr_from_id(involved_front_id);
-				if(involved_front == nullptr) return;
+				cell& involved_front = cell_at(involved_front_id);
 				//if there are no new vertices, the new cell is covered
-				if(involved_front->myVerticesIds.empty())
-					push_cell_my_vertex(*involved_front, aDefault);
+				if(involved_front.myVerticesIds.empty())
+					push_cell_my_vertex(involved_front, aDefault);
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
 				{
-					vertexPtr new_representative = vertex_ptr_from_id(involved_front->myVerticesIds.front());
+					vertexPtr new_representative = vertex_ptr_from_id(involved_front.myVerticesIds.front());
 					if(new_representative == nullptr) return;
 					for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 					{
 						const CellId involved_id = involved_id_at(involved_idx);
 						if(involved_id == kInvalidId) continue;
-						cellPtr involved_cell = cell_ptr_from_id(involved_id);
-						if(involved_cell == nullptr) continue;
-						if(involved_cell->myVerticesIds.empty()) continue;
-						vertexPtr representative = vertex_ptr_from_id(involved_cell->myVerticesIds.front());
+						cell& involved_cell = cell_at(involved_id);
+						if(involved_cell.myVerticesIds.empty()) continue;
+						vertexPtr representative = vertex_ptr_from_id(involved_cell.myVerticesIds.front());
 						if(representative == nullptr) continue;
 						if(!representative->isConnected())//if representing vertex has been erased
-							set_cell_my_vertex(*involved_cell, 0, new_representative);//we assign representative of new also to this one
+							set_cell_my_vertex(involved_cell, 0, new_representative);//we assign representative of new also to this one
 					}
 				}
 
@@ -2143,9 +2134,8 @@ private:
 			}
 			const CellId involved_front_id = involved_id_at(0);
 			if(involved_front_id == kInvalidId) return;
-			cellPtr involved_front = cell_ptr_from_id(involved_front_id);
-			if(involved_front == nullptr) return;
-			for(const VertexId vid : involved_front->myVerticesIds)
+			cell& involved_front = cell_at(involved_front_id);
+			for(const VertexId vid : involved_front.myVerticesIds)
 			{
 				vertexPtr vtx = vertex_ptr_from_id(vid);
 				if(vtx == nullptr) continue;
@@ -2277,14 +2267,14 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 		{
 			// Initialize a newly created finite vertex generated by cutting one edge.
 				const CellId involved_front_id = owner.involved_id_at(0);
-				cellPtr involved_front = owner.cell_ptr_from_id(involved_front_id);
-				if(involved_front == nullptr) return false;
-				this->setPowerData(involved_front);
+				if(involved_front_id == kInvalidId) return false;
+				cell& involved_front = owner.cell_at(involved_front_id);
+				this->setPowerData(&involved_front);
 
 			for(int g=dimension;g>0;g--)
 				owner.set_vertex_generator(*this, g, This->generators[g-(g<=keep)]);
-			owner.set_vertex_generator(*this, 0, involved_front);
-			owner.push_cell_my_vertex(*involved_front, this);
+			owner.set_vertex_generator(*this, 0, &involved_front);
+			owner.push_cell_my_vertex(involved_front, this);
 			endPoints[0]->fastWhichis(This)=this;
 
 			if(owner.within_power_err(powerValue))
@@ -2413,9 +2403,11 @@ private :
 					if(this->generators[g]->visitedAs==0)
 						owner.AddToInvolved(*this->generators[g]);
 				const CellId involved_front_id = owner.involved_id_at(0);
-				cellPtr involved_front = owner.cell_ptr_from_id(involved_front_id);
-				if(involved_front != nullptr)
-					owner.push_cell_my_vertex(*involved_front, this);//although replaced it will be part of the new cell!its a corner!
+				if(involved_front_id != kInvalidId)
+				{
+					cell& involved_front = owner.cell_at(involved_front_id);
+					owner.push_cell_my_vertex(involved_front, this);//although replaced it will be part of the new cell!its a corner!
+				}
 
 
 			for(int g=dimension;g>0;--g)
@@ -2453,10 +2445,10 @@ private :
 		bool finiteReplaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
 			const CellId involved_front_id = owner.involved_id_at(0);
-			cellPtr involved_front = owner.cell_ptr_from_id(involved_front_id);
-			if(involved_front == nullptr) return false;
+			if(involved_front_id == kInvalidId) return false;
+			cell& involved_front = owner.cell_at(involved_front_id);
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
-				owner.finiteReplaced(*this,involved_front);
+				owner.finiteReplaced(*this,&involved_front);
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::ambiguous)
 				return false;
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::replaced)
@@ -2466,10 +2458,10 @@ private :
 		bool cornerReplaceCheck(PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
 			const CellId involved_front_id = owner.involved_id_at(0);
-			cellPtr involved_front = owner.cell_ptr_from_id(involved_front_id);
-			if(involved_front == nullptr) return false;
+			if(involved_front_id == kInvalidId) return false;
+			cell& involved_front = owner.cell_at(involved_front_id);
 			const typename PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState state=
-				owner.finiteReplaced(*this,involved_front);
+				owner.finiteReplaced(*this,&involved_front);
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::ambiguous)
 				return false;
 			if(state==PowerDiagram<PDFloat,PDCoord,dimension>::ReplaceState::replaced)
