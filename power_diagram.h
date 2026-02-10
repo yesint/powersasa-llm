@@ -2129,7 +2129,6 @@ private:
 			for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 			{
 				cellPtr involved_cell = involved_ptr_at(involved_idx);
-				if(involved_cell == nullptr) continue;
 				involved_cell->visitedAs=0;
 			}
 			const CellId involved_front_id = involved_id_at(0);
