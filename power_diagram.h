@@ -152,10 +152,6 @@ public:
 	struct vertex;
 	struct cell;
 	struct EdgeEnds;
-	using cellPtr = cell*;
-	using const_cellPtr = cell const*;
-	using vertexPtr = vertex*;
-	using const_vertexPtr = vertex const*;
 	using CellId = std::size_t;
 	using VertexId = std::size_t;
 	using ZeroId = std::size_t;
@@ -270,7 +266,7 @@ public :
 	{
 		return vertices[id];
 	}
-	inline CellId cell_id_or_invalid(const cellPtr ptr) const
+	inline CellId cell_id_or_invalid(const cell* ptr) const
 	{
 		if (ptr == nullptr || points.empty()) return kInvalidId;
 		const cell* const first = points.data();
@@ -278,15 +274,7 @@ public :
 		if (ptr < first || ptr >= last) return kInvalidId;
 		return static_cast<CellId>(ptr - first);
 	}
-	inline CellId cell_id_or_invalid(const const_cellPtr ptr) const
-	{
-		if (ptr == nullptr || points.empty()) return kInvalidId;
-		const cell* const first = points.data();
-		const cell* const last = first + points.size();
-		if (ptr < first || ptr >= last) return kInvalidId;
-		return static_cast<CellId>(ptr - first);
-	}
-	inline VertexId vertex_id_or_invalid(const vertexPtr ptr) const
+	inline VertexId vertex_id_or_invalid(const vertex* ptr) const
 	{
 		if (ptr == nullptr || vertices.empty()) return kInvalidId;
 		const vertex* const first = vertices.data();
@@ -294,15 +282,7 @@ public :
 		if (ptr < first || ptr >= last) return kInvalidId;
 		return static_cast<VertexId>(ptr - first);
 	}
-	inline VertexId vertex_id_or_invalid(const const_vertexPtr ptr) const
-	{
-		if (ptr == nullptr || vertices.empty()) return kInvalidId;
-		const vertex* const first = vertices.data();
-		const vertex* const last = first + vertices.size();
-		if (ptr < first || ptr >= last) return kInvalidId;
-		return static_cast<VertexId>(ptr - first);
-	}
-	inline GeneratorRef generator_ref_or_invalid(const cellPtr ptr) const
+	inline GeneratorRef generator_ref_or_invalid(const cell* ptr) const
 	{
 		if (ptr == nullptr) return GeneratorRef();
 		if (!points.empty())
@@ -410,43 +390,43 @@ public :
 		validate_all_cell_mirror_invariants();
 #endif
 	}
-	inline cellPtr cell_ptr_from_id(const CellId id)
+	inline cell* cell_ptr_from_id(const CellId id)
 	{
 		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
 	}
-	inline const_cellPtr cell_ptr_from_id_const(const CellId id) const
+	inline const cell* cell_ptr_from_id_const(const CellId id) const
 	{
 		return (id == kInvalidId || id >= points.size()) ? nullptr : &cell_at(id);
 	}
-	inline const_cellPtr cell_ptr_from_ref_const(const GeneratorRef& ref) const
+	inline const cell* cell_ptr_from_ref_const(const GeneratorRef& ref) const
 	{
 		if (!ref.is_valid()) return nullptr;
 		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
 		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
 		return nullptr;
 	}
-	inline cellPtr cell_ptr_from_ref(const GeneratorRef& ref)
+	inline cell* cell_ptr_from_ref(const GeneratorRef& ref)
 	{
 		if (!ref.is_valid()) return nullptr;
 		if (ref.kind == GeneratorKind::point && ref.index < points.size()) return &points[ref.index];
 		if (ref.kind == GeneratorKind::side && ref.index < sideGenerators.size()) return &sideGenerators[ref.index];
 		return nullptr;
 	}
-	inline vertexPtr vertex_ptr_from_id(const VertexId id)
+	inline vertex* vertex_ptr_from_id(const VertexId id)
 	{
 		return (id == kInvalidId || id >= vertices.size()) ? nullptr : &vertex_at(id);
 	}
-	inline void set_vertex_generator(vertex& a_vertex, const int slot, const cellPtr ptr)
+	inline void set_vertex_generator(vertex& a_vertex, const int slot, cell* ptr)
 	{
 		a_vertex.generators[slot] = ptr;
 		a_vertex.generatorRefs[slot] = generator_ref_or_invalid(ptr);
 	}
-	inline void set_vertex_endpoint(vertex& a_vertex, const int slot, const vertexPtr ptr)
+	inline void set_vertex_endpoint(vertex& a_vertex, const int slot, vertex* ptr)
 	{
 		a_vertex.endPoints[slot] = ptr;
 		a_vertex.endPointIds[slot] = vertex_id_or_invalid(ptr);
 	}
-	inline void set_vertex_endpoint_deferred(vertex& a_vertex, const int slot, const vertexPtr ptr)
+	inline void set_vertex_endpoint_deferred(vertex& a_vertex, const int slot, vertex* ptr)
 	{
 		a_vertex.endPoints[slot] = ptr;
 		a_vertex.endPointIds[slot] = kInvalidId;
@@ -458,7 +438,7 @@ public :
 		std::swap(a_vertex.endPoints[a], a_vertex.endPoints[b]);
 		std::swap(a_vertex.endPointIds[a], a_vertex.endPointIds[b]);
 	}
-	inline void set_bond_to(cell& a_cell, const cellPtr ptr)
+	inline void set_bond_to(cell& a_cell, const cell* ptr)
 	{
 		a_cell.bondToId = cell_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
@@ -530,16 +510,16 @@ public :
 		InvolvedRefs.swap(sorted_refs);
 		validate_transient_mirror_invariants();
 	}
-	inline void push_involved(const cellPtr ptr)
+	inline void push_involved(const cell* ptr)
 	{
 		InvolvedRefs.push_back(generator_ref_or_invalid(ptr));
 		validate_transient_mirror_invariants();
 	}
-	inline cellPtr involved_ptr_at(const std::size_t index)
+	inline cell* involved_ptr_at(const std::size_t index)
 	{
 		if(index >= InvolvedRefs.size()) return nullptr;
 		const GeneratorRef& ref = InvolvedRefs[index];
-		cellPtr ptr = cell_ptr_from_ref(ref);
+		cell* ptr = cell_ptr_from_ref(ref);
 		if(ptr == nullptr)
 		{
 			std::cerr << "INVOLVED_REFS: null involved ptr for ref index " << static_cast<long long>(ref.index) << std::endl;
@@ -564,7 +544,7 @@ public :
 		a_cell.myVerticesIds.clear();
 		validate_cell_mirror_invariants(a_cell);
 	}
-	inline void push_cell_my_vertex(cell& a_cell, const vertexPtr ptr)
+	inline void push_cell_my_vertex(cell& a_cell, const vertex* ptr)
 	{
 		a_cell.myVerticesIds.push_back(vertex_id_or_invalid(ptr));
 		validate_cell_mirror_invariants(a_cell);
@@ -574,7 +554,7 @@ public :
 		a_cell.myVerticesIds.pop_back();
 		validate_cell_mirror_invariants(a_cell);
 	}
-	inline void set_cell_my_vertex(cell& a_cell, const std::size_t index, const vertexPtr ptr)
+	inline void set_cell_my_vertex(cell& a_cell, const std::size_t index, const vertex* ptr)
 	{
 		a_cell.myVerticesIds[index] = vertex_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
@@ -598,12 +578,12 @@ public :
 		a_cell.neighboursIds.clear();
 		validate_cell_mirror_invariants(a_cell);
 	}
-	inline void push_cell_neighbour(cell& a_cell, const cellPtr ptr)
+	inline void push_cell_neighbour(cell& a_cell, const cell* ptr)
 	{
 		a_cell.neighboursIds.push_back(cell_id_or_invalid(ptr));
 		validate_cell_mirror_invariants(a_cell);
 	}
-	inline void set_cell_neighbour(cell& a_cell, const std::size_t index, const cellPtr ptr)
+	inline void set_cell_neighbour(cell& a_cell, const std::size_t index, const cell* ptr)
 	{
 		a_cell.neighboursIds[index] = cell_id_or_invalid(ptr);
 		validate_cell_mirror_invariants(a_cell);
@@ -1883,7 +1863,7 @@ private:
 			}
 		}
 
-		inline bool tryToBuildVertexOnEdge(const vertex& This,const int& here)//,const cellPtr s1, const cellPtr s2,const cellPtr s3,const PDCoord& direction);
+		inline bool tryToBuildVertexOnEdge(const vertex& This,const int& here)//,const cell* s1, const cell* s2,const cell* s3,const PDCoord& direction);
 		{
 			// Create one new finite vertex on a surviving edge between replaced and persisting regions.
 			//edge between This (replaced and finite) and that defined by generators s1,s2,s3 will get a vertex (of newest,s1,s2,s3)
@@ -2221,11 +2201,11 @@ inline const PDCoord getPowerCenterOf2(const cell *const g0,const cell *const g1
 	{
 		PDFloat rrv;//relative replace value (power difference)
 		bool invalid;
-		std::array<cellPtr,dimension+1> generators;
+		std::array<cell*,dimension+1> generators;
 		std::array<GeneratorRef,dimension+1> generatorRefs;
 		PDCoord position;
 		PDFloat powerValue;
-		std::array <vertexPtr,dimension+1> endPoints;
+		std::array <vertex*,dimension+1> endPoints;
 		std::array<VertexId,dimension+1> endPointIds;
 
 
@@ -2256,7 +2236,7 @@ inline const PDCoord getPowerCenterOf2(const cell *const g0,const cell *const g1
 				}
 			}
 
-			inline bool Init(const const_vertexPtr& This,const int& keep,PowerDiagram<PDFloat,PDCoord,dimension>& owner)
+			inline bool Init(const vertex* This,const int& keep,PowerDiagram<PDFloat,PDCoord,dimension>& owner)
 		{
 			// Initialize a newly created finite vertex generated by cutting one edge.
 				const CellId involved_front_id = owner.involved_id_at(0);
@@ -2324,7 +2304,7 @@ private :
 	}
 
 	template<class PDCalc>
-	inline void endPointsAndPositionOverwrite(const vertexPtr& endPoint,const PDCalc& pos)
+	inline void endPointsAndPositionOverwrite(vertex* endPoint,const PDCalc& pos)
 	{
 		endPoints[0]=endPoint;
 		endPointIds[0]=kInvalidId;
@@ -2365,13 +2345,13 @@ private :
 
 			whereTo=*this;
 		}
-		inline vertexPtr& fastWhichis (const const_vertexPtr& comp)
+		inline vertex*& fastWhichis (const vertex* comp)
 		{
 		for(int g=dimension;g>0;--g)
 			if(endPoints[g]==comp)return endPoints[g];
 		return endPoints[0];
 		}
-	inline vertexPtr& persistingWhichis3D (const const_vertexPtr& newOne)
+	inline vertex*& persistingWhichis3D (const vertex* newOne)
 	{
 		if(generators[2]==newOne->generators[2])
 			if(generators[1]==newOne->generators[1])
