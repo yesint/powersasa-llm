@@ -1911,9 +1911,7 @@ private:
 		// Flood-fill from start to identify replaced vertices and all cells involved by insertion of This.
 		clear_interna();
 			push_involved(&This);
-			cellPtr involved_front = involved_front_ptr();
-			if(involved_front == nullptr) return false;
-			const ReplaceState startState = finiteReplaced(*start,involved_front);
+			const ReplaceState startState = finiteReplaced(*start,&This);
 			if(startState==ReplaceState::ambiguous) return false;
 			if(startState==ReplaceState::replaced)
 			{
