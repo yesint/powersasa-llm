@@ -1018,8 +1018,17 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								for(int g=0;g<=dimension;++g)
 								{
 									const GeneratorRef& ref = old_vertex_generator_refs[vi][g];
-									cellPtr restored_generator = cell_ptr_from_ref(ref);
-									if(restored_generator != nullptr) set_vertex_generator(vertices[vi], g, restored_generator);
+									if(!ref.is_valid()) continue;
+									if(ref.kind == GeneratorKind::point)
+									{
+										if(ref.index >= points.size()) continue;
+										set_vertex_generator(vertices[vi], g, &cell_at(static_cast<CellId>(ref.index)));
+									}
+									else
+									{
+										if(ref.index >= sideGenerators.size()) continue;
+										set_vertex_generator(vertices[vi], g, &sideGenerators[ref.index]);
+									}
 								}
 
 								for(std::size_t point_idx=0;point_idx<nRevertPoints;++point_idx)
