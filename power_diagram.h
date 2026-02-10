@@ -348,20 +348,18 @@ public :
 	}
 	inline void sync_zero_link_mirrors(zeroPoint& a_zero) const
 	{
-		a_zero.fromId = vertex_id_or_invalid(a_zero.from);
+		if(a_zero.fromId >= vertices.size()) a_zero.fromId = kInvalidId;
 		for (int g = 0; g < dimension; ++g)
 		{
-			a_zero.generatorRefs[g] = generator_ref_or_invalid(a_zero.generators[g]);
+			const GeneratorRef& ref = a_zero.generatorRefs[g];
+			if(ref.kind == GeneratorKind::point && ref.index >= points.size()) a_zero.generatorRefs[g] = GeneratorRef();
+			if(ref.kind == GeneratorKind::side && ref.index >= sideGenerators.size()) a_zero.generatorRefs[g] = GeneratorRef();
 		}
 	}
 	inline void push_zero_from_edge(const const_vertexPtr source_vertex, const VertexId source_id, const int branch, const PDFloat sol)
 	{
 		zeroPoint zp(
-			source_vertex->generators[nth(0,branch)],
-			source_vertex->generators[nth(1,branch)],
-			source_vertex->generators[nth(2,branch)],
 			sol,
-			&vertices[source_id],
 			branch,
 			source_vertex->generatorRefs[nth(0,branch)],
 			source_vertex->generatorRefs[nth(1,branch)],
@@ -2190,42 +2188,23 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 	struct zeroPoint
 	{
 		PDFloat pos;
-		vertexPtr from;
 		VertexId fromId;
 		int branch;
-		std::array<cellPtr,dimension> generators;
 		std::array<GeneratorRef,dimension> generatorRefs;
 
 		zeroPoint(
-			const cellPtr& a,
-			const cellPtr& b,
-			const cellPtr& c,
 			const PDFloat& position,
-			const vertexPtr& origin,
 			const int& way,
 			const GeneratorRef& aref = GeneratorRef(),
 			const GeneratorRef& bref = GeneratorRef(),
 			const GeneratorRef& cref = GeneratorRef(),
 			const VertexId origin_id = kInvalidId):
-			pos(position),from(origin),fromId(origin_id),branch(way)
+			pos(position),fromId(origin_id),branch(way)
 		{
-			generators[0]=a;
 			generatorRefs[0]=aref;
-//		generators[0]->myZeroPoints.push_back(this);
-		generators[1]=b;
 			generatorRefs[1]=bref;
-//		generators[1]->myZeroPoints.push_back(this);
-		generators[2]=c;
 			generatorRefs[2]=cref;
-//		generators[2]->myZeroPoints.push_back(this);
-
-	}
-	PDCoord getPos()const
-	{
-		// Evaluate the 3D position of this zero crossing along its source edge.
-		return (from->endPoints[branch]->position)*pos-from->position*(pos-1);
-	}
-	bool isValid()const{return ((!from->invalid)&&(!from->endPoints[branch]->invalid));}
+		}
 };
 	struct vertex
 	{
