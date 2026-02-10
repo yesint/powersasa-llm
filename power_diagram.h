@@ -1555,13 +1555,13 @@ private:
 		}
 		return vertices.data();
 		}
-	vertexPtr prepareInsertion(cell & This,vertexPtr hint=nullptr)
+	VertexId prepareInsertion(cell & This, VertexId hint_id=kInvalidId)
 	{
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
-			hint=getRepresentative(This.bondToId);
-			VertexId hint_id=get_vertex_id(*hint);
+			vertexPtr hint=getRepresentative(This.bondToId);
+			hint_id=get_vertex_id(*hint);
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
 			findReplacedVertex(hint_id,value,This);
 			hint=vertex_ptr_from_id(hint_id);
@@ -1604,10 +1604,10 @@ private:
 				if(done>100){std::cout<<"exception : cannot get stable results with atom "<<get_cell_id(This)<<" "<<This.position+center<<std::endl;
 					throw MyException();}
 			}
-			return hint;
+			return hint_id;
 		}
 
-	bool doInsertion(const vertexPtr& hint)
+	bool doInsertion(const VertexId hint_id)
 	{
 		// Materialize insertion after prepareInsertion(): create new finite vertices, connect, and update caches.
 //			if(hint!=nullptr)
@@ -1617,9 +1617,9 @@ private:
 						return false;
 						if(__power_diagram_internal_timing__){const unsigned int zeit=clock();t4+=zeit;t5-=zeit;}
 					ConnectNewFinitesAmongThemselves3D();
-						if(__power_diagram_internal_timing__)t5+=clock();
+					if(__power_diagram_internal_timing__)t5+=clock();
 					UpdateUnused();
-					AssignRepresentativeVerticesToCells(hint);
+					AssignRepresentativeVerticesToCells(hint_id);
 					SetInvolvedPersistingVisitedToZero();
 					validate_phase_mirror_invariants();
 						if(__power_diagram_internal_timing__)t3+=clock();
@@ -2105,7 +2105,7 @@ private:
 			}
 				_nUnused=unused.size();
 		}
-			void AssignRepresentativeVerticesToCells(const vertexPtr& aDefault)
+			void AssignRepresentativeVerticesToCells(const VertexId default_id)
 		{
 			// Ensure each involved cell keeps at least one representative connected vertex after insertion.
 				const CellId involved_front_id = involved_id_at(0);
@@ -2113,7 +2113,10 @@ private:
 				cell& involved_front = cell_at(involved_front_id);
 				//if there are no new vertices, the new cell is covered
 				if(involved_front.myVerticesIds.empty())
-					push_cell_my_vertex(involved_front, aDefault);
+				{
+					vertexPtr aDefault = vertex_ptr_from_id(default_id);
+					if(aDefault != nullptr) push_cell_my_vertex(involved_front, aDefault);
+				}
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
 				{
 					vertexPtr new_representative = vertex_ptr_from_id(involved_front.myVerticesIds.front());
