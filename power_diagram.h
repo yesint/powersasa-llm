@@ -1522,19 +1522,19 @@ if(std::abs(checkconst)>0.001)
 			if(dim_is_real) return 0;
 			return that.isCorner() ? 3 : 2;
 		}
-	cell const *findCellInsideCube(const PDCoord& pos,cell const * hint=nullptr)
+	CellId findCellInsideCube(const PDCoord& pos, CellId hint_id=kInvalidId)
 	{
 		// Greedy neighbor walk to find the cell with minimal power at pos inside the current cube.
-		if(points.empty()) return nullptr;
-		CellId hint_id = cell_id_or_invalid(hint);
+		if(points.empty()) return kInvalidId;
 		if(hint_id == kInvalidId) hint_id = points.size()/2;
 		const cell& hint_cell = points[hint_id];
 			for(const CellId neighbour_id : hint_cell.neighboursIds)
 			{
-				const_cellPtr neighbour = cell_ptr_from_id_const(neighbour_id);
-				if(neighbour != nullptr && neighbour->power(pos)<hint_cell.power(pos))return findCellInsideCube(pos,neighbour);
+				if(neighbour_id == kInvalidId || neighbour_id >= points.size()) continue;
+				const cell& neighbour = points[neighbour_id];
+				if(neighbour.power(pos)<hint_cell.power(pos)) return findCellInsideCube(pos, neighbour_id);
 			}
-			return &points[hint_id];
+			return hint_id;
 		}
 private:
 	vertexPtr getRepresentative(const CellId start_id)
