@@ -1538,7 +1538,7 @@ if(std::abs(checkconst)>0.001)
 			return hint_id;
 		}
 private:
-	vertexPtr getRepresentative(const CellId start_id)
+	VertexId getRepresentative(const CellId start_id)
 	{
 		// Retrieve a connected representative vertex following bondToId chain by IDs.
 		CellId current_id = start_id;
@@ -1552,21 +1552,22 @@ private:
 				for(int g=0;g<=dimension;++g)
 				{
 					const GeneratorRef& ref = candidate->generatorRefs[g];
-					if(ref.kind == GeneratorKind::point && ref.index == current_id) return candidate;
+					if(ref.kind == GeneratorKind::point && ref.index == current_id) return vid;
 				}
 			}
 			if(current.bondToId == current_id) break;
 			current_id = current.bondToId;
 		}
-		return vertices.data();
+		return 0;
 		}
 	VertexId prepareInsertion(cell & This, VertexId hint_id=kInvalidId)
 	{
 		// Build replaced/persisting/involved sets for inserting This, including numerical fallback reductions.
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
-			vertexPtr hint=getRepresentative(This.bondToId);
-			hint_id=get_vertex_id(*hint);
+			hint_id=getRepresentative(This.bondToId);
+			vertexPtr hint=vertex_ptr_from_id(hint_id);
+			if(hint == nullptr) hint = vertices.data();
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
 			findReplacedVertex(hint_id,value,This);
 			hint=vertex_ptr_from_id(hint_id);
