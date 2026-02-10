@@ -32,7 +32,6 @@ If you have no license please contact SASA-support@kit.edu
 #include <iostream>
 #include <numbers>
 #include "power_diagram.h"
-#include <memory>
 #include <vector>
 
 //=============================================================
@@ -92,37 +91,37 @@ public:
 	// Rebuild the underlying power diagram after coordinate/radius updates and resize output buffers if atom count grows.
 	void update_coords(Coordcontainer const& coords, Floatcontainer const& radii)
 	{
-		const std::size_t n_old = power_diagram->get_points().size();
-		power_diagram->recalculate(coords.begin(),radii.begin(),coords.size());
-		if (n_old < power_diagram->get_points().size()) Resize_NA();
+		const std::size_t n_old = power_diagram.get_points().size();
+		power_diagram.recalculate(coords.begin(),radii.begin(),coords.size());
+		if (n_old < power_diagram.get_points().size()) Resize_NA();
 	}
 
 	template <class Pos_iterator, class Strength_iterator>
 	// Incrementally add one or more points to the power diagram and refresh atom-sized output storage.
 	void add_more(const Pos_iterator pos_it, const Strength_iterator strength_it, const unsigned int newSize) {
-		power_diagram->addMore(pos_it, strength_it, newSize);
+		power_diagram.addMore(pos_it, strength_it, newSize);
 		Resize_NA();
 	}
 
 	// Convenience single-point incremental insertion.
 	void add_more(const PDCoord& position, const PDFloat& radius,const int near) {
-		power_diagram->addMore(position,radius,near);
+		power_diagram.addMore(position,radius,near);
 		Resize_NA();
 	}
 	// Undo the latest incremental insertion sequence performed through add_more().
-	void revert() {power_diagram->revert();}
+	void revert() {power_diagram.revert();}
 	// Access to the underlying power-diagram data structure (cells, vertices, zero points).
-	POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3 > & get_power_diagram()  { return *power_diagram; }
+	POWER_DIAGRAM::PowerDiagram<PDFloat,PDCoord,3 > & get_power_diagram()  { return power_diagram; }
 
 	// Number of neighboring cells for atom iatom in the current power diagram.
 	unsigned int NumOfNeighbours(unsigned int iatom) const
 	{
-		return static_cast<unsigned int>(power_diagram->get_points()[iatom].neighboursIds.size());
+		return static_cast<unsigned int>(power_diagram.get_points()[iatom].neighboursIds.size());
 	}
 	// Convert local neighbour index to global atom index.
 	unsigned int AtomNo(unsigned int i_atom, unsigned int i_neighbour) const
 	{
-		const auto& points = power_diagram->get_points();
+		const auto& points = power_diagram.get_points();
 		const auto& atom = points[i_atom];
 		return static_cast<unsigned int>(atom.neighboursIds[i_neighbour]);
 	}
@@ -131,9 +130,9 @@ public:
 	// Construct from coordinates, radii and explicit bond-to hints used by incremental insertion heuristics.
 	PowerSasa(Coordcontainer const& coords, Floatcontainer const& radii, Intcontainer const& bond_to,
 		const bool with_Sasa, const bool with_dSasa, const bool with_Vol, const bool with_dVol) :
-		power_diagram(std::make_unique<PowerDiagramT>(
+		power_diagram(
 			PowerDiagramT::create(coords.size(), coords.begin(), radii.begin(), bond_to.begin())
-			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).withoutCheck(1))),
+			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).without_Check(1)),
 		withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol)
 	{
 		Init();
@@ -142,18 +141,8 @@ public:
 	// Construct from coordinates/radii only; bond-to hints are generated as a simple chain.
 	PowerSasa(Coordcontainer const& coords, Floatcontainer const& radii,
 				const bool with_Sasa=1, const bool with_dSasa=0, const bool with_Vol=0, const bool with_dVol=0) :
-			power_diagram(nullptr), withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol)
+			power_diagram(create_with_chain_bond(coords, radii)), withSasa(with_Sasa), withDSasa(with_dSasa), withVol(with_Vol), withDVol(with_dVol)
 	{
-		std::vector<int> bond_to;
-		bond_to.reserve(coords.size());
-		bond_to.push_back(0);
-		for (unsigned int i = 1; i < coords.size(); ++i)
-		{
-			bond_to.push_back(i-1);
-		}
-		power_diagram = std::make_unique<PowerDiagramT>(
-			PowerDiagramT::create(coords.size(), coords.begin(), radii.begin(), bond_to.begin())
-			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).without_Check(1));
 		Init();
 	}
 
@@ -225,7 +214,7 @@ private:
 	// Resize per-atom outputs and refresh global tolerance derived from current maximum radius^2.
 	inline void Resize_NA()
 	{
-		const std::size_t n = power_diagram->get_points().size();
+		const std::size_t n = power_diagram.get_points().size();
 		if (withSasa) Sasa.resize(n,0);
 		if(withDSasa)
 		{
@@ -243,8 +232,8 @@ private:
 		PDFloat maxr2 = 0.0;
 		for (std::size_t i = 0; i < n; ++i)
 		{
-			if (power_diagram->get_points()[i].r2 > maxr2)
-			  maxr2 = power_diagram->get_points()[i].r2;
+			if (power_diagram.get_points()[i].r2 > maxr2)
+			  maxr2 = power_diagram.get_points()[i].r2;
 		}
 		tol_pow = maxr2 * DRAD2();
 	}
@@ -257,7 +246,18 @@ private:
 	// Build cyclic next-vertex links by ordering circle angles with degeneracy handling.
         inline void Get_Next(int n, std::vector<PDFloat> & ang, std::vector<int> & next,
 			const std::vector<int> & p, const PDCoord & e);
-	std::unique_ptr<PowerDiagramT> power_diagram;
+	template<class Coordcontainer, class Floatcontainer>
+	static PowerDiagramT create_with_chain_bond(Coordcontainer const& coords, Floatcontainer const& radii)
+	{
+		std::vector<int> bond_to;
+		bond_to.reserve(coords.size());
+		bond_to.push_back(0);
+		for (unsigned int i = 1; i < coords.size(); ++i) bond_to.push_back(i-1);
+		return PowerDiagramT(
+			PowerDiagramT::create(coords.size(), coords.begin(), radii.begin(), bond_to.begin())
+			.with_radiiGiven(1).with_calculate(1).with_cells(1).with_zeroPoints(1).with_Warnings(0).without_Check(1));
+	}
+	PowerDiagramT power_diagram;
 	
 	const bool withSasa;
 	const bool withDSasa;
@@ -303,18 +303,18 @@ public:
 	// Evaluate SASA/volume response of each atom to n probe-radius perturbations via temporary add/revert.
 	void calc_sasa_all(const PDFloat steps[n],PDFloat resultS[][n+1],PDFloat resultV[][n+1])
 	{
-		for (unsigned int i = 0; i < power_diagram->getPoints().size(); ++i)
+		for (unsigned int i = 0; i < power_diagram.getPoints().size(); ++i)
 		{
 			calc_sasa_single(i);
 			resultS[i][0]=Sasa[i];
 			resultV[i][0]=Vol[i];
 		}
-		const int& size=power_diagram->getPoints().size();
+		const int& size=power_diagram.getPoints().size();
 		for(int a=0;a<size;a++)
 		{
 			for(int s=0;s<n;s++)
 			{
-				add_more(power_diagram->getPoints()[a].position+power_diagram->center,power_diagram->getPoints()[a].r+steps[s],a);
+				add_more(power_diagram.getPoints()[a].position+power_diagram.center,power_diagram.getPoints()[a].r+steps[s],a);
 				calc_sasa_single(size);
 				resultS[a][s]=Sasa[size];
 				resultV[a][s]=Vol[size];
@@ -475,7 +475,7 @@ calc_sasa_single(const unsigned int iatom)
 	using VertexId = typename PowerDiagram3D::VertexId;
 	using GeneratorKind = typename PowerDiagram3D::GeneratorKind;
 
-	std::vector<typename PowerDiagram3D::cell> const& atoms = power_diagram->get_points();
+	std::vector<typename PowerDiagram3D::cell> const& atoms = power_diagram.get_points();
 	const typename PowerDiagram3D::cell& atom = atoms[iatom];
 	const int nnb = static_cast<int>(atom.neighboursIds.size());               // number of neighbors
 	std::vector<CellId> neighbour_ids(static_cast<std::size_t>(nnb), PowerDiagram3D::kInvalidId);
@@ -491,11 +491,11 @@ calc_sasa_single(const unsigned int iatom)
 	}
 	auto neighbour = [&](const int idx) -> const typename PowerDiagram3D::cell&
 	{
-		return power_diagram->get_cell(neighbour_ids[static_cast<std::size_t>(idx)]);
+		return power_diagram.get_cell(neighbour_ids[static_cast<std::size_t>(idx)]);
 	};
 	auto neighbour_mut = [&](const int idx) -> typename PowerDiagram3D::cell&
 	{
-		return power_diagram->get_cell(neighbour_ids[static_cast<std::size_t>(idx)]);
+		return power_diagram.get_cell(neighbour_ids[static_cast<std::size_t>(idx)]);
 	};
 	PDCoord const &pos = atom.position;       // my coordinates
 
@@ -517,7 +517,7 @@ calc_sasa_single(const unsigned int iatom)
 
 	if (nnb == 0)
 	{
-		const auto& first_vertex = power_diagram->get_vertices()[0];
+		const auto& first_vertex = power_diagram.get_vertices()[0];
 		bool is_owner = false;
 		const auto& gref = first_vertex.generatorRefs[0];
 		if (gref.is_valid() && gref.kind == GeneratorKind::point && gref.index == iatom)
@@ -537,7 +537,7 @@ calc_sasa_single(const unsigned int iatom)
 	bool covered = true;
 	ok = true;
 	
-	const auto& pd_vertices = power_diagram->get_vertices();
+	const auto& pd_vertices = power_diagram.get_vertices();
 	const std::size_t my_vertex_count = atom.myVerticesIds.size();
 	for (std::size_t n = 0; n < my_vertex_count; ++n)
 	{
@@ -627,11 +627,11 @@ calc_sasa_single(const unsigned int iatom)
 	for (unsigned int k = 0; k < atom.myZeroPoints.size(); ++k)
 	{
 		const std::size_t zp_id = static_cast<std::size_t>(atom.myZeroPoints[k]);
-		if (zp_id >= power_diagram->get_zeroPoints().size()) continue;
-		const auto& zp = power_diagram->get_zeroPoints()[zp_id];
-		if(power_diagram->zeroPointValid(zp))
+		if (zp_id >= power_diagram.get_zeroPoints().size()) continue;
+		const auto& zp = power_diagram.get_zeroPoints()[zp_id];
+		if(power_diagram.zeroPointValid(zp))
 	{
-		zp_pos = power_diagram->zeroPointPos(zp);
+		zp_pos = power_diagram.zeroPointPos(zp);
 		ptn = 0;
 		for (int kg = 0; kg < 3; ++kg)
 		{
@@ -639,7 +639,7 @@ calc_sasa_single(const unsigned int iatom)
 			if (!zp_generator_ref.is_valid()) continue;
 			if (zp_generator_ref.kind != GeneratorKind::point || zp_generator_ref.index != iatom)
 			{
-				partner[ptn] = power_diagram->get_generator(zp_generator_ref).visitedAs;
+				partner[ptn] = power_diagram.get_generator(zp_generator_ref).visitedAs;
 				++ptn;
 			}
 		}
@@ -809,7 +809,7 @@ calc_sasa_single(const unsigned int iatom)
 					}
 					if (shared_generator)
 					{
-						partner[ptn] = power_diagram->get_generator(g1ref).visitedAs;
+						partner[ptn] = power_diagram.get_generator(g1ref).visitedAs;
 						++ptn;
 					}
 				}
@@ -1048,7 +1048,7 @@ calc_sasa_single(const unsigned int iatom)
 template <class PDFloat, class PDCoord> void PowerSasa<PDFloat, PDCoord>::
 calc_sasa_all()
 {
-	for (std::size_t i = 0; i < power_diagram->get_points().size(); ++i)
+	for (std::size_t i = 0; i < power_diagram.get_points().size(); ++i)
 	{
 		calc_sasa_single(static_cast<unsigned int>(i));
 	}
