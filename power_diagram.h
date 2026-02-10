@@ -640,32 +640,36 @@ public :
 	std::vector< vertex> const & get_vertices() const { return vertices; }
 
 	std::vector< zeroPoint> const & get_zeroPoints() const { return zeros; }
-	inline const_vertexPtr zeroPointFrom(const zeroPoint& zp) const
+	inline VertexId zeroPointFromId(const zeroPoint& zp) const
 	{
-		return (zp.fromId != kInvalidId && zp.fromId < _nVertices) ? &vertices[zp.fromId] : nullptr;
+		return (zp.fromId != kInvalidId && zp.fromId < _nVertices) ? zp.fromId : kInvalidId;
 	}
-	inline const_cellPtr zeroPointGenerator(const zeroPoint& zp, const int g) const
+	inline GeneratorRef zeroPointGeneratorRef(const zeroPoint& zp, const int g) const
 	{
-		if (g < 0 || g >= dimension) return nullptr;
-		const GeneratorRef& ref = zp.generatorRefs[g];
-		const const_cellPtr by_ref = cell_ptr_from_ref_const(ref);
-		return by_ref;
+		if (g < 0 || g >= dimension) return GeneratorRef();
+		return zp.generatorRefs[g];
 	}
 	inline bool zeroPointValid(const zeroPoint& zp) const
 	{
-		const const_vertexPtr from_ptr = zeroPointFrom(zp);
-		if (from_ptr == nullptr) return false;
-		const vertexPtr to_ptr = from_ptr->endPoints[zp.branch];
-		if (to_ptr == nullptr) return false;
-		return ((!from_ptr->invalid) && (!to_ptr->invalid));
+		const VertexId from_id = zeroPointFromId(zp);
+		if (from_id == kInvalidId) return false;
+		const vertex& from = vertex_at(from_id);
+		VertexId to_id = from.endPointIds[zp.branch];
+		if(to_id == kInvalidId) to_id = vertex_id_or_invalid(from.endPoints[zp.branch]);
+		if (to_id == kInvalidId || to_id >= _nVertices) return false;
+		const vertex& to = vertex_at(to_id);
+		return ((!from.invalid) && (!to.invalid));
 	}
 	inline PDCoord zeroPointPos(const zeroPoint& zp) const
 	{
-		const const_vertexPtr from_ptr = zeroPointFrom(zp);
-		if (from_ptr == nullptr) throw MyException();
-		const vertexPtr to_ptr = from_ptr->endPoints[zp.branch];
-		if (to_ptr == nullptr) throw MyException();
-		return (to_ptr->position) * zp.pos - from_ptr->position * (zp.pos - static_cast<PDFloat>(1.0));
+		const VertexId from_id = zeroPointFromId(zp);
+		if (from_id == kInvalidId) throw MyException();
+		const vertex& from = vertex_at(from_id);
+		VertexId to_id = from.endPointIds[zp.branch];
+		if(to_id == kInvalidId) to_id = vertex_id_or_invalid(from.endPoints[zp.branch]);
+		if (to_id == kInvalidId || to_id >= _nVertices) throw MyException();
+		const vertex& to = vertex_at(to_id);
+		return to.position * zp.pos - from.position * (zp.pos - static_cast<PDFloat>(1.0));
 	}
 
 
