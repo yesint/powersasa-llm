@@ -128,6 +128,7 @@ public:
 	}
 
 	template<class Coordcontainer, class Floatcontainer, class Intcontainer>
+	
 	// Construct from coordinates, radii and explicit bond-to hints used by incremental insertion heuristics.
 	PowerSasa(Coordcontainer const& coords, Floatcontainer const& radii, Intcontainer const& bond_to,
 		const bool with_Sasa, const bool with_dSasa, const bool with_Vol, const bool with_dVol) :
@@ -139,6 +140,7 @@ public:
 		Init();
 	}
 	template<class Coordcontainer, class Floatcontainer>
+	
 	// Construct from coordinates/radii only; bond-to hints are generated as a simple chain.
 	PowerSasa(Coordcontainer const& coords, Floatcontainer const& radii,
 				const bool with_Sasa=1, const bool with_dSasa=0, const bool with_Vol=0, const bool with_dVol=0) :
@@ -288,9 +290,10 @@ private:
 	const bool withDSasa;
 	const bool withVol;
 	const bool withDVol;
+
 	std::vector<PDFloat>                  Sasa;
 	std::vector< std::vector<PDCoord> >   DSasa_parts;
-	std::vector<PDCoord>		      DSasa;
+	std::vector<PDCoord>		      	  DSasa;
 	std::vector<PDFloat>                  Vol;
 	std::vector<PDCoord>                  DVol;
 	
