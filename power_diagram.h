@@ -1157,33 +1157,33 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 							const PDFloat errorScale=insertionErrorScale;
 							if(__power_diagram_internal_timing__){t3+=clock();t4+=clock();}
 
-							cellPtr identicalPoint=nullptr;
+							CellId identicalPointId=kInvalidId;
 							done++;
 							if(done>100)
 								throw MyException();
 							cell& insertion_cell = points[i];
 							//is this an Identical point problem?
 								{
-									cellPtr closest = nullptr;
+									CellId closest_id = kInvalidId;
 									PDFloat mindist = 0;
 									for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 									{
 										const CellId candidate_id = involved_id_at(involved_idx);
 										if(candidate_id == kInvalidId) continue;
-										cellPtr candidate = &cell_at(candidate_id);
-										const PDFloat dist = (candidate->position-insertion_cell.position).squaredNorm();
-										if(closest == nullptr || dist < mindist)
+										const cell& candidate = cell_at(candidate_id);
+										const PDFloat dist = (candidate.position-insertion_cell.position).squaredNorm();
+										if(closest_id == kInvalidId || dist < mindist)
 										{
 											mindist = dist;
-											closest = candidate;
+											closest_id = candidate_id;
 										}
 									}
-									if(closest != nullptr && error(insertion_cell.r)>sqrt(mindist))
+									if(closest_id != kInvalidId && error(insertion_cell.r)>sqrt(mindist))
 									{
-										identicalPoint=closest;
+										identicalPointId=closest_id;
 										if(params.with_warnings)
 										{
-											std::cout<<"numerical similar point to "<<get_cell_id(*closest)+1<<" found. ";
+											std::cout<<"numerical similar point to "<<closest_id+1<<" found. ";
 											std::cout<<get_cell_id(insertion_cell)+1<<" is ignored"<<std::endl;
 										}
 									}
@@ -1195,21 +1195,22 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 									_nVertices-=insertion_cell.myVerticesIds.size()-unused.size()+_nUnused;
 									for(const VertexId involved_vid : insertion_cell.myVerticesIds)
 									{
-										vertexPtr involved_vertex = vertex_ptr_from_id(involved_vid);
-										if(involved_vertex == nullptr) continue;
+										if(involved_vid == kInvalidId || involved_vid >= vertices.size()) continue;
+										vertex& involved_vertex = vertex_at(involved_vid);
 										if(involved_vid<(1u<<dimension))
 										{
 											_nVertices++;
 										}
-										else involved_vertex->disconnect();
+										else involved_vertex.disconnect();
 									}
 								}
 
 								//delete new vertices built on unused (not needed because endpoints not constructed,yet)
 								for(std::size_t unused_idx=_nUnused;unused_idx<unused.size();++unused_idx)
 								{
-									vertexPtr unused_vertex = vertex_ptr_from_id(unused[unused_idx]);
-									if(unused_vertex != nullptr) unused_vertex->disconnect();
+									const VertexId unused_id = unused[unused_idx];
+									if(unused_id == kInvalidId || unused_id >= vertices.size()) continue;
+									vertex_at(unused_id).disconnect();
 								}
 								_nUnused=unused.size();	
 
@@ -1217,20 +1218,20 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 								{
 									const VertexId replaced_id = replaced_id_at(replaced_idx);
-									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-									if(replaced_vertex == nullptr) continue;
-								for(int endpoint_idx=replaced_vertex->isCorner();endpoint_idx<=dimension;++endpoint_idx)
-					 				if(replaced_vertex->endPoints[endpoint_idx]->rrv<=0)
+									if(replaced_id == kInvalidId || replaced_id >= vertices.size()) continue;
+									vertex& replaced_vertex = vertex_at(replaced_id);
+								for(int endpoint_idx=replaced_vertex.isCorner();endpoint_idx<=dimension;++endpoint_idx)
+					 				if(replaced_vertex.endPoints[endpoint_idx]->rrv<=0)
 								{
-									vertexPtr endpoint = replaced_vertex->endPoints[endpoint_idx];
-									endpoint->rrv=0;
-									for(int g1=replaced_vertex->isCorner();g1<=dimension;g1++)
-									for(int g2=endpoint->isCorner();g2<=dimension;g2++)
+									vertex& endpoint = *replaced_vertex.endPoints[endpoint_idx];
+									endpoint.rrv=0;
+									for(int g1=replaced_vertex.isCorner();g1<=dimension;g1++)
+									for(int g2=endpoint.isCorner();g2<=dimension;g2++)
 									{
-										if(replaced_vertex->generators[nth(0,g1)]==endpoint->generators[nth(0,g2)]&&replaced_vertex->generators[nth(1,g1)]==endpoint->generators[nth(1,g2)]&&replaced_vertex->generators[nth(2,g1)]==endpoint->generators[nth(2,g2)])	
+										if(replaced_vertex.generators[nth(0,g1)]==endpoint.generators[nth(0,g2)]&&replaced_vertex.generators[nth(1,g1)]==endpoint.generators[nth(1,g2)]&&replaced_vertex.generators[nth(2,g1)]==endpoint.generators[nth(2,g2)])	
 										{
-											set_vertex_endpoint_deferred(*replaced_vertex, g1, endpoint);
-											set_vertex_endpoint_deferred(*endpoint, g2, replaced_vertex);
+											set_vertex_endpoint_deferred(replaced_vertex, g1, &endpoint);
+											set_vertex_endpoint_deferred(endpoint, g2, &replaced_vertex);
 										}
 									}
 								}
@@ -1238,16 +1239,16 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 
 
 								const VertexId fallback_replaced_id = replaced_id_at(0);
-								vertexPtr fallback_replaced = vertex_ptr_from_id(fallback_replaced_id);
 								for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 								{
 									const CellId involved_id = involved_id_at(involved_idx);
 									if(involved_id == kInvalidId) continue;
 									cell& involved_cell = cell_at(involved_id);
 									if(involved_cell.myVerticesIds.empty()) continue;
-									vertexPtr representative = vertex_ptr_from_id(involved_cell.myVerticesIds[0]);
-									if(representative != nullptr && !representative->isConnected() && fallback_replaced != nullptr)
-										set_cell_my_vertex(involved_cell, 0, fallback_replaced);
+									const VertexId representative_id = involved_cell.myVerticesIds[0];
+									if(representative_id == kInvalidId || representative_id >= vertices.size()) continue;
+									if(!vertex_at(representative_id).isConnected() && fallback_replaced_id != kInvalidId && fallback_replaced_id < vertices.size())
+										set_cell_my_vertex(involved_cell, 0, &vertex_at(fallback_replaced_id));
 								}
 
 
@@ -1256,20 +1257,23 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 								clear_cell_my_vertices(insertion_cell);
 							 	for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 								{
-									vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id_at(replaced_idx));
-									if(replaced_vertex == nullptr) continue;
-				  					replaced_vertex->rrv=0;
-									replaced_vertex->invalid=0;
+									const VertexId replaced_id = replaced_id_at(replaced_idx);
+									if(replaced_id == kInvalidId || replaced_id >= vertices.size()) continue;
+									vertex& replaced_vertex = vertex_at(replaced_id);
+				  					replaced_vertex.rrv=0;
+									replaced_vertex.invalid=0;
 								}
 
 							clear_replaced();
-							if(identicalPoint!=nullptr)
+							if(identicalPointId!=kInvalidId)
 							{	
-								vertexPtr identical_representative = nullptr;
-								if(!identicalPoint->myVerticesIds.empty())
-									identical_representative = vertex_ptr_from_id(identicalPoint->myVerticesIds.front());
-								if(identical_representative != nullptr)
-									push_cell_my_vertex(insertion_cell, identical_representative);
+								cell& identicalPoint = cell_at(identicalPointId);
+								if(!identicalPoint.myVerticesIds.empty())
+								{
+									const VertexId identical_vid = identicalPoint.myVerticesIds.front();
+									if(identical_vid != kInvalidId && identical_vid < vertices.size())
+										push_cell_my_vertex(insertion_cell, &vertex_at(identical_vid));
+								}
 								break;
 							}
 								else
