@@ -557,10 +557,6 @@ public :
 		if(ref.index >= points.size()) return kInvalidId;
 		return static_cast<CellId>(ref.index);
 	}
-	inline cellPtr involved_front_ptr()
-	{
-		return involved_ptr_at(0);
-	}
 	inline std::size_t involved_size() const
 	{
 		return InvolvedRefs.size();
