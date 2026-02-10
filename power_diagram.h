@@ -1425,19 +1425,15 @@ if(std::abs(checkconst)>0.001)
 				}
 
 		}
-	inline ReplaceState finiteReplaced(vertex& This,const_cellPtr const& aCell)
-	{
-		// Classify whether vertex This is replaced by aCell, persists, or is numerically ambiguous.
-		This.rrv=This.powerdiff3D(aCell,This.generators[0]);
-			if(above_power_err(This.rrv)) return ReplaceState::replaced;
-			if(below_neg_power_err(This.rrv)) return ReplaceState::persisting;
-			This.rrv=0;
-			return ReplaceState::ambiguous;
-		}
 	inline ReplaceState finiteReplaced(vertex& This, const CellId cell_id)
 	{
 		if(cell_id == kInvalidId) return ReplaceState::ambiguous;
-		return finiteReplaced(This, &cell_at(cell_id));
+		// Classify whether vertex This is replaced by aCell, persists, or is numerically ambiguous.
+		This.rrv=This.powerdiff3D(&cell_at(cell_id),This.generators[0]);
+		if(above_power_err(This.rrv)) return ReplaceState::replaced;
+		if(below_neg_power_err(This.rrv)) return ReplaceState::persisting;
+		This.rrv=0;
+		return ReplaceState::ambiguous;
 	}
 	void dump_vertices(std::ostream& out=std::cout)
 	{
