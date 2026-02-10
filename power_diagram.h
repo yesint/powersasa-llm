@@ -824,7 +824,9 @@ template <typename Pos_iterator, typename Strength_iterator, typename BondTo_ite
 				{
 					for(std::size_t involved_idx=0;involved_idx<involved_size();++involved_idx)
 					{
-						cellPtr involved_cell = involved_ptr_at(involved_idx);
+						const CellId involved_id = involved_id_at(involved_idx);
+						if(involved_id == kInvalidId) continue;
+						cellPtr involved_cell = cell_ptr_from_id(involved_id);
 						if(involved_cell == nullptr) continue;
 						while(!involved_cell->myZeroPoints.empty()&&involved_cell->myZeroPoints.back()>static_cast<int>(nRevertZeros))
 							involved_cell->myZeroPoints.pop_back();
@@ -1758,7 +1760,9 @@ private:
 
 			for(std::size_t involved_idx=0;involved_idx<involved_size();++involved_idx)
 			{
-				cellPtr involved_cell = involved_ptr_at(involved_idx);
+				const CellId involved_id = involved_id_at(involved_idx);
+				if(involved_id == kInvalidId) continue;
+				cellPtr involved_cell = cell_ptr_from_id(involved_id);
 				if(involved_cell == nullptr) continue;
 				involved_cell->visitedAs=0;
 			}
