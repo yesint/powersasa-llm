@@ -2,150 +2,62 @@
 
 ## Session Snapshot
 - Branch: `main`
-- HEAD: `4245462`
-- Regression gate: pass (`build/make` then `build/./sasatest`)
+- HEAD: `dc39e02`
+- Regression gate: pass (`make -C build` then `./build/sasatest`)
 - Working tree: clean
 
-## Required Test Gate (do this after every change)
-1. `cd build`
-2. `make`
-3. `./sasatest`
+## Required Test Gate (after every change)
+1. `make -C build`
+2. `./build/sasatest`
 
-If `./sasatest` exits non-zero, treat as regression.
+If `./build/sasatest` exits non-zero, treat as regression.
 
-## What Was Completed
-- Removed legacy iterator-style loops in `power_diagram.h` core paths (vector/array iterator loops converted to index/range loops).
-- Made many topology/read paths ID-first:
-  - `bondToId`, `neighboursIds`, `myVerticesIds`
-  - `generatorRefs`, `endPointIds`
-  - zero-point helpers and edge ordering by IDs
-- Replaced many pointer-difference/order checks with ID-based checks.
-- Reallocation/rebind paths improved:
-  - bond IDs snapshot/restore
-  - neighbour IDs snapshot/rebind
-  - generator refs snapshot/rebind
-- Modernized pointer constants:
-  - `NULL` -> `nullptr` in `power_diagram.h`
-  - `typedef` pointer aliases -> `using`
-- Added/kept synchronization helpers for mirrored pointer/ID links.
+## What Was Completed In This Session
+- Continued ID-first migration automatically across insertion/recovery/revert hot paths.
+- Converted remaining insertion-front reads from pointer helper lookups to ID/data-driven access:
+  - replaced `involved_front_ptr()` call sites with `involved_id_at(0)` / direct insertion cell usage.
+- Removed dead helper:
+  - `involved_front_ptr()`.
+- Removed additional pointer-fallback read branches where IDs are already validated:
+  - switched involved loops to `cell_at(id)` in:
+    - revert zero cleanup
+    - involved-neighbour refresh/reset loops
+    - insertion recovery representative reassignment
+    - connection/reserve/representative helper paths
+    - nested `vertex` insertion/replace-check paths
+- Kept known-safe exception path unchanged:
+  - `SetInvolvedPersistingVisitedToZero()` still uses `involved_ptr_at(...)` for index `>=1` to include side generators.
+- Mutation synchronization remains helper-only for cell mirrors:
+  - `bondToId`, `neighboursIds`, `myVerticesIds` writes go through helper APIs.
 
-## Recent Commit Log (latest first)
-- `4245462` Simplify virtual-generator count branch
-- `cf4632b` Use involved IDs in neighbour refresh passes
-- `382a1d7` Use involved IDs first in representative reassignment
-- `d8c1645` Use size_t loops in reserve rebind and drop dead check
-- `1279a5a` Use zero-point refs directly for point ownership
-- `186825f` Construct zero-points with explicit refs and source IDs
-- `d864aca` Centralize zero-point creation with mirrored refs
-- `7ac5f8f` Refresh endpoint IDs during vertex reallocation rebind
-- `0126cbd` Initialize vertex link mirrors in ctor and reset
-- `421a32b` Defer endpoint ID updates during reconnect rewiring
-- `0500503` Invalidate endpoint ID on endpoint overwrite
-- `c2cb84c` Use generator helper in vertex init path
-- `22fa023` Simplify redundant virtual and neighbour checks
-- `98c50ba` Use endpoint helper in revert reconnection
-- `4cacf8f` Use synchronized slot swap in cube link ordering
-- `b42b050` Use endpoint helper in cube endpoint setup
-- `2f648fb` Use generator helper in cube setup
-- `0af82f1` Use generator helper in stable assignment paths
-- `7f1a33a` Add vertex link helpers and simplify ID-order fallbacks
-- `53ebe3f` Use strict vertex IDs for edge ordering
-- `a94ce9c` Use data-based range check in cell isReal
-- `66e39f5` Use vertex IDs for zero-point edge ordering
-- `af9c8e1` Store corner owners as CellId values
-- `7923ec2` Use indexed endpoint loop in zero-point fill
-- `db297a8` Use size_t append counters in addMore
-- `e1ab49b` Use size_t indices in recalculate loops
-- `9cb0697` Remove always-true generator reorder condition
-- `97e68dc` Use using for zeroPoint pointer alias
-- `2c2f8ae` Use using aliases for pointer types
-- `5be4af5` Make addMore reallocation state explicit
-- `c924330` Use range loops in neighbour pointer fallback
-- `0b4032f` Construct new cells with explicit bond setup
-- `146fc77` Use bond IDs when target index is known
-- `c32efb9` Make cell search ID-first
-- `24b6beb` Use ID-based bonding after point insertion
-- `d492d5b` Make constructor iterator increments explicit
-- `5b91573` Replace NULL with nullptr in power diagram
-- `644cd2c` Use nullptr in pointer-ID helpers
-- `8638475` Use index loops in vertex array traversals
-- `e30b947` Use index endpoints in reconnect loop
-- `68780a7` Use index loops in revert reconnection
-- `851db0a` Use indexed generator loops in FillAllMyVertices
-- `749348b` Replace remaining vector iterators in core loops
-- `b8d4b73` Modernize representative and reset loops
-- `512746c` Use index loops in finite-vertex setup
-- `120a508` Modernize insertion fallback loops
-- `60c6ba1` Use index loop in full neighbour rebuild
-- `2524dbe` Use index loop for clearing myVertices
-- `04b6d15` Use index loop for reserve neighbour rebind
+## New Commits (latest first)
+- `dc39e02` Drop redundant null check in involved visited reset
+- `ea9c2e0` Use validated involved IDs directly in read paths
+- `5c20e82` Remove unused involved front pointer helper
+- `0fa5948` Use insertion cell directly in buildVertices recovery loop
+- `1ab9a29` Use involved front IDs in insertion and vertex paths
+- `66a70b6` Use insertion cell directly in numerical fallback loop
+- `b59a563` Use insertion cell directly in replaced/involved seed check
+- `f1ebd25` Use helper to erase cell vertices by ID in UpdateUnused
+- `6a5ec09` Use involved point IDs in revert and neighbour resets
+- `4485202` Use involved point IDs in insertion recovery reads
 
 ## Current Technical State
-- No remaining old-style `std::vector` / `std::array` iterator loops in `power_diagram.h` / `power_sasa.h` (except template type names).
-- No remaining `&points[0]` / `&vertices[0]` / `.front()` pointer arithmetic patterns in active code scans.
-- Remaining pointer-model footprint still large:
-  - `cellPtr` / `vertexPtr` token matches: ~119 in `power_diagram.h` + `power_sasa.h`.
-- Code is currently in mixed mode:
-  - IDs are widely present and used first in many paths.
-  - Raw pointers still remain primary storage in many structs and algorithms.
+- Hot-path migration plan items are functionally complete for this tier:
+  - temp-work containers are ID/ref based (`unused`/`Invalids` IDs, `ReplacedIds`, `InvolvedRefs`).
+  - conversion helpers are centralized and heavily used (`cell_at`, `vertex_at`, `*_id_at`, setter helpers).
+  - targeted read-path fallback cleanup was completed where IDs are guaranteed.
+  - mutation writes for mirrored cell links are helper-centric.
+- Remaining pointer model is still structural in algorithms (`cellPtr`/`vertexPtr` throughout geometry/topology ops), but no regression from migration work.
 
-### Confirmed Migration Blocker
-- Immediate endpoint-ID writes in certain live rewiring paths cause geometric regression:
+### Confirmed Migration Blockers (keep as-is unless re-validated)
+- Immediate endpoint-ID writes in live rewiring can regress geometry:
   - signature: `PowerSasa: odd number of crossing...`
-- Safe pattern for those hotspots is:
-  - update endpoint pointers immediately
-  - defer endpoint ID write (`kInvalidId`) until later synchronization/rebuild
-- This is already applied in reconnect block via `set_vertex_endpoint_deferred(...)`.
-- `SetInvolvedPersistingVisitedToZero()` must still reset `visitedAs` through `involved_ptr_at(...)`:
-  - replacing that loop with point-ID-only iteration caused runtime segfault (`EXIT:139`)
-  - indicates non-point involved refs participate in transient visited-state cleanup
+  - safe pattern remains: update pointer now, defer ID write (`kInvalidId`) and sync later.
+- `SetInvolvedPersistingVisitedToZero()` must still clear via full involved refs (`involved_ptr_at(...)` for index `>=1`):
+  - prior point-ID-only conversion caused segfault (`EXIT:139`), indicating non-point involved refs participate.
 
-## Plan For Next Session
-
-### Goal
-Continue migration from raw-pointer topology to ID-first topology without changing behavior.
-
-### Step Plan (safe, incremental)
-1. **Stabilize temp-work containers with IDs**
-   - Add mirrored ID containers for mutable work lists:
-     - `unused`, `Replaced`, `Invalids`, `Involved`
-   - Keep pointer containers for compatibility, but update through helper APIs.
-
-2. **Centralize conversion helpers**
-   - Add explicit helpers:
-     - `cell_at(CellId)`, `vertex_at(VertexId)`
-     - `involved_id(...)`, `replaced_id(...)`, etc.
-   - Forbid direct pointer arithmetic; use helpers everywhere.
-
-3. **Convert hot read paths to IDs only**
-   - Revisit these functions and remove pointer fallback branches where IDs are guaranteed:
-     - `FillReplacedPersistingAndInvolved`
-     - `CreateFiniteVerticesFromReplaced`
-     - `UpdateUnused`
-     - `AssignRepresentativeVerticesToCells`
-     - `SetInvolvedPersistingVisitedToZero`
-
-4. **Convert mutation paths to helper-only updates**
-   - Ensure all writes to:
-     - `bondTo` / `bondToId`
-     - `neighbours` / `neighboursIds`
-     - `myVertices` / `myVerticesIds`
-   - happen only via helper methods (single source of truth for synchronization).
-
-5. **Eliminate pointer-fallback branches**
-   - Once coverage is complete, remove legacy pointer fallback logic in read code paths.
-   - Keep behavior identical; no algorithm changes.
-
-6. **Finalize pointer alias cleanup**
-   - After proving no remaining need for pointer-first storage in core flows:
-     - reduce/retire pointer aliases and pointer-only APIs progressively.
-
-### Execution Rules
-- One contained tier at a time.
-- After every tier:
-  1. `make` in `build`
-  2. `./sasatest` in `build`
-  3. Commit with concise message only if test passes.
-
-## Suggested First Next-Step Commit
-- Start with mirrored ID lists for `Involved` and `Replaced` (read paths only, no structural deletion yet), then run full test gate and commit.
+## Next Session Options
+1. Start deeper pointer-retirement work (step 6): progressively replace pointer-heavy internal APIs with ID-based wrappers where practical.
+2. Expand regression coverage beyond `sasatest` before additional structural pointer removals.
+3. Keep current state as stable migration checkpoint and move to adjacent files (`power_sasa.h`) with the same method.
