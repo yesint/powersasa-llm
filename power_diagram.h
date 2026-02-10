@@ -1353,25 +1353,26 @@ if(std::abs(checkconst)>0.001)
 		_nUnused=0;
 
 	}
-	inline void findReplacedVertex(vertexPtr& This, PDFloat& value,const cell& insertionPoint)
+	inline void findReplacedVertex(VertexId& this_id, PDFloat& value,const cell& insertionPoint)
 	{
 		// Starting from a hint vertex, descend the local graph to a vertex most clearly dominated by insertionPoint.
 		if(value<0)
 			return;
+		vertex& This = vertex_at(this_id);
 		PDFloat newValue;
 		PDFloat smallVal=std::numeric_limits<PDFloat>::max();//something larger than value
 		//look at the neighbours
-			for(int idx=This->isCorner();idx<=dimension;++idx)
+			for(int idx=This.isCorner();idx<=dimension;++idx)
 			{
 				//each powerdiff value defines a plane between insertionPoint and current cell (generator0) approach the direction perpendicular to that plane in direction of insertion point !
-				vertexPtr endpoint=This->endPoints[idx];
-				newValue=endpoint->powerdiff3D(endpoint->generators[0],&insertionPoint);
+				vertex& endpoint=*This.endPoints[idx];
+				newValue=endpoint.powerdiff3D(endpoint.generators[0],&insertionPoint);
 			 	if(newValue<value)
 				{
 					value=newValue;
-					This=endpoint;
+					this_id=get_vertex_id(endpoint);
 					if(value<0)return;
-					idx=This->isCorner()-1;
+					idx=This.isCorner()-1;
 				}
 				else if(newValue==value)
 					smallVal=newValue;
@@ -1381,17 +1382,17 @@ if(std::abs(checkconst)>0.001)
 		smallVal=std::numeric_limits<PDFloat>::max();
 		//found value is not definitely the best one
 		//try hard to be sure not beeing in a local minimum (second neighbour)
-			for(int g=This->isCorner();g<=dimension;++g)
-				for(int g2=This->endPoints[g]->isCorner();g2<=dimension;++g2)
-					if(This->endPoints[g]->endPoints[g2]!=This)
+			for(int g=This.isCorner();g<=dimension;++g)
+				for(int g2=This.endPoints[g]->isCorner();g2<=dimension;++g2)
+					if(This.endPoints[g]->endPoints[g2]!=&This)
 					{
-						vertexPtr candidate=This->endPoints[g]->endPoints[g2];
-						newValue=candidate->powerdiff3D(candidate->generators[0],&insertionPoint);
+						vertex& candidate=*This.endPoints[g]->endPoints[g2];
+						newValue=candidate.powerdiff3D(candidate.generators[0],&insertionPoint);
 						if(newValue<value)
 						{
 							value=newValue;
-							This=candidate;
-							return findReplacedVertex(This,value,insertionPoint);
+							this_id=get_vertex_id(candidate);
+							return findReplacedVertex(this_id,value,insertionPoint);
 						}
 						else if(newValue==value)
 						smallVal=newValue;
@@ -1400,19 +1401,19 @@ if(std::abs(checkconst)>0.001)
 			return;
 		smallVal=std::numeric_limits<PDFloat>::max();
 		//second was also close... third neighbour...
-			for(int g=This->isCorner();g<=dimension;++g)
-				for(int g2=This->endPoints[g]->isCorner();g2<=dimension;++g2)
-					if(This->endPoints[g]->endPoints[g2]!=This)
-						for(int g3=This->endPoints[g]->endPoints[g2]->isCorner();g3<=dimension;++g3)
-							if(This->endPoints[g]->endPoints[g2]->endPoints[g3]!=This->endPoints[g]&&This->endPoints[g]->endPoints[g2]->endPoints[g3]!=This)
+			for(int g=This.isCorner();g<=dimension;++g)
+				for(int g2=This.endPoints[g]->isCorner();g2<=dimension;++g2)
+					if(This.endPoints[g]->endPoints[g2]!=&This)
+						for(int g3=This.endPoints[g]->endPoints[g2]->isCorner();g3<=dimension;++g3)
+							if(This.endPoints[g]->endPoints[g2]->endPoints[g3]!=This.endPoints[g]&&This.endPoints[g]->endPoints[g2]->endPoints[g3]!=&This)
 							{
-								vertexPtr candidate=This->endPoints[g]->endPoints[g2]->endPoints[g3];
-								newValue=candidate->powerdiff3D(candidate->generators[0],&insertionPoint);
+								vertex& candidate=*This.endPoints[g]->endPoints[g2]->endPoints[g3];
+								newValue=candidate.powerdiff3D(candidate.generators[0],&insertionPoint);
 								if(newValue<value)
 								{
-									value=candidate->powerdiff3D(candidate->generators[0],&insertionPoint);
-									This=candidate;
-									return findReplacedVertex(This,value,insertionPoint);
+									value=candidate.powerdiff3D(candidate.generators[0],&insertionPoint);
+									this_id=get_vertex_id(candidate);
+									return findReplacedVertex(this_id,value,insertionPoint);
 								}else if(newValue==value)
 									smallVal=newValue;
 						}
@@ -1427,7 +1428,7 @@ if(std::abs(checkconst)>0.001)
 					if(vertices[vi].powerdiff3D(vertices[vi].generators[0],&insertionPoint)<value)
 				{
 					value=vertices[vi].powerdiff3D(vertices[vi].generators[0],&insertionPoint);
-						This=&vertices[vi];
+						this_id=vi;
 					}
 				}
 
@@ -1560,8 +1561,10 @@ private:
 		if(__power_diagram_internal_timing__)t2-=clock();
 			//there is a power of new cell that is so low, that only one vertex would be replaced. *hint will be the one
 			hint=getRepresentative(This.bondToId);
+			VertexId hint_id=get_vertex_id(*hint);
 			PDFloat value=hint->powerdiff3D(hint->generators[0],&This);
-			findReplacedVertex(hint,value,This);
+			findReplacedVertex(hint_id,value,This);
+			hint=vertex_ptr_from_id(hint_id);
 			if(__power_diagram_internal_timing__)t2+=clock();
 
 			unsigned int done=1;
@@ -1570,7 +1573,9 @@ private:
 				if(done!=1)
 				{
 					value=hint->powerdiff3D(hint->generators[0],&This);
-					findReplacedVertex(hint,value,This);
+					hint_id=get_vertex_id(*hint);
+					findReplacedVertex(hint_id,value,This);
+					hint=vertex_ptr_from_id(hint_id);
 				}
 
 				if(FillReplacedPersistingAndInvolved(This,hint))
