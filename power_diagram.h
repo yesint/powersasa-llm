@@ -1679,26 +1679,26 @@ private:
 					if(!(hasVirtualGenerators(vertices[vi])))
 						for(int g=0;g<=dimension;++g)
 						{
-							cellPtr generator = vertices[vi].generators[g];
-							push_cell_my_vertex(*generator, &vertices[vi]);
+							cell& generator = *vertices[vi].generators[g];
+							push_cell_my_vertex(generator, &vertices[vi]);
 							if(fromPoint>0)
-								if(generator->visitedAs==0)
+								if(generator.visitedAs==0)
 							{
-								generator->visitedAs=-1;
-								push_involved(generator);
+								generator.visitedAs=-1;
+								push_involved(&generator);
 							}
 						}
 						else if(!vertices[vi].isCorner())
 							for(int g=0;g<=dimension;++g)
 							{
-									cellPtr generator = vertices[vi].generators[g];
-									if(generator_ref_or_invalid(generator).kind == GeneratorKind::side) break;
-									push_cell_my_vertex(*generator, &vertices[vi]);
+									cell& generator = *vertices[vi].generators[g];
+									if(generator_ref_or_invalid(&generator).kind == GeneratorKind::side) break;
+									push_cell_my_vertex(generator, &vertices[vi]);
 									if(fromPoint>0)
-										if(generator->visitedAs==0)
+										if(generator.visitedAs==0)
 								{
-									generator->visitedAs=-1;
-									push_involved(generator);
+									generator.visitedAs=-1;
+									push_involved(&generator);
 								}
 						}
 					else
@@ -1725,15 +1725,16 @@ private:
 				const int current_cell_order = static_cast<int>(point_idx);
 				for(const VertexId vid : point.myVerticesIds)
 				{
-					vertexPtr vtx = vertex_ptr_from_id(vid);
-					if(vtx == nullptr || vtx->isCorner()) continue;
+					if(vid == kInvalidId || vid >= vertices.size()) continue;
+					vertex& vtx = vertex_at(vid);
+					if(vtx.isCorner()) continue;
 						for(int g=dimension;g>=0;g--)
-							if(vtx->generators[g]->isReal(*this))
+							if(vtx.generators[g]->isReal(*this))
 							{
-								if(vtx->generators[g]->visitedAs<current_cell_order&&vtx->generators[g]!=&point)
+								if(vtx.generators[g]->visitedAs<current_cell_order&&vtx.generators[g]!=&point)
 								{
-									push_cell_neighbour(point, vtx->generators[g]);
-									vtx->generators[g]->visitedAs=current_cell_order;
+									push_cell_neighbour(point, vtx.generators[g]);
+									vtx.generators[g]->visitedAs=current_cell_order;
 								}
 							}
 				}
@@ -1755,8 +1756,8 @@ private:
 					std::size_t neighbour_idx=0;
 						while(neighbour_idx<involved_cell.neighboursIds.size())
 						{
-								cellPtr neighbour = cell_ptr_from_id(involved_cell.neighboursIds[neighbour_idx]);
-								if(neighbour == nullptr || neighbour->visitedAs==-1)
+								const CellId neighbour_id = involved_cell.neighboursIds[neighbour_idx];
+								if(neighbour_id == kInvalidId || neighbour_id >= points.size() || points[neighbour_id].visitedAs==-1)
 									erase_cell_neighbour(involved_cell, neighbour_idx);
 								else
 							++neighbour_idx;
@@ -1770,15 +1771,15 @@ private:
 					const int current_cell_order = static_cast<int>(current_cell_id);
 				for(const VertexId vid : involved_cell.myVerticesIds)
 				{
-					vertexPtr vtx = vertex_ptr_from_id(vid);
-					if(vtx == nullptr) continue;
+					if(vid == kInvalidId || vid >= vertices.size()) continue;
+					vertex& vtx = vertex_at(vid);
 					for(int g=dimension;g>=0;g--)
-						if(vtx->generators[g]->isReal(*this))
+						if(vtx.generators[g]->isReal(*this))
 					{
-							if(vtx->generators[g]->visitedAs!=0&&vtx->generators[g]->visitedAs<=current_cell_order&&vtx->generators[g]!=&involved_cell)
+							if(vtx.generators[g]->visitedAs!=0&&vtx.generators[g]->visitedAs<=current_cell_order&&vtx.generators[g]!=&involved_cell)
 							{
-								push_cell_neighbour(involved_cell, vtx->generators[g]);
-								vtx->generators[g]->visitedAs=current_cell_order+1;
+								push_cell_neighbour(involved_cell, vtx.generators[g]);
+								vtx.generators[g]->visitedAs=current_cell_order+1;
 							}
 					}
 				}
@@ -1951,11 +1952,11 @@ private:
 				for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 				{
 					const VertexId replaced_id = replaced_id_at(replaced_idx);
-					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-					if(replaced_vertex == nullptr) continue;
+					if(replaced_id == kInvalidId || replaced_id >= vertices.size()) continue;
+					vertex& replaced_vertex = vertex_at(replaced_id);
 					int needed=0;
-					for(int g=dimension;g>=replaced_vertex->isCorner();g--)
-						if(replaced_vertex->endPoints[g]->rrv<=0)
+					for(int g=dimension;g>=replaced_vertex.isCorner();g--)
+						if(replaced_vertex.endPoints[g]->rrv<=0)
 							needed++;
 					const int additionalNeeded=needed-static_cast<int>(_nUnused);
 					if(additionalNeeded>0&&nVertices()+additionalNeeded>vertices.capacity())
@@ -1963,10 +1964,10 @@ private:
 					this->ReserveNewVertices();
 				}
 				bool ok=true;
-				if(!replaced_vertex->isCorner())
-					ok=replaced_vertex->template buildIn<0>(this);
+				if(!replaced_vertex.isCorner())
+					ok=replaced_vertex.template buildIn<0>(this);
 				else
-					ok=replaced_vertex->template buildIn<1>(this);
+					ok=replaced_vertex.template buildIn<1>(this);
 				if(!ok)
 				{
 					return false;
@@ -1999,9 +2000,8 @@ private:
 			for(const VertexId vid : involved_front.myVerticesIds)
 			//if(!(*it)->isCorner())
 			{
-				vertexPtr involved_vertex = vertex_ptr_from_id(vid);
-				if(involved_vertex == nullptr) continue;
-				involved_vertex->registerForConnection3D(this);
+				if(vid == kInvalidId || vid >= vertices.size()) continue;
+				vertex_at(vid).registerForConnection3D(this);
 			}
 
 	}
@@ -2055,17 +2055,15 @@ private:
 				{
 					const VertexId restored_id = _currentmyVertices[i];
 					if(restored_id == kInvalidId) throw MyException();
-					vertexPtr restored = vertex_ptr_from_id(restored_id);
-					if(restored == nullptr) throw MyException();
-					set_cell_my_vertex(involved_front, i, restored);
+					if(restored_id >= vertices.size()) throw MyException();
+					set_cell_my_vertex(involved_front, i, &vertex_at(restored_id));
 				}
 				for(std::size_t i=0;i<involved_prefix;i++)
 				{
 					const VertexId restored_id = _first[i];
 					if(restored_id == kInvalidId) continue;
-					vertexPtr restored = vertex_ptr_from_id(restored_id);
-					if(restored == nullptr) throw MyException();
-					set_cell_my_vertex(points[i], 0, restored);
+					if(restored_id >= vertices.size()) throw MyException();
+					set_cell_my_vertex(points[i], 0, &vertex_at(restored_id));
 				}
 
 	}
@@ -2077,17 +2075,17 @@ private:
 		for(std::size_t replaced_idx=0;replaced_idx<replaced_size();)
 		{
 			const VertexId replaced_id = replaced_id_at(replaced_idx);
-			vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-			if(replaced_vertex == nullptr)
+			if(replaced_id == kInvalidId || replaced_id >= vertices.size())
 			{
 				const VertexId last_id = replaced_id_at(replaced_size()-1);
 				set_replaced_id(replaced_idx, last_id);
 				pop_replaced();
 				continue;
 			}
-			if(replaced_vertex->isCorner())
+			vertex& replaced_vertex = vertex_at(replaced_id);
+			if(replaced_vertex.isCorner())
 			{
-				replaced_vertex->rrv=0;
+				replaced_vertex.rrv=0;
 				//Replaced.erase(it);--it;//the corners are always part of diagram	
 				const VertexId last_id = replaced_id_at(replaced_size()-1);
 				set_replaced_id(replaced_idx, last_id);
@@ -2097,7 +2095,7 @@ private:
 			{
 					if(replaced_id<nRevertVertices)
 						Invalids.push_back(replaced_id);
-				replaced_vertex->disconnect();//vertex has no connection any more.  we delete it later
+				replaced_vertex.disconnect();//vertex has no connection any more.  we delete it later
 				++replaced_idx;
 			}
 		}
@@ -2105,8 +2103,7 @@ private:
 				for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 				{
 					const VertexId replaced_id = replaced_id_at(replaced_idx);
-					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-					if(replaced_vertex == nullptr) continue;
+					if(replaced_id == kInvalidId || replaced_id >= vertices.size()) continue;
 					unused.push_back(replaced_id);
 				}
 
@@ -2114,12 +2111,12 @@ private:
 			for(std::size_t replaced_idx=0;replaced_idx<replaced_size();++replaced_idx)
 			{
 					const VertexId replaced_id = replaced_id_at(replaced_idx);
-					vertexPtr replaced_vertex = vertex_ptr_from_id(replaced_id);
-					if(replaced_vertex == nullptr) continue;
+					if(replaced_id == kInvalidId || replaced_id >= vertices.size()) continue;
+					vertex& replaced_vertex = vertex_at(replaced_id);
 					if(replaced_id>=nRevertVertices)
 						unused.push_back(replaced_id);
 							else
-							for(const cellPtr generator : replaced_vertex->generators)
+							for(cell* const generator : replaced_vertex.generators)
 								erase_cell_my_vertex_by_id(*generator, replaced_id);
 			}
 				_nUnused=unused.size();
@@ -2133,23 +2130,22 @@ private:
 				//if there are no new vertices, the new cell is covered
 				if(involved_front.myVerticesIds.empty())
 				{
-					vertexPtr aDefault = vertex_ptr_from_id(default_id);
-					if(aDefault != nullptr) push_cell_my_vertex(involved_front, aDefault);
+					if(default_id != kInvalidId && default_id < vertices.size()) push_cell_my_vertex(involved_front, &vertex_at(default_id));
 				}
 				else// we need one existing vertex close to each cell => we give every cell without representativ a new vertex
 				{
-					vertexPtr new_representative = vertex_ptr_from_id(involved_front.myVerticesIds.front());
-					if(new_representative == nullptr) return;
+					const VertexId new_representative_id = involved_front.myVerticesIds.front();
+					if(new_representative_id == kInvalidId || new_representative_id >= vertices.size()) return;
 					for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 					{
 						const CellId involved_id = involved_id_at(involved_idx);
 						if(involved_id == kInvalidId) continue;
 						cell& involved_cell = cell_at(involved_id);
 						if(involved_cell.myVerticesIds.empty()) continue;
-						vertexPtr representative = vertex_ptr_from_id(involved_cell.myVerticesIds.front());
-						if(representative == nullptr) continue;
-						if(!representative->isConnected())//if representing vertex has been erased
-							set_cell_my_vertex(involved_cell, 0, new_representative);//we assign representative of new also to this one
+						const VertexId representative_id = involved_cell.myVerticesIds.front();
+						if(representative_id == kInvalidId || representative_id >= vertices.size()) continue;
+						if(!vertex_at(representative_id).isConnected())//if representing vertex has been erased
+							set_cell_my_vertex(involved_cell, 0, &vertex_at(new_representative_id));//we assign representative of new also to this one
 					}
 				}
 
@@ -2160,24 +2156,24 @@ private:
 			// Clear temporary rrv/visited marks used during local insertion traversal.
 			for(std::size_t involved_idx=1;involved_idx<involved_size();++involved_idx)
 			{
-				cellPtr involved_cell = involved_ptr_at(involved_idx);
-				involved_cell->visitedAs=0;
+				cell& involved_cell = *involved_ptr_at(involved_idx);
+				involved_cell.visitedAs=0;
 			}
 			const CellId involved_front_id = involved_id_at(0);
 			if(involved_front_id == kInvalidId) return;
 			cell& involved_front = cell_at(involved_front_id);
 			for(const VertexId vid : involved_front.myVerticesIds)
 			{
-				vertexPtr vtx = vertex_ptr_from_id(vid);
-				if(vtx == nullptr) continue;
-				vtx->rrv=0;
-				if(!vtx->isCorner())
-					vtx->endPoints[0]->rrv=0;
+				if(vid == kInvalidId || vid >= vertices.size()) continue;
+				vertex& vtx = vertex_at(vid);
+				vtx.rrv=0;
+				if(!vtx.isCorner())
+					vtx.endPoints[0]->rrv=0;
 				else
 				{
-					vtx->endPoints[1]->rrv=0;
-					vtx->endPoints[2]->rrv=0;
-					vtx->endPoints[3]->rrv=0;
+					vtx.endPoints[1]->rrv=0;
+					vtx.endPoints[2]->rrv=0;
+					vtx.endPoints[3]->rrv=0;
 				}
 			}
 		}
