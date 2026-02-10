@@ -207,7 +207,6 @@ public :
 			PDCoord position;
 			PDFloat r;
 			PDFloat r2;
-			using zeroPointPtr = zeroPoint*;
 			CellId bondToId;
 			std::vector<CellId> neighboursIds;
 			std::vector<VertexId> myVerticesIds;
@@ -2225,7 +2224,6 @@ inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& suppo
 		return (!this->generators[dimension-1]->isReal(This));
 	}
 //	inline int hasVirtualGenerators()const {return (generators[dimension]->id<0);}
-	inline int hasGenerator(const const_cellPtr& that)const {return (generators[0]==that||generators[1]==that||generators[2]==that||generators[3]==that);}
 //	inline int isFinite() const { return generators[0]!=nullptr; }
 	inline void disconnect(){invalid=1;}
 	inline int isConnected()const{return !invalid;}
