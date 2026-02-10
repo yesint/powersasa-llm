@@ -355,14 +355,15 @@ public :
 			if(ref.kind == GeneratorKind::side && ref.index >= sideGenerators.size()) a_zero.generatorRefs[g] = GeneratorRef();
 		}
 	}
-	inline void push_zero_from_edge(const const_vertexPtr source_vertex, const VertexId source_id, const int branch, const PDFloat sol)
+	inline void push_zero_from_edge(const VertexId source_id, const int branch, const PDFloat sol)
 	{
+		const vertex& source_vertex = vertex_at(source_id);
 		zeroPoint zp(
 			sol,
 			branch,
-			source_vertex->generatorRefs[nth(0,branch)],
-			source_vertex->generatorRefs[nth(1,branch)],
-			source_vertex->generatorRefs[nth(2,branch)],
+			source_vertex.generatorRefs[nth(0,branch)],
+			source_vertex.generatorRefs[nth(1,branch)],
+			source_vertex.generatorRefs[nth(2,branch)],
 			source_id);
 		zeros.push_back(zp);
 	}
@@ -1815,17 +1816,17 @@ private:
 								if(sol1>0&&sol1<1)
 									if(endpoint.powerValue>0)
 									{
-											push_zero_from_edge(&current, vertex_index, branch, sol1);
-											push_zero_from_edge(&current, vertex_index, branch, sol2);
+											push_zero_from_edge(vertex_index, branch, sol1);
+											push_zero_from_edge(vertex_index, branch, sol2);
 										}
 										else
-											push_zero_from_edge(&current, vertex_index, branch, sol1);
+											push_zero_from_edge(vertex_index, branch, sol1);
 									else if(sol2>0&&sol2<1)
-										push_zero_from_edge(&current, vertex_index, branch, sol2);
+										push_zero_from_edge(vertex_index, branch, sol2);
 									else
 									{//the covered zeros
-										push_zero_from_edge(&current, vertex_index, branch, sol1);
-										push_zero_from_edge(&current, vertex_index, branch, sol2);
+										push_zero_from_edge(vertex_index, branch, sol1);
+										push_zero_from_edge(vertex_index, branch, sol2);
 									}
 								}else if(endpoint.powerValue>0)
 							{
@@ -1845,9 +1846,9 @@ private:
 								const PDFloat sol1=min+rootquot;
 								const PDFloat sol2=min-rootquot;
 								if(sol1>0&&sol1<1)
-										push_zero_from_edge(&current, vertex_index, branch, sol1);
+										push_zero_from_edge(vertex_index, branch, sol1);
 									else
-										push_zero_from_edge(&current, vertex_index, branch, sol2);
+										push_zero_from_edge(vertex_index, branch, sol2);
 								}
 							}
 						}
