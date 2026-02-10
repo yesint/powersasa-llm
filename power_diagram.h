@@ -2187,17 +2187,6 @@ inline const PDCoord getPowerCenterOf2(const cell *const g0,const cell *const g1
 	return (0.5*(1.+(g0->r2-g1->r2)/(g1->position-g0->position).squaredNorm()))*(g1->position-g0->position)+g0->position;
 }
 
-inline PDCoord getPowerPointOnLine(const PDCoord& direction,const PDCoord& supportVector,cell const* const& a, cell const* const& b)
-{
-	// Intersect a line with the power bisector plane of generators a and b.
-//	const PDCoord PlaneNormal=(b->position-a->position)/*/(a->position-b->position).norm()*/;
-//	const PDFloat PlaneValue=0.5*(PlaneNormal.squaredNorm()+(a->r2-b->r2)/*(a->position-b->position).norm()*/);
-	//PlaneNormal and PlaneValue are a factor of (a->position-b->position).norm() too big but they cancel each other out
-	return (PowerDiagram<PDFloat,PDCoord,3>::intersectionOfLineAndPlane3D(direction-supportVector,supportVector-a->position,(b->position-a->position),a->r2-b->r2)+supportVector);
-}
-
-
-
 	struct zeroPoint
 	{
 		PDFloat pos;
