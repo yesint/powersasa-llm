@@ -6,8 +6,14 @@ sasatest.cpp
 power_diagram.h
 power_sasa.h
 )
+add_executable(sasabench
+sasabench.cpp
+power_diagram.h
+power_sasa.h
+)
 
 add_definitions(-D_GLIBCXX_NO_ASSERTIONS)
 set_property(TARGET sasatest PROPERTY CXX_STANDARD 23)
+set_property(TARGET sasabench PROPERTY CXX_STANDARD 23)
 
 include_directories(".")
