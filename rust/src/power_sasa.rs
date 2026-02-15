@@ -563,6 +563,25 @@ where
             }
 
             self.costheta[i] = (Scalar::from_f64(0.5).unwrap() * (dist + (rad2 - nb_rad2) / dist)) / rad;
+            if self.costheta[i] <= -Scalar::one() {
+                if self.with_sasa {
+                    self.sasa[iatom] = Scalar::zero();
+                }
+                if self.with_vol {
+                    self.vol[iatom] = Scalar::zero();
+                }
+                for nb_id in neighbours_ids {
+                    if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
+                        nb.visited_as = 0;
+                    }
+                }
+                return Ok(());
+            }
+            if self.costheta[i] >= Scalar::one() {
+                n_apart += 1;
+                self.np[i] = -1;
+                continue;
+            }
             self.sintheta[i] = (Scalar::one() - self.costheta[i] * self.costheta[i]).sqrt();
             self.e[i] = rel_pos / dist;
             contributing += 1;
