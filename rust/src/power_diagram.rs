@@ -874,18 +874,27 @@ where
     }
 
     pub fn zero_point_valid(&self, zp: &ZeroPoint<Scalar>) -> bool {
-        if zp.from_id == GeneratorRef::INVALID_ID || zp.from_id >= self.vertices.len() {
+        if zp.from_id == GeneratorRef::INVALID_ID || zp.from_id >= self.n_vertices || zp.from_id >= self.vertices.len() {
             return false;
         }
         if zp.branch < 0 || zp.branch > 3 {
             return false;
         }
         let from = &self.vertices[zp.from_id];
+        if from.invalid {
+            return false;
+        }
         let to_id = from.end_point_ids[zp.branch as usize];
-        to_id != GeneratorRef::INVALID_ID && to_id < self.vertices.len()
+        if to_id == GeneratorRef::INVALID_ID || to_id >= self.n_vertices || to_id >= self.vertices.len() {
+            return false;
+        }
+        !self.vertices[to_id].invalid
     }
 
     pub fn zero_point_pos(&self, zp: &ZeroPoint<Scalar>) -> Vector3<Scalar> {
+        if !self.zero_point_valid(zp) {
+            return Vector3::zeros();
+        }
         let from = &self.vertices[zp.from_id];
         let to = &self.vertices[from.end_point_ids[zp.branch as usize]];
         to.position * zp.pos - from.position * (zp.pos - Scalar::one())

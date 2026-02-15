@@ -924,6 +924,14 @@ where
             }
         }
 
+        if nvx == 0 && nnb > 32 {
+            for i in 0..nnb {
+                if self.np[i] == 0 {
+                    self.nt[i] = 1;
+                }
+            }
+        }
+
         for i in 0..nnb {
             if self.np[i] != 0 || self.nt[i] != 0 {
                 continue;
