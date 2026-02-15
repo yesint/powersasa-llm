@@ -10,13 +10,13 @@ pub struct IdenticalPointException;
 pub struct VerticesFullException;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GeneratorKind {
+pub(crate) enum GeneratorKind {
     Point,
     Side,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GeneratorRef {
+pub(crate) struct GeneratorRef {
     pub kind: GeneratorKind,
     pub index: usize,
 }
@@ -124,7 +124,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct ZeroPoint<Scalar>
+pub(crate) struct ZeroPoint<Scalar>
 where
     Scalar: RealField + Copy,
 {
@@ -135,7 +135,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct Vertex<Scalar>
+pub(crate) struct Vertex<Scalar>
 where
     Scalar: RealField + Copy,
 {
@@ -1997,45 +1997,45 @@ where
         }
     }
 
-    pub fn get_points(&self) -> &[Cell<Scalar>] {
+    pub(crate) fn get_points(&self) -> &[Cell<Scalar>] {
         &self.points
     }
 
-    pub fn get_vertices(&self) -> &[Vertex<Scalar>] {
+    pub(crate) fn get_vertices(&self) -> &[Vertex<Scalar>] {
         &self.vertices
     }
 
-    pub fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
+    pub(crate) fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
         &self.zeros
     }
 
-    pub fn get_cell(&self, id: usize) -> &Cell<Scalar> {
+    pub(crate) fn get_cell(&self, id: usize) -> &Cell<Scalar> {
         &self.points[id]
     }
 
-    pub fn get_cell_mut(&mut self, id: usize) -> &mut Cell<Scalar> {
+    pub(crate) fn get_cell_mut(&mut self, id: usize) -> &mut Cell<Scalar> {
         &mut self.points[id]
     }
 
-    pub fn get_generator(&self, aref: GeneratorRef) -> &Cell<Scalar> {
+    pub(crate) fn get_generator(&self, aref: GeneratorRef) -> &Cell<Scalar> {
         match aref.kind {
             GeneratorKind::Point => &self.points[aref.index],
             GeneratorKind::Side => &self.side_generators[aref.index],
         }
     }
 
-    pub fn ref_is_real_point(&self, aref: GeneratorRef) -> bool {
+    pub(crate) fn ref_is_real_point(&self, aref: GeneratorRef) -> bool {
         aref.kind == GeneratorKind::Point && aref.index < self.points.len()
     }
 
-    pub fn valid_generator_ref(&self, aref: GeneratorRef) -> bool {
+    pub(crate) fn valid_generator_ref(&self, aref: GeneratorRef) -> bool {
         match aref.kind {
             GeneratorKind::Point => aref.index < self.points.len(),
             GeneratorKind::Side => aref.index < self.side_generators.len(),
         }
     }
 
-    pub fn zero_point_valid(&self, zp: &ZeroPoint<Scalar>) -> bool {
+    pub(crate) fn zero_point_valid(&self, zp: &ZeroPoint<Scalar>) -> bool {
         if zp.from_id == GeneratorRef::INVALID_ID || zp.from_id >= self.n_vertices || zp.from_id >= self.vertices.len() {
             return false;
         }
@@ -2053,7 +2053,7 @@ where
         !self.vertices[to_id].invalid
     }
 
-    pub fn zero_point_pos(&self, zp: &ZeroPoint<Scalar>) -> Vector3<Scalar> {
+    pub(crate) fn zero_point_pos(&self, zp: &ZeroPoint<Scalar>) -> Vector3<Scalar> {
         if !self.zero_point_valid(zp) {
             return Vector3::zeros();
         }
@@ -2062,14 +2062,14 @@ where
         to.position * zp.pos - from.position * (zp.pos - Scalar::one())
     }
 
-    pub fn error(f: Scalar) -> Scalar {
+    pub(crate) fn error(f: Scalar) -> Scalar {
         // C++ semantics rely on std::numeric_limits<T>::min() (minimum positive normal),
         // making error() strictly non-negative and approximately |f|*eps for practical ranges.
         f.abs() * Scalar::default_epsilon()
     }
 }
 
-pub fn nth(n: i32, without: i32) -> i32 {
+pub(crate) fn nth(n: i32, without: i32) -> i32 {
     n + i32::from(without <= n)
 }
 
