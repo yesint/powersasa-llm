@@ -659,9 +659,31 @@ where
             self.np[ptn1] += 1;
         }
 
+        for i in 0..nnb {
+            if self.np[i] <= 0 {
+                continue;
+            }
+            if self.np[i] % 2 != 0 {
+                return Err(PowerSasaError);
+            }
+            let np_i = self.np[i] as usize;
+            let mut ang_i = vec![Scalar::zero(); np_i];
+            let p_i = self.p[i][..np_i].to_vec();
+            self.get_ang(
+                self.np[i],
+                &p_i,
+                self.e[i],
+                self.sintheta[i],
+                self.costheta[i],
+                &mut ang_i,
+            )?;
+            let mut next_i = vec![0_i32; np_i];
+            self.get_next(self.np[i], &mut ang_i, &mut next_i, &p_i, self.e[i])?;
+            self.ang[i][..np_i].copy_from_slice(&ang_i);
+            self.next[i][..np_i].copy_from_slice(&next_i);
+        }
+
         let _ = do_sasa;
-        let _ = self.get_ang(0, &[], Vector3::zeros(), Scalar::zero(), Scalar::zero(), &mut []);
-        let _ = self.get_next(0, &mut [], &mut [], &[], Vector3::zeros());
 
         // Full literal port pending. Temporary fallback preserves non-zero baseline output shape.
         let four = Scalar::from_f64(4.0).unwrap();
