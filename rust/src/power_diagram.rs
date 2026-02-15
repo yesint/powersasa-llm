@@ -432,6 +432,28 @@ where
         // Incremental insertion for points[1..] pending full port.
     }
 
+    fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
+        let refg = vtx.generator_refs[3];
+        !(refg.kind == GeneratorKind::Point && refg.index < self.points.len())
+    }
+
+    fn below_power_err(&self, value: Scalar) -> bool {
+        value < self.power_err
+    }
+
+    fn push_zero_from_edge(&mut self, source_id: usize, branch: i32, sol: Scalar) {
+        let source = &self.vertices[source_id];
+        let g0 = source.generator_refs[nth(0, branch) as usize];
+        let g1 = source.generator_refs[nth(1, branch) as usize];
+        let g2 = source.generator_refs[nth(2, branch) as usize];
+        self.zeros.push(ZeroPoint {
+            pos: sol,
+            from_id: source_id,
+            branch,
+            generator_refs: [g0, g1, g2],
+        });
+    }
+
     pub fn recalculate(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
@@ -574,11 +596,100 @@ where
     }
 
     pub fn fill_all_zero_points(&mut self) {
-        self.zeros.clear();
+        self.fill_all_zero_points_from(8, 0);
+    }
+
+    pub fn fill_all_zero_points_from(&mut self, from_vertex: usize, from_zero: usize) {
+        if from_zero <= self.zeros.len() {
+            self.zeros.truncate(from_zero);
+        } else {
+            self.zeros.clear();
+        }
         for p in &mut self.points {
             p.my_zero_points.clear();
         }
-        // Full zero-crossing extraction pending.
+        for vertex_index in from_vertex..self.n_vertices.min(self.vertices.len()) {
+            let current = self.vertices[vertex_index].clone();
+            if current.invalid {
+                continue;
+            }
+            let boundary_ref = current.generator_refs[2];
+            if !(boundary_ref.kind == GeneratorKind::Point && boundary_ref.index < self.points.len()) {
+                continue;
+            }
+            let endpoint_start = if self.has_virtual_generators(&current) { 3 } else { 0 };
+            for endpoint_idx in endpoint_start..=3 {
+                let endpoint_id = current.end_point_ids[endpoint_idx];
+                if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id <= vertex_index || endpoint_id >= self.n_vertices {
+                    continue;
+                }
+                let endpoint = self.vertices[endpoint_id].clone();
+                if current.power_value > Scalar::zero() {
+                    let branch = endpoint_idx as i32;
+                    let v3 = endpoint.power_value;
+                    let v2 = current.power_value;
+                    let refg = current.generator_refs[if branch == 0 { 1 } else { 0 }];
+                    let v1 = self.get_generator(refg).power(current.position * Scalar::from_f64(2.0).unwrap() - endpoint.position);
+                    let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
+                    let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
+                    if rootsq <= Scalar::zero() {
+                        continue;
+                    }
+                    if self.below_power_err(quot) && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
+                        continue;
+                    }
+                    let rootquot = rootsq.sqrt() / quot;
+                    let min = (v1 - v3) / quot;
+                    let sol1 = min + rootquot;
+                    let sol2 = min - rootquot;
+                    if sol1 > Scalar::zero() && sol1 < Scalar::one() {
+                        if endpoint.power_value > Scalar::zero() {
+                            self.push_zero_from_edge(vertex_index, branch, sol1);
+                            self.push_zero_from_edge(vertex_index, branch, sol2);
+                        } else {
+                            self.push_zero_from_edge(vertex_index, branch, sol1);
+                        }
+                    } else if sol2 > Scalar::zero() && sol2 < Scalar::one() {
+                        self.push_zero_from_edge(vertex_index, branch, sol2);
+                    } else {
+                        self.push_zero_from_edge(vertex_index, branch, sol1);
+                        self.push_zero_from_edge(vertex_index, branch, sol2);
+                    }
+                } else if endpoint.power_value > Scalar::zero() {
+                    let branch = endpoint_idx as i32;
+                    let v3 = endpoint.power_value;
+                    let v2 = current.power_value;
+                    let refg = current.generator_refs[if branch == 0 { 1 } else { 0 }];
+                    let v1 = self.get_generator(refg).power(current.position * Scalar::from_f64(2.0).unwrap() - endpoint.position);
+                    let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
+                    let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
+                    if rootsq <= Scalar::zero() {
+                        continue;
+                    }
+                    if self.below_power_err(quot) && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
+                        continue;
+                    }
+                    let rootquot = rootsq.sqrt() / quot;
+                    let min = (v1 - v3) / quot;
+                    let sol1 = min + rootquot;
+                    let sol2 = min - rootquot;
+                    if sol1 > Scalar::zero() && sol1 < Scalar::one() {
+                        self.push_zero_from_edge(vertex_index, branch, sol1);
+                    } else {
+                        self.push_zero_from_edge(vertex_index, branch, sol2);
+                    }
+                }
+            }
+        }
+
+        for i in from_zero..self.zeros.len() {
+            for g in 0..3 {
+                let refg = self.zeros[i].generator_refs[g];
+                if refg.is_valid() && refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
+                    self.points[refg.index].my_zero_points.push(i as i32);
+                }
+            }
+        }
     }
 
     pub fn get_points(&self) -> &[Cell<Scalar>] {
