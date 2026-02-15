@@ -1,14 +1,5 @@
 use nalgebra::{RealField, Vector3};
 
-#[derive(Debug, Clone)]
-pub struct MyException;
-
-#[derive(Debug, Clone)]
-pub struct IdenticalPointException;
-
-#[derive(Debug, Clone)]
-pub struct VerticesFullException;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GeneratorKind {
     Point,
@@ -24,6 +15,7 @@ pub(crate) struct GeneratorRef {
 impl GeneratorRef {
     pub const INVALID_ID: usize = usize::MAX;
 
+    #[inline(always)]
     pub const fn new(kind: GeneratorKind, index: usize) -> Self {
         Self {
             kind,
@@ -31,6 +23,7 @@ impl GeneratorRef {
         }
     }
 
+    #[inline(always)]
     pub const fn invalid() -> Self {
         Self {
             kind: GeneratorKind::Point,
@@ -38,6 +31,7 @@ impl GeneratorRef {
         }
     }
 
+    #[inline(always)]
     pub const fn is_valid(self) -> bool {
         self.index != Self::INVALID_ID
     }
@@ -85,39 +79,40 @@ impl<Scalar> PowerDiagramParams<Scalar>
 where
     Scalar: RealField + Copy,
 {
-    pub fn with_radii_given(mut self, yes: bool) -> Self {
+    #[inline(always)]
+    pub(crate) fn with_radii_given(mut self, yes: bool) -> Self {
         self.runpar.radii_given = yes;
         self
     }
 
-    pub fn with_calculate(mut self, yes: bool) -> Self {
+    #[inline(always)]
+    pub(crate) fn with_calculate(mut self, yes: bool) -> Self {
         self.create_vertices = yes;
         self
     }
 
-    pub fn with_my_vertices(mut self, yes: bool) -> Self {
-        self.runpar.fill_my_vertices = yes;
-        self
-    }
-
-    pub fn with_cells(mut self, yes: bool) -> Self {
+    #[inline(always)]
+    pub(crate) fn with_cells(mut self, yes: bool) -> Self {
         self.runpar.fill_neighbours = yes;
         self.runpar.fill_my_vertices = yes;
         self
     }
 
-    pub fn with_zero_points(mut self, yes: bool) -> Self {
+    #[inline(always)]
+    pub(crate) fn with_zero_points(mut self, yes: bool) -> Self {
         self.runpar.fill_zero_points = yes;
         self.runpar.fill_my_vertices = yes;
         self
     }
 
-    pub fn with_warnings(mut self, yes: bool) -> Self {
+    #[inline(always)]
+    pub(crate) fn with_warnings(mut self, yes: bool) -> Self {
         self.runpar.with_warnings = yes;
         self
     }
 
-    pub fn without_check(mut self, yes: bool) -> Self {
+    #[inline(always)]
+    pub(crate) fn without_check(mut self, yes: bool) -> Self {
         self.runpar.without_check = yes;
         self
     }
@@ -167,28 +162,32 @@ impl<Scalar> Vertex<Scalar>
 where
     Scalar: RealField + Copy,
 {
-    pub fn is_corner(&self) -> bool {
+    #[inline(always)]
+    pub(crate) fn is_corner(&self) -> bool {
         self.end_point_ids[0] == GeneratorRef::INVALID_ID
     }
 
-    pub fn is_connected(&self) -> bool {
+    #[inline(always)]
+    pub(crate) fn is_connected(&self) -> bool {
         !self.invalid
     }
 
-    pub fn resolved_endpoint_id(&self, g: usize) -> usize {
+    #[inline(always)]
+    pub(crate) fn resolved_endpoint_id(&self, g: usize) -> usize {
         self.end_point_ids[g]
     }
 
-    pub fn resolved_generator_ref(&self, g: usize) -> GeneratorRef {
+    #[inline(always)]
+    pub(crate) fn resolved_generator_ref(&self, g: usize) -> GeneratorRef {
         self.generator_refs[g]
     }
 
-    pub fn powerdiff3d(&self, a_cell: &Cell<Scalar>, b_cell: &Cell<Scalar>) -> Scalar {
+    pub(crate) fn powerdiff3d(&self, a_cell: &Cell<Scalar>, b_cell: &Cell<Scalar>) -> Scalar {
         -b_cell.r2 + a_cell.r2 - (a_cell.position - b_cell.position).norm_squared()
             + Scalar::from_f64(2.0).unwrap() * (a_cell.position - b_cell.position).dot(&(self.position - b_cell.position))
     }
 
-    pub fn endpoint_slot_to(&self, comp_id: usize) -> usize {
+    pub(crate) fn endpoint_slot_to(&self, comp_id: usize) -> usize {
         for g in (1..=3).rev() {
             if self.end_point_ids[g] == comp_id {
                 return g;
@@ -197,11 +196,12 @@ where
         0
     }
 
-    pub fn get_power_point_on_line2(&self, persist: &Self) -> Vector3<Scalar> {
+    #[inline(always)]
+    pub(crate) fn get_power_point_on_line2(&self, persist: &Self) -> Vector3<Scalar> {
         (persist.position - self.position) * (self.rrv / (self.rrv - persist.rrv)) + self.position
     }
 
-    pub fn end_points_and_position_overwrite(&mut self, endpoint_id: usize, pos: Vector3<Scalar>) {
+    pub(crate) fn end_points_and_position_overwrite(&mut self, endpoint_id: usize, pos: Vector3<Scalar>) {
         self.end_point_ids[0] = endpoint_id;
         self.rrv = Scalar::zero();
         self.invalid = false;
@@ -228,7 +228,7 @@ impl<Scalar> Cell<Scalar>
 where
     Scalar: RealField + Copy,
 {
-    pub fn new(position: Vector3<Scalar>, root: Scalar) -> Self {
+    pub(crate) fn new(position: Vector3<Scalar>, root: Scalar) -> Self {
         Self {
             visited_as: 0,
             position,
@@ -241,7 +241,7 @@ where
         }
     }
 
-    pub fn with_power(position: Vector3<Scalar>, root: Scalar, power: Scalar) -> Self {
+    pub(crate) fn with_power(position: Vector3<Scalar>, root: Scalar, power: Scalar) -> Self {
         Self {
             visited_as: 0,
             position,
@@ -254,7 +254,8 @@ where
         }
     }
 
-    pub fn power(&self, coord: Vector3<Scalar>) -> Scalar {
+    #[inline(always)]
+    pub(crate) fn power(&self, coord: Vector3<Scalar>) -> Scalar {
         (self.position - coord).norm_squared() - self.r2
     }
 }
@@ -338,7 +339,7 @@ where
 {
     pub const K_INVALID_ID: usize = GeneratorRef::INVALID_ID;
 
-    pub fn create(
+    pub(crate) fn create(
         size: usize,
         pos_begin: impl Iterator<Item = Vector3<Scalar>>,
         strength_begin: impl Iterator<Item = Scalar>,
@@ -362,7 +363,7 @@ where
         }
     }
 
-    pub fn from_params(params: PowerDiagramParams<Scalar>) -> Self {
+    pub(crate) fn from_params(params: PowerDiagramParams<Scalar>) -> Self {
         let center = (params.highest_corner + params.lowest_corner) * Scalar::from_f64(0.5).unwrap();
         let cube_lowest = params.lowest_corner - center;
         let cube_highest = params.highest_corner - center;
@@ -453,10 +454,12 @@ where
         self.vertices[vertex_id].end_point_ids.swap(a, b);
     }
 
+    #[inline(always)]
     fn clear_involved(&mut self) {
         self.involved_refs.clear();
     }
 
+    #[inline(always)]
     fn push_involved(&mut self, r#ref: GeneratorRef) {
         self.involved_refs.push(r#ref);
     }
@@ -1450,6 +1453,7 @@ where
         }
     }
 
+    #[inline(always)]
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
         let refg = vtx.resolved_generator_ref(3);
         !self.ref_is_real_point(refg)
@@ -1468,36 +1472,7 @@ where
         });
     }
 
-    pub fn find_cell_inside_cube(&self, pos: Vector3<Scalar>, hint_id: Option<usize>) -> Option<usize> {
-        if self.points.is_empty() {
-            return None;
-        }
-        let mut current = hint_id.unwrap_or(self.points.len() / 2);
-        if current >= self.points.len() {
-            current = self.points.len() / 2;
-        }
-
-        loop {
-            let mut improved = false;
-            let current_power = self.points[current].power(pos);
-            for &neighbour_id in &self.points[current].neighbours_ids {
-                if neighbour_id >= self.points.len() {
-                    continue;
-                }
-                let neighbour_power = self.points[neighbour_id].power(pos);
-                if neighbour_power < current_power {
-                    current = neighbour_id;
-                    improved = true;
-                    break;
-                }
-            }
-            if !improved {
-                return Some(current);
-            }
-        }
-    }
-
-    pub fn recalculate(
+    pub(crate) fn recalculate(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
         strength_it: impl Iterator<Item = Scalar>,
@@ -1542,7 +1517,7 @@ where
         }
     }
 
-    pub fn add_more(
+    pub(crate) fn add_more(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
         strength_it: impl Iterator<Item = Scalar>,
@@ -1647,7 +1622,7 @@ where
         }
     }
 
-    pub fn revert(&mut self) {
+    pub(crate) fn revert(&mut self) {
         let restore_corners = self.revert_corner_owners;
         for vi in self.n_revert_vertices..self.n_vertices.min(self.vertices.len()) {
             for gi in 1..=3 {
@@ -1742,11 +1717,11 @@ where
         self.revert_corner_owners = [GeneratorRef::INVALID_ID; 8];
     }
 
-    pub fn fill_all_my_vertices(&mut self) {
+    pub(crate) fn fill_all_my_vertices(&mut self) {
         self.fill_all_my_vertices_from(0, 8);
     }
 
-    pub fn fill_all_my_vertices_from(&mut self, from_point: usize, from_vertex: usize) {
+    pub(crate) fn fill_all_my_vertices_from(&mut self, from_point: usize, from_vertex: usize) {
         for p in &mut self.points {
             if from_point == 0 {
                 p.my_vertices_ids.clear();
@@ -1799,7 +1774,7 @@ where
         }
     }
 
-    pub fn fill_all_neighbours(&mut self) {
+    pub(crate) fn fill_all_neighbours(&mut self) {
         for p in &mut self.points {
             p.neighbours_ids.clear();
             p.visited_as = -1;
@@ -1835,7 +1810,7 @@ where
         }
     }
 
-    pub fn fill_all_neighbours_of_involved(&mut self) {
+    pub(crate) fn fill_all_neighbours_of_involved(&mut self) {
         self.sort_involved_by_ref();
         for i in 0..self.involved_refs.len() {
             let involved = self.involved_refs[i];
@@ -1893,18 +1868,18 @@ where
         }
     }
 
-    pub fn clear_all_my_vertices(&mut self) {
+    pub(crate) fn clear_all_my_vertices(&mut self) {
         for p in &mut self.points {
             p.my_vertices_ids.clear();
             p.my_zero_points.clear();
         }
     }
 
-    pub fn fill_all_zero_points(&mut self) {
+    pub(crate) fn fill_all_zero_points(&mut self) {
         self.fill_all_zero_points_from(8, 0);
     }
 
-    pub fn fill_all_zero_points_from(&mut self, from_vertex: usize, from_zero: usize) {
+    pub(crate) fn fill_all_zero_points_from(&mut self, from_vertex: usize, from_zero: usize) {
         if from_zero <= self.zeros.len() {
             self.zeros.truncate(from_zero);
         } else {
@@ -1997,22 +1972,22 @@ where
         }
     }
 
+    #[inline(always)]
     pub(crate) fn get_points(&self) -> &[Cell<Scalar>] {
         &self.points
     }
 
+    #[inline(always)]
     pub(crate) fn get_vertices(&self) -> &[Vertex<Scalar>] {
         &self.vertices
     }
 
+    #[inline(always)]
     pub(crate) fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
         &self.zeros
     }
 
-    pub(crate) fn get_cell(&self, id: usize) -> &Cell<Scalar> {
-        &self.points[id]
-    }
-
+    #[inline(always)]
     pub(crate) fn get_cell_mut(&mut self, id: usize) -> &mut Cell<Scalar> {
         &mut self.points[id]
     }
@@ -2024,6 +1999,7 @@ where
         }
     }
 
+    #[inline(always)]
     pub(crate) fn ref_is_real_point(&self, aref: GeneratorRef) -> bool {
         aref.kind == GeneratorKind::Point && aref.index < self.points.len()
     }
@@ -2053,6 +2029,7 @@ where
         !self.vertices[to_id].invalid
     }
 
+    #[inline(always)]
     pub(crate) fn zero_point_pos(&self, zp: &ZeroPoint<Scalar>) -> Vector3<Scalar> {
         if !self.zero_point_valid(zp) {
             return Vector3::zeros();
@@ -2062,6 +2039,7 @@ where
         to.position * zp.pos - from.position * (zp.pos - Scalar::one())
     }
 
+    #[inline(always)]
     pub(crate) fn error(f: Scalar) -> Scalar {
         // C++ semantics rely on std::numeric_limits<T>::min() (minimum positive normal),
         // making error() strictly non-negative and approximately |f|*eps for practical ranges.
@@ -2069,11 +2047,12 @@ where
     }
 }
 
+#[inline(always)]
 pub(crate) fn nth(n: i32, without: i32) -> i32 {
     n + i32::from(without <= n)
 }
 
-pub fn get_bounding_box<Scalar>(
+pub(crate) fn get_bounding_box<Scalar>(
     pos: &[Vector3<Scalar>],
     strength: &[Scalar],
 ) -> (Vector3<Scalar>, Vector3<Scalar>)
@@ -2084,7 +2063,7 @@ where
     get_bounding_box_with_padding(pos, strength, additional_cube_size)
 }
 
-pub fn get_bounding_box_with_padding<Scalar>(
+pub(crate) fn get_bounding_box_with_padding<Scalar>(
     pos: &[Vector3<Scalar>],
     strength: &[Scalar],
     additional_cube_size: Scalar,

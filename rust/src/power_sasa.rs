@@ -1,19 +1,7 @@
-use std::fmt;
-
 use nalgebra::{RealField, Vector3};
 
+use crate::error::SasaError;
 use crate::power_diagram::PowerDiagram;
-
-#[derive(Debug, Clone)]
-pub struct PowerSasaError;
-
-impl fmt::Display for PowerSasaError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PowerSasaError")
-    }
-}
-
-impl std::error::Error for PowerSasaError {}
 
 pub struct PowerSasa<Scalar>
 where
@@ -68,28 +56,28 @@ where
     pub const K_MAX_PNT: usize = 4;
     pub const K_MAX_COUNT: usize = 100;
 
-    #[inline]
-    pub fn drad2() -> Scalar {
+    #[inline(always)]
+    pub(crate) fn drad2() -> Scalar {
         Scalar::from_f64(1000.0).unwrap() * Scalar::default_epsilon()
     }
 
-    #[inline]
-    pub fn dang() -> Scalar {
+    #[inline(always)]
+    pub(crate) fn dang() -> Scalar {
         Scalar::from_f64(1000.0).unwrap() * Scalar::default_epsilon()
     }
 
-    #[inline]
-    pub fn near_one_cosine_threshold() -> Scalar {
+    #[inline(always)]
+    pub(crate) fn near_one_cosine_threshold() -> Scalar {
         Scalar::from_f64(0.999).unwrap()
     }
 
-    #[inline]
-    pub fn axis_component_threshold() -> Scalar {
+    #[inline(always)]
+    pub(crate) fn axis_component_threshold() -> Scalar {
         Scalar::from_f64(0.001).unwrap()
     }
 
-    #[inline]
-    pub fn clamp_unit_interval(value: Scalar) -> Scalar {
+    #[inline(always)]
+    pub(crate) fn clamp_unit_interval(value: Scalar) -> Scalar {
         if value < -Scalar::one() {
             -Scalar::one()
         } else if value > Scalar::one() {
@@ -328,7 +316,7 @@ where
         self.tol_pow = maxr2 * Self::drad2();
     }
 
-    fn ang_about(&self, a: Vector3<Scalar>, b: Vector3<Scalar>, c: Vector3<Scalar>) -> Result<Scalar, PowerSasaError> {
+    fn ang_about(&self, a: Vector3<Scalar>, b: Vector3<Scalar>, c: Vector3<Scalar>) -> Result<Scalar, SasaError> {
         let co = a.dot(&b);
         let mut ang;
         let v = a.cross(&b);
@@ -349,7 +337,7 @@ where
         } else if c[2].abs() > axis_component_threshold {
             v[2] / c[2]
         } else {
-            return Err(PowerSasaError);
+            return Err(SasaError::AxisTooShort);
         };
 
         if vp < Scalar::zero() {
@@ -370,24 +358,24 @@ where
         sintheta: Scalar,
         costheta: Scalar,
         ang: &mut [Scalar],
-    ) -> Result<(), PowerSasaError> {
+    ) -> Result<(), SasaError> {
         if np <= 0 {
             return Ok(());
         }
         let n = np as usize;
         if n > p.len() || n > ang.len() {
-            return Err(PowerSasaError);
+            return Err(SasaError::InvalidGetAngInput);
         }
         ang[0] = Scalar::zero();
         let p0 = p[0] as usize;
         if p0 >= self.vx.len() {
-            return Err(PowerSasaError);
+            return Err(SasaError::SurfaceVertexIndexOutOfBounds);
         }
         let pu0 = (self.vx[p0] - e * costheta) / sintheta;
         for j in 1..n {
             let pj = p[j] as usize;
             if pj >= self.vx.len() {
-                return Err(PowerSasaError);
+                return Err(SasaError::SurfaceVertexIndexOutOfBounds);
             }
             let pu = (self.vx[pj] - e * costheta) / sintheta;
             ang[j] = self.ang_about(pu0, pu, e)?;
@@ -402,13 +390,13 @@ where
         next: &mut [i32],
         p: &[i32],
         e: Vector3<Scalar>,
-    ) -> Result<(), PowerSasaError> {
+    ) -> Result<(), SasaError> {
         if n <= 0 {
             return Ok(());
         }
         let n_usize = n as usize;
         if n_usize > ang.len() || n_usize > next.len() || n_usize > p.len() {
-            return Err(PowerSasaError);
+            return Err(SasaError::InvalidGetNextInput);
         }
         if self.rang.len() < n_usize || self.pos.len() < n_usize {
             self.resize_pnt(n_usize);
@@ -422,13 +410,13 @@ where
             let pj = p[j] as usize;
             let p0 = p[0] as usize;
             if pj >= self.vx.len() || p0 >= self.vx.len() {
-                return Err(PowerSasaError);
+                return Err(SasaError::SurfaceVertexIndexOutOfBounds);
             }
             let dp = self.vx[pj].cross(&self.vx[p0]).dot(&e);
             if dp < Scalar::zero() {
                 ang[j] = Scalar::zero();
             } else if dp == Scalar::zero() {
-                return Err(PowerSasaError);
+                return Err(SasaError::DegenerateCircleOrdering);
             }
         }
 
@@ -446,14 +434,14 @@ where
                     let pj = p[j] as usize;
                     let pk = p[k] as usize;
                     if pj >= self.vx.len() || pk >= self.vx.len() {
-                        return Err(PowerSasaError);
+                        return Err(SasaError::SurfaceVertexIndexOutOfBounds);
                     }
                     let dp = self.vx[pj].cross(&self.vx[pk]).dot(&e);
                     if dp > Scalar::zero() {
                         self.rang[k] += 1;
                         m -= 1;
                     } else if dp == Scalar::zero() {
-                        return Err(PowerSasaError);
+                        return Err(SasaError::DegenerateCircleOrdering);
                     }
                 }
             }
@@ -466,7 +454,7 @@ where
         for j in 0..n_usize {
             let rj = self.rang[j];
             if rj < 0 || (rj as usize) >= n_usize {
-                return Err(PowerSasaError);
+                return Err(SasaError::RankOutOfRange);
             }
             self.pos[rj as usize] = j as i32;
         }
@@ -481,9 +469,9 @@ where
         Ok(())
     }
 
-    pub fn calc_sasa_single(&mut self, iatom: usize) -> Result<(), PowerSasaError> {
+    pub fn calc_sasa_single(&mut self, iatom: usize) -> Result<(), SasaError> {
         if iatom >= self.power_diagram.get_points().len() {
-            return Err(PowerSasaError);
+            return Err(SasaError::AtomIndexOutOfBounds);
         }
 
         let (rad, rad2, atom_pos, neighbours_ids, my_vertices_ids) = {
@@ -548,7 +536,7 @@ where
             }
             let atom_vertex = &self.power_diagram.get_vertices()[*vid];
             if atom_vertex.power_value.abs() < self.tol_pow {
-                return Err(PowerSasaError);
+                return Err(SasaError::AmbiguousVertexPower);
             }
             if atom_vertex.power_value > Scalar::zero() {
                 covered = false;
@@ -562,7 +550,7 @@ where
             if nb_id < self.power_diagram.get_points().len() {
                 self.power_diagram.get_cell_mut(nb_id).visited_as = i as i32;
             } else {
-                return Err(PowerSasaError);
+                return Err(SasaError::NeighbourIndexOutOfBounds);
             }
         }
 
@@ -676,12 +664,12 @@ where
                 }
             }
             if ptn != 2 {
-                return Err(PowerSasaError);
+                return Err(SasaError::InvalidZeroPointPartnerCount);
             }
             let ptn0 = partner[0] as usize;
             let ptn1 = partner[1] as usize;
             if ptn0 >= nnb || ptn1 >= nnb {
-                return Err(PowerSasaError);
+                return Err(SasaError::PartnerOutOfRange);
             }
 
             if zp.pos < Scalar::zero() || zp.pos > Scalar::one() {
@@ -691,7 +679,7 @@ where
             }
 
             if self.np[ptn0] < 0 || self.np[ptn1] < 0 {
-                return Err(PowerSasaError);
+                return Err(SasaError::InvalidPartnerPointCounts);
             }
             if (self.np[ptn0] as usize) >= self.rang.len() || (self.np[ptn1] as usize) >= self.rang.len() {
                 let new_pnt = if self.np[ptn0] > self.np[ptn1] { self.np[ptn0] + 1 } else { self.np[ptn1] + 1 };
@@ -716,12 +704,12 @@ where
             if self.with_vol {
                 let node1_id = zp.from_id;
                 if node1_id == crate::power_diagram::GeneratorRef::INVALID_ID || node1_id >= pd_vertices.len() {
-                    return Err(PowerSasaError);
+                    return Err(SasaError::VolumeNodeOutOfBounds);
                 }
                 let node1 = &pd_vertices[node1_id];
                 let node2_id = node1.end_point_ids[zp.branch as usize];
                 if node2_id == crate::power_diagram::GeneratorRef::INVALID_ID || node2_id >= pd_vertices.len() {
-                    return Err(PowerSasaError);
+                    return Err(SasaError::VolumeNodeOutOfBounds);
                 }
                 let node2 = &pd_vertices[node2_id];
 
@@ -759,7 +747,7 @@ where
                     let denom =
                         node2.power_value * zp.pos + node1.power_value * (Scalar::one() - zp.pos);
                     if denom == Scalar::zero() {
-                        return Err(PowerSasaError);
+                        return Err(SasaError::ZeroVolumeDenominator);
                     }
                     let dpos = node1.power_value * (Scalar::one() - zp.pos) / denom - zp.pos;
                     let half = Scalar::from_f64(0.5).unwrap();
@@ -780,7 +768,7 @@ where
                                 .abs();
                     }
                 } else {
-                    return Err(PowerSasaError);
+                    return Err(SasaError::InvalidVolumeSignConfiguration);
                 }
             }
         }
@@ -840,20 +828,20 @@ where
                     }
                     if shared_generator {
                         if ptn >= 2 {
-                            return Err(PowerSasaError);
+                            return Err(SasaError::SharedPartnerOverflow);
                         }
                         partner[ptn] = self.power_diagram.get_generator(g1ref).visited_as;
                         ptn += 1;
                     }
                 }
                 if ptn != 2 {
-                    return Err(PowerSasaError);
+                    return Err(SasaError::InvalidZeroPointPartnerCount);
                 }
 
                 let ptn0 = partner[0] as usize;
                 let ptn1 = partner[1] as usize;
                 if ptn0 >= nnb || ptn1 >= nnb {
-                    return Err(PowerSasaError);
+                    return Err(SasaError::PartnerOutOfRange);
                 }
                 self.nt[ptn0] += 1;
                 self.nt[ptn1] += 1;
@@ -1108,7 +1096,7 @@ where
         Ok(())
     }
 
-    pub fn calc_sasa_all(&mut self) -> Result<(), PowerSasaError> {
+    pub fn calc_sasa_all(&mut self) -> Result<(), SasaError> {
         for i in 0..self.power_diagram.get_points().len() {
             self.calc_sasa_single(i)?;
         }
@@ -1135,34 +1123,42 @@ where
         self.resize_na();
     }
 
+    #[inline(always)]
     pub fn revert(&mut self) {
         self.power_diagram.revert();
     }
 
+    #[inline(always)]
     pub fn get_power_diagram(&self) -> &PowerDiagram<Scalar> {
         &self.power_diagram
     }
 
+    #[inline(always)]
     pub fn num_of_neighbours(&self, iatom: usize) -> usize {
         self.power_diagram.get_points()[iatom].neighbours_ids.len()
     }
 
+    #[inline(always)]
     pub fn atom_no(&self, i_atom: usize, i_neighbour: usize) -> usize {
         self.power_diagram.get_points()[i_atom].neighbours_ids[i_neighbour]
     }
 
+    #[inline(always)]
     pub fn get_sasa(&self) -> &[Scalar] {
         &self.sasa
     }
 
+    #[inline(always)]
     pub fn get_vol(&self) -> &[Scalar] {
         &self.vol
     }
 
+    #[inline(always)]
     pub fn get_dvol(&self) -> &[Vector3<Scalar>] {
         &self.dvol
     }
 
+    #[inline(always)]
     pub fn get_dsasa(&self) -> &[Vector3<Scalar>] {
         &self.dsasa
     }
