@@ -454,7 +454,9 @@ where
         let atom = &self.power_diagram.get_points()[iatom];
         let rad = atom.r;
         let rad2 = atom.r2;
-        let nnb = atom.neighbours_ids.len();
+        let atom_pos = atom.position;
+        let neighbours_ids = atom.neighbours_ids.clone();
+        let nnb = neighbours_ids.len();
 
         if nnb > self.np.len() {
             self.resize_nb(nnb);
@@ -485,6 +487,68 @@ where
             return Ok(());
         }
 
+        for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
+            if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
+                nb.visited_as = i as i32;
+            } else {
+                return Err(PowerSasaError);
+            }
+        }
+
+        let mut contributing = 0_usize;
+        for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
+            let neighbour = &self.power_diagram.get_points()[nb_id];
+            let nb_rad = neighbour.r;
+            let nb_rad2 = neighbour.r2;
+            self.nb_rad2[i] = nb_rad2;
+
+            let rel_pos = neighbour.position - atom_pos;
+            let dist = rel_pos.norm();
+            self.nb_dist[i] = dist;
+
+            if dist <= nb_rad - rad {
+                // Completely covered by one larger neighbor.
+                if self.with_sasa {
+                    self.sasa[iatom] = Scalar::zero();
+                }
+                if self.with_vol {
+                    self.vol[iatom] = Scalar::zero();
+                }
+                for nb_id in neighbours_ids {
+                    if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
+                        nb.visited_as = 0;
+                    }
+                }
+                return Ok(());
+            }
+
+            if dist >= rad + nb_rad || dist <= rad - nb_rad {
+                continue;
+            }
+
+            self.costheta[i] = (Scalar::from_f64(0.5).unwrap() * (dist + (rad2 - nb_rad2) / dist)) / rad;
+            self.sintheta[i] = (Scalar::one() - self.costheta[i] * self.costheta[i]).sqrt();
+            self.e[i] = rel_pos / dist;
+            contributing += 1;
+        }
+
+        if contributing == 0 {
+            let four = Scalar::from_f64(4.0).unwrap();
+            let three = Scalar::from_f64(3.0).unwrap();
+            if self.with_sasa {
+                self.sasa[iatom] = four * Scalar::pi() * rad2;
+            }
+            if self.with_vol {
+                self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+            }
+            for nb_id in neighbours_ids {
+                if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
+                    nb.visited_as = 0;
+                }
+            }
+            return Ok(());
+        }
+
         let _ = self.tol_pow;
         let _ = self.get_ang(0, &[], Vector3::zeros(), Scalar::zero(), Scalar::zero(), &mut []);
         let _ = self.get_next(0, &mut [], &mut [], &[], Vector3::zeros());
@@ -497,6 +561,11 @@ where
         }
         if self.with_vol {
             self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+        }
+        for nb_id in neighbours_ids {
+            if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
+                nb.visited_as = 0;
+            }
         }
         Ok(())
     }
