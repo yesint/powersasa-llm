@@ -447,6 +447,12 @@ where
         }
         self.power_err = Scalar::from_f64(1000.0).unwrap() * Self::error(self.maxr2);
         self.insert_first();
+        for i in 1..self.points.len() {
+            let representative = self.prepare_insertion(i);
+            if let Some(rep) = representative {
+                let _ = self.do_insertion(i, rep);
+            }
+        }
         for c in 0..8.min(self.vertices.len()) {
             let corner_pos = self.vertices[c].position;
             let mut owner = 0usize;
@@ -463,6 +469,35 @@ where
             self.vertices[c].power_value = best_power;
         }
         // Incremental insertion for points[1..] pending full port.
+    }
+
+    fn prepare_insertion(&self, point_id: usize) -> Option<usize> {
+        if point_id >= self.points.len() {
+            return None;
+        }
+        let hint = self.points[point_id].bond_to_id;
+        if hint != GeneratorRef::INVALID_ID && hint < point_id && hint < self.points.len() {
+            return Some(hint);
+        }
+        self.find_cell_inside_cube(self.points[point_id].position, None)
+    }
+
+    fn do_insertion(&mut self, point_id: usize, representative: usize) -> bool {
+        if point_id >= self.points.len() || representative >= self.points.len() || point_id == representative {
+            return false;
+        }
+        self.clear_interna();
+        self.push_involved(GeneratorRef::new(GeneratorKind::Point, point_id));
+        self.push_involved(GeneratorRef::new(GeneratorKind::Point, representative));
+        self.points[point_id].bond_to_id = representative;
+
+        if !self.points[point_id].neighbours_ids.contains(&representative) {
+            self.points[point_id].neighbours_ids.push(representative);
+        }
+        if !self.points[representative].neighbours_ids.contains(&point_id) {
+            self.points[representative].neighbours_ids.push(point_id);
+        }
+        true
     }
 
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
