@@ -577,9 +577,26 @@ where
         if point_id >= self.points.len() {
             return None;
         }
-        let hint = self.points[point_id].bond_to_id;
-        if hint != GeneratorRef::INVALID_ID && hint < point_id && hint < self.points.len() {
-            return Some(hint);
+        let hint_vertex_id = self.get_representative_vertex(self.points[point_id].bond_to_id);
+        if hint_vertex_id < self.vertices.len() {
+            let insertion_pos = self.points[point_id].position;
+            let hint_vertex = &self.vertices[hint_vertex_id];
+            let mut best_cell = GeneratorRef::INVALID_ID;
+            let mut best_power = Scalar::zero();
+            for g in 0..=3 {
+                let refg = hint_vertex.resolved_generator_ref(g);
+                if refg.kind != GeneratorKind::Point || refg.index >= self.points.len() || refg.index == point_id {
+                    continue;
+                }
+                let p = self.points[refg.index].power(insertion_pos);
+                if best_cell == GeneratorRef::INVALID_ID || p < best_power {
+                    best_cell = refg.index;
+                    best_power = p;
+                }
+            }
+            if best_cell != GeneratorRef::INVALID_ID {
+                return Some(best_cell);
+            }
         }
         if let Some(id) = self.find_cell_inside_cube(self.points[point_id].position, None) {
             return Some(id);
@@ -587,6 +604,33 @@ where
         self.find_replaced_vertex_corner(point_id)
             .and_then(|corner_id| self.corner_owners.get(corner_id).copied())
             .filter(|&owner| owner < self.points.len())
+    }
+
+    fn get_representative_vertex(&self, start_id: usize) -> usize {
+        let mut current_id = start_id;
+        while current_id != GeneratorRef::INVALID_ID && current_id < self.points.len() {
+            let current = &self.points[current_id];
+            for &vid in &current.my_vertices_ids {
+                if vid == GeneratorRef::INVALID_ID || vid >= self.vertices.len() {
+                    continue;
+                }
+                let candidate = &self.vertices[vid];
+                if !candidate.is_connected() {
+                    continue;
+                }
+                for g in 0..=3 {
+                    let refg = candidate.resolved_generator_ref(g);
+                    if refg.kind == GeneratorKind::Point && refg.index == current_id {
+                        return vid;
+                    }
+                }
+            }
+            if current.bond_to_id == current_id {
+                break;
+            }
+            current_id = current.bond_to_id;
+        }
+        0
     }
 
     fn do_insertion(&mut self, point_id: usize, representative: usize) -> bool {
