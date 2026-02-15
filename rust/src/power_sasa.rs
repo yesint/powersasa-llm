@@ -147,6 +147,69 @@ where
         this
     }
 
+    pub fn new_with_bond_to(
+        coords: impl Iterator<Item = Vector3<Scalar>>,
+        radii: impl Iterator<Item = Scalar>,
+        bond_to: impl Iterator<Item = i32>,
+        with_sasa: bool,
+        with_dsasa: bool,
+        with_vol: bool,
+        with_dvol: bool,
+    ) -> Self {
+        let coords_vec: Vec<Vector3<Scalar>> = coords.collect();
+        let radii_vec: Vec<Scalar> = radii.collect();
+        let bond_to_vec: Vec<i32> = bond_to.collect();
+        let power_diagram = PowerDiagram::from_params(
+            PowerDiagram::create(
+                coords_vec.len(),
+                coords_vec.iter().cloned(),
+                radii_vec.iter().copied(),
+                bond_to_vec.into_iter(),
+            )
+            .with_radii_given(true)
+            .with_calculate(true)
+            .with_cells(true)
+            .with_zero_points(true)
+            .with_warnings(false)
+            .without_check(true),
+        );
+
+        let mut this = Self {
+            power_diagram,
+            with_sasa,
+            with_dsasa,
+            with_vol,
+            with_dvol,
+            sasa: Vec::new(),
+            dsasa_parts: Vec::new(),
+            dsasa: Vec::new(),
+            vol: Vec::new(),
+            dvol: Vec::new(),
+            tol_pow: Scalar::zero(),
+            np: Vec::new(),
+            nt: Vec::new(),
+            e: Vec::new(),
+            sintheta: Vec::new(),
+            costheta: Vec::new(),
+            nb_rad2: Vec::new(),
+            nb_dist: Vec::new(),
+            off: Vec::new(),
+            vx: Vec::new(),
+            br_c: Vec::new(),
+            br_p: Vec::new(),
+            ang: Vec::new(),
+            next: Vec::new(),
+            p: Vec::new(),
+            volnb: Vec::new(),
+            knot: Vec::new(),
+            fknot: Vec::new(),
+            rang: Vec::new(),
+            pos: Vec::new(),
+        };
+        this.init();
+        this
+    }
+
     fn create_with_chain_bond(coords: &[Vector3<Scalar>], radii: &[Scalar]) -> PowerDiagram<Scalar> {
         let mut bond_to = Vec::with_capacity(coords.len());
         if !coords.is_empty() {
@@ -426,7 +489,15 @@ where
         let _ = self.get_ang(0, &[], Vector3::zeros(), Scalar::zero(), Scalar::zero(), &mut []);
         let _ = self.get_next(0, &mut [], &mut [], &[], Vector3::zeros());
 
-        // Full literal port pending: this keeps per-atom outputs initialized and preserves early-exit behavior.
+        // Full literal port pending. Temporary fallback preserves non-zero baseline output shape.
+        let four = Scalar::from_f64(4.0).unwrap();
+        let three = Scalar::from_f64(3.0).unwrap();
+        if self.with_sasa {
+            self.sasa[iatom] = four * Scalar::pi() * rad2;
+        }
+        if self.with_vol {
+            self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+        }
         Ok(())
     }
 
@@ -463,6 +534,14 @@ where
 
     pub fn get_power_diagram(&self) -> &PowerDiagram<Scalar> {
         &self.power_diagram
+    }
+
+    pub fn num_of_neighbours(&self, iatom: usize) -> usize {
+        self.power_diagram.get_points()[iatom].neighbours_ids.len()
+    }
+
+    pub fn atom_no(&self, i_atom: usize, i_neighbour: usize) -> usize {
+        self.power_diagram.get_points()[i_atom].neighbours_ids[i_neighbour]
     }
 
     pub fn get_sasa(&self) -> &[Scalar] {

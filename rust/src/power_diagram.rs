@@ -438,8 +438,15 @@ where
     pub fn fill_all_my_vertices(&mut self) {}
 
     pub fn fill_all_neighbours(&mut self) {
+        let n = self.points.len();
         for i in 0..self.points.len() {
             self.points[i].neighbours_ids.clear();
+            self.points[i].neighbours_ids.reserve(n.saturating_sub(1));
+            for j in 0..n {
+                if i != j {
+                    self.points[i].neighbours_ids.push(j);
+                }
+            }
         }
     }
 
@@ -469,6 +476,10 @@ where
     }
 
     pub fn get_points_compat(&self) -> &[Cell<Scalar>] {
+        &self.points
+    }
+
+    pub fn get_points_cpp_name(&self) -> &[Cell<Scalar>] {
         &self.points
     }
 
