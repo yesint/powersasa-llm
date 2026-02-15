@@ -674,7 +674,7 @@ where
 
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
         let refg = vtx.resolved_generator_ref(3);
-        !(refg.kind == GeneratorKind::Point && refg.index < self.points.len())
+        !self.ref_is_real_point(refg)
     }
 
     fn n_virtual_generators(&self, vtx: &Vertex<Scalar>) -> usize {
@@ -1173,6 +1173,17 @@ where
         }
     }
 
+    pub fn ref_is_real_point(&self, aref: GeneratorRef) -> bool {
+        aref.kind == GeneratorKind::Point && aref.index < self.points.len()
+    }
+
+    pub fn valid_generator_ref(&self, aref: GeneratorRef) -> bool {
+        match aref.kind {
+            GeneratorKind::Point => aref.index < self.points.len(),
+            GeneratorKind::Side => aref.index < self.side_generators.len(),
+        }
+    }
+
     pub fn get_points_compat(&self) -> &[Cell<Scalar>] {
         &self.points
     }
@@ -1192,7 +1203,7 @@ where
         if from.invalid {
             return false;
         }
-        let to_id = from.end_point_ids[zp.branch as usize];
+        let to_id = from.resolved_endpoint_id(zp.branch as usize);
         if to_id == GeneratorRef::INVALID_ID || to_id >= self.n_vertices || to_id >= self.vertices.len() {
             return false;
         }
@@ -1204,7 +1215,7 @@ where
             return Vector3::zeros();
         }
         let from = &self.vertices[zp.from_id];
-        let to = &self.vertices[from.end_point_ids[zp.branch as usize]];
+        let to = &self.vertices[from.resolved_endpoint_id(zp.branch as usize)];
         to.position * zp.pos - from.position * (zp.pos - Scalar::one())
     }
 
