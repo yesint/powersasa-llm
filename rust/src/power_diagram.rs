@@ -184,6 +184,15 @@ where
         -b_cell.r2 + a_cell.r2 - (a_cell.position - b_cell.position).norm_squared()
             + Scalar::from_f64(2.0).unwrap() * (a_cell.position - b_cell.position).dot(&(self.position - b_cell.position))
     }
+
+    pub fn endpoint_slot_to(&self, comp_id: usize) -> usize {
+        for g in (1..=3).rev() {
+            if self.end_point_ids[g] == comp_id {
+                return g;
+            }
+        }
+        0
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -384,6 +393,18 @@ where
         self.involved_refs.clear();
     }
 
+    fn set_vertex_generator(&mut self, vertex_id: usize, slot: usize, r#ref: GeneratorRef) {
+        if vertex_id < self.vertices.len() && slot <= 3 {
+            self.vertices[vertex_id].generator_refs[slot] = r#ref;
+        }
+    }
+
+    fn set_vertex_endpoint_deferred(&mut self, vertex_id: usize, slot: usize, endpoint_id: usize) {
+        if vertex_id < self.vertices.len() && slot <= 3 {
+            self.vertices[vertex_id].end_point_ids[slot] = endpoint_id;
+        }
+    }
+
     fn clear_involved(&mut self) {
         self.involved_refs.clear();
     }
@@ -409,7 +430,7 @@ where
         }
         for i in 0..8 {
             self.vertices[i].power_value = self.points[0].power(self.vertices[i].position);
-            self.vertices[i].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, 0);
+            self.set_vertex_generator(i, 0, GeneratorRef::new(GeneratorKind::Point, 0));
             self.corner_owners[i] = 0;
         }
     }
@@ -1051,7 +1072,7 @@ where
                     continue;
                 }
                 for g in (0..=3).rev() {
-                    let refg = v.generator_refs[g];
+                    let refg = v.resolved_generator_ref(g);
                     if refg.kind == GeneratorKind::Point
                         && refg.index < self.points.len()
                         && refg.index != current_id
