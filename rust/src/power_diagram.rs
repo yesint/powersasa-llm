@@ -246,6 +246,7 @@ where
     n_revert_vertices: usize,
     n_revert_zeros: usize,
     n_revert_points: usize,
+    revert_corner_owners: [usize; 8],
     corner_owners: [usize; 8],
 
     power_err: Scalar,
@@ -325,6 +326,7 @@ where
             n_revert_vertices: 0,
             n_revert_zeros: 0,
             n_revert_points: 0,
+            revert_corner_owners: [GeneratorRef::INVALID_ID; 8],
             corner_owners: [GeneratorRef::INVALID_ID; 8],
             power_err: Scalar::default_epsilon(),
             insertion_error_scale: Scalar::zero(),
@@ -746,6 +748,7 @@ where
         self.n_revert_vertices = self.n_vertices;
         self.n_revert_zeros = self.zeros.len();
         self.n_revert_points = self.points.len();
+        self.revert_corner_owners = self.corner_owners;
 
         for (p, s) in pos_vec.into_iter().zip(str_vec.into_iter()) {
             if self.params.radii_given {
@@ -776,6 +779,14 @@ where
             self.zeros.truncate(self.n_revert_zeros);
         }
         self.n_vertices = self.n_revert_vertices;
+        self.corner_owners = self.revert_corner_owners;
+        for c in 0..8.min(self.vertices.len()) {
+            let owner = self.corner_owners[c];
+            if owner != GeneratorRef::INVALID_ID && owner < self.points.len() {
+                self.vertices[c].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner);
+                self.vertices[c].power_value = self.points[owner].power(self.vertices[c].position);
+            }
+        }
         if self.params.fill_my_vertices {
             self.fill_all_my_vertices();
         }
