@@ -429,6 +429,21 @@ where
         }
         self.power_err = Scalar::from_f64(1000.0).unwrap() * Self::error(self.maxr2);
         self.insert_first();
+        for c in 0..8.min(self.vertices.len()) {
+            let corner_pos = self.vertices[c].position;
+            let mut owner = 0usize;
+            let mut best_power = self.points[0].power(corner_pos);
+            for i in 1..self.points.len() {
+                let p = self.points[i].power(corner_pos);
+                if p < best_power {
+                    best_power = p;
+                    owner = i;
+                }
+            }
+            self.corner_owners[c] = owner;
+            self.vertices[c].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner);
+            self.vertices[c].power_value = best_power;
+        }
         // Incremental insertion for points[1..] pending full port.
     }
 
