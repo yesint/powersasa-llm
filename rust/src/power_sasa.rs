@@ -500,11 +500,20 @@ where
         if nnb == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
-            if self.with_sasa {
-                self.sasa[iatom] = four * Scalar::pi() * rad2;
+            let mut is_owner = false;
+            if let Some(first_vertex) = self.power_diagram.get_vertices().first() {
+                let gref = first_vertex.generator_refs[0];
+                if gref.is_valid() && gref.kind == crate::power_diagram::GeneratorKind::Point && gref.index == iatom {
+                    is_owner = true;
+                }
             }
-            if self.with_vol {
-                self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+            if is_owner {
+                if self.with_sasa {
+                    self.sasa[iatom] = four * Scalar::pi() * rad2;
+                }
+                if self.with_vol {
+                    self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+                }
             }
             return Ok(());
         }
