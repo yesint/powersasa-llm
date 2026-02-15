@@ -839,12 +839,11 @@ where
                 }
             }
             if best_cell != GeneratorRef::INVALID_ID {
-                self.points[point_id].bond_to_id = best_cell;
                 return Some(hint_id);
             }
         }
         if let Some(id) = self.find_cell_inside_cube(self.points[point_id].position, None) {
-            self.points[point_id].bond_to_id = id;
+            let _ = id;
             return Some(hint_id);
         }
         if let Some(owner) = self
@@ -852,7 +851,7 @@ where
             .and_then(|corner_id| self.corner_owners.get(corner_id).copied())
             .filter(|&owner| owner < self.points.len())
         {
-            self.points[point_id].bond_to_id = owner;
+            let _ = owner;
             return Some(hint_id);
         }
         None
