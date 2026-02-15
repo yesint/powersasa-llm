@@ -479,7 +479,12 @@ where
         if hint != GeneratorRef::INVALID_ID && hint < point_id && hint < self.points.len() {
             return Some(hint);
         }
-        self.find_cell_inside_cube(self.points[point_id].position, None)
+        if let Some(id) = self.find_cell_inside_cube(self.points[point_id].position, None) {
+            return Some(id);
+        }
+        self.find_replaced_vertex_corner(point_id)
+            .and_then(|corner_id| self.corner_owners.get(corner_id).copied())
+            .filter(|&owner| owner < self.points.len())
     }
 
     fn do_insertion(&mut self, point_id: usize, representative: usize) -> bool {
@@ -498,6 +503,27 @@ where
             self.points[representative].neighbours_ids.push(point_id);
         }
         true
+    }
+
+    fn find_replaced_vertex_corner(&self, point_id: usize) -> Option<usize> {
+        if point_id >= self.points.len() || self.vertices.is_empty() {
+            return None;
+        }
+        let insertion = &self.points[point_id];
+        let mut best_corner = None;
+        let mut best_val = Scalar::zero();
+        for c in 0..8.min(self.vertices.len()) {
+            let v = &self.vertices[c];
+            if v.invalid {
+                continue;
+            }
+            let val = insertion.power(v.position);
+            if best_corner.is_none() || val < best_val {
+                best_corner = Some(c);
+                best_val = val;
+            }
+        }
+        best_corner
     }
 
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
