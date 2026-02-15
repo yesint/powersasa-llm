@@ -468,7 +468,87 @@ where
             self.vertices[c].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner);
             self.vertices[c].power_value = best_power;
         }
+        self.build_edge_vertices_from_corners();
         // Incremental insertion for points[1..] pending full port.
+    }
+
+    fn build_edge_vertices_from_corners(&mut self) {
+        let mut edge_vertices: Vec<Vertex<Scalar>> = Vec::new();
+        for c in 0..8 {
+            for d in 0..3 {
+                let c2 = if (c >> d) % 2 == 1 { c - (1 << d) } else { c + (1 << d) };
+                if c2 <= c || c2 >= 8 {
+                    continue;
+                }
+                let owner_a = self.corner_owners[c];
+                let owner_b = self.corner_owners[c2];
+                if owner_a == GeneratorRef::INVALID_ID
+                    || owner_b == GeneratorRef::INVALID_ID
+                    || owner_a >= self.points.len()
+                    || owner_b >= self.points.len()
+                    || owner_a == owner_b
+                {
+                    continue;
+                }
+
+                let a = self.vertices[c].position;
+                let b = self.vertices[c2].position;
+                let dvec = b - a;
+                let pa = self.points[owner_a].position;
+                let pb = self.points[owner_b].position;
+                let n = pb - pa;
+                let rhs = Scalar::from_f64(0.5).unwrap()
+                    * (pb.norm_squared() - pa.norm_squared() + self.points[owner_a].r2 - self.points[owner_b].r2);
+                let denom = dvec.dot(&n);
+                let mut t = if denom.abs() > self.power_err_scaled_epsilon() {
+                    (rhs - a.dot(&n)) / denom
+                } else {
+                    Scalar::from_f64(0.5).unwrap()
+                };
+                if t < Scalar::zero() {
+                    t = Scalar::zero();
+                }
+                if t > Scalar::one() {
+                    t = Scalar::one();
+                }
+                let pos = a + dvec * t;
+
+                let mut shared_sides: Vec<GeneratorRef> = Vec::new();
+                for ga in 1..=3 {
+                    let ra = self.vertices[c].generator_refs[ga];
+                    for gb in 1..=3 {
+                        let rb = self.vertices[c2].generator_refs[gb];
+                        if ra.kind == GeneratorKind::Side && rb.kind == GeneratorKind::Side && ra.index == rb.index {
+                            if !shared_sides.iter().any(|s| s.index == ra.index) {
+                                shared_sides.push(ra);
+                            }
+                        }
+                    }
+                }
+                if shared_sides.len() < 2 {
+                    continue;
+                }
+
+                let mut v = Vertex::default();
+                v.invalid = false;
+                v.position = pos;
+                v.generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner_a);
+                v.generator_refs[1] = GeneratorRef::new(GeneratorKind::Point, owner_b);
+                v.generator_refs[2] = shared_sides[0];
+                v.generator_refs[3] = shared_sides[1];
+                v.end_point_ids[0] = c;
+                v.end_point_ids[1] = c2;
+                v.end_point_ids[2] = GeneratorRef::INVALID_ID;
+                v.end_point_ids[3] = c2;
+                v.power_value = self.points[owner_a].power(pos);
+                edge_vertices.push(v);
+            }
+        }
+
+        for v in edge_vertices {
+            self.vertices.push(v);
+        }
+        self.n_vertices = self.vertices.len();
     }
 
     fn prepare_insertion(&self, point_id: usize) -> Option<usize> {
