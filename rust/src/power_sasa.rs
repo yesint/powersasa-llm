@@ -683,17 +683,190 @@ where
             self.next[i][..np_i].copy_from_slice(&next_i);
         }
 
-        let _ = do_sasa;
-
-        // Full literal port pending. Temporary fallback preserves non-zero baseline output shape.
-        let four = Scalar::from_f64(4.0).unwrap();
+        let two = Scalar::from_f64(2.0).unwrap();
         let three = Scalar::from_f64(3.0).unwrap();
+        let four = Scalar::from_f64(4.0).unwrap();
+        let six = Scalar::from_f64(6.0).unwrap();
+        let half = Scalar::from_f64(0.5).unwrap();
+        let two_pi = two * Scalar::pi();
+
+        let mut vol2 = Scalar::zero();
+        let mut vol3 = Scalar::zero();
+        let mut sasa_ia = Scalar::zero();
+
+        for iv in 0..nvx {
+            self.off[iv] = 0;
+        }
+
+        for iv in 0..nvx {
+            if self.off[iv] != 0 {
+                continue;
+            }
+
+            let p_ini_idx = iv;
+            let ic_0 = self.br_c[iv][0] as usize;
+            let ic_1 = self.br_c[iv][1] as usize;
+
+            let dirdet = self.e[ic_1].cross(&self.e[ic_0]).dot(&self.vx[p_ini_idx]);
+            if dirdet == Scalar::zero() {
+                return Err(PowerSasaError);
+            }
+
+            let (mut ic1, mut ic2, mut ip2): (usize, usize, i32) = if dirdet > Scalar::zero() {
+                (ic_0, ic_1, self.br_p[iv][1])
+            } else {
+                (ic_1, ic_0, self.br_p[iv][0])
+            };
+
+            let mut pt_idx = p_ini_idx;
+            if do_sasa {
+                sasa_ia += two_pi;
+            }
+            let mut count = 0_usize;
+
+            loop {
+                count += 1;
+                if count > Self::K_MAX_COUNT {
+                    return Err(PowerSasaError);
+                }
+
+                let ip_next = self.next[ic2][ip2 as usize];
+                let mut phi = self.ang[ic2][ip_next as usize] - self.ang[ic2][ip2 as usize];
+                if phi < Scalar::zero() {
+                    phi += two_pi;
+                }
+
+                if do_sasa {
+                    let mut co = (self.e[ic1].dot(&self.e[ic2]) - self.costheta[ic1] * self.costheta[ic2])
+                        / (self.sintheta[ic1] * self.sintheta[ic2]);
+                    co = Self::clamp_unit_interval(co);
+                    sasa_ia += phi * self.costheta[ic2] - co.acos();
+                }
+
+                self.off[self.p[ic2][ip2 as usize] as usize] = 1;
+                ic1 = ic2;
+
+                let ivx = self.p[ic1][ip_next as usize] as usize;
+                let pt0_idx = pt_idx;
+                pt_idx = ivx;
+
+                if self.br_c[ivx][0] == ic1 as i32 {
+                    ic2 = self.br_c[ivx][1] as usize;
+                    ip2 = self.br_p[ivx][1];
+                } else {
+                    ic2 = self.br_c[ivx][0] as usize;
+                    ip2 = self.br_p[ivx][0];
+                }
+
+                if self.with_dsasa {
+                    let ds1 = half
+                        * rad
+                        * phi
+                        * (Scalar::one() + (self.nb_rad2[ic1] - rad2) / (self.nb_dist[ic1] * self.nb_dist[ic1]));
+                    let ds2 = rad2 / self.nb_dist[ic1];
+                    self.dsasa_parts[iatom][ic1] += self.e[ic1] * ds1
+                        - (self.vx[pt_idx] - self.vx[pt0_idx]).cross(&self.e[ic1]) * ds2;
+                }
+
+                let mut scone = Scalar::zero();
+                let mut vv = Vector3::zeros();
+                if self.with_vol || self.with_dvol {
+                    vv = (atom_pos + self.vx[pt0_idx] * rad).cross(&(atom_pos + self.vx[pt_idx] * rad));
+                    scone = self.sintheta[ic1] * self.sintheta[ic1] * (phi - phi.sin());
+                }
+
+                if self.with_vol {
+                    vol2 += self.costheta[ic1] * scone;
+                    if !self.fknot[ic1] {
+                        self.fknot[ic1] = true;
+                        self.knot[ic1] = atom_pos + self.vx[pt0_idx] * rad;
+                    } else {
+                        let a = atom_pos + self.vx[pt0_idx] * rad - self.knot[ic1];
+                        let b = atom_pos + self.vx[pt_idx] * rad - self.knot[ic1];
+                        self.volnb[ic1] += a.cross(&b).dot(&self.e[ic1]).abs();
+                    }
+                }
+
+                if self.with_dvol {
+                    self.dvol[iatom] -= (vv + self.e[ic1] * (rad2 * scone)) * half;
+                }
+
+                if pt_idx == p_ini_idx {
+                    break;
+                }
+            }
+
+            if do_sasa && sasa_ia > four * Scalar::pi() {
+                sasa_ia -= four * Scalar::pi();
+            }
+        }
+
+        for i in 0..nnb {
+            if self.np[i] != 0 || self.nt[i] != 0 {
+                continue;
+            }
+
+            let mut ok = true;
+            let cc = atom_pos + self.e[i] * (rad * self.costheta[i]);
+            let pw_i = -self.sintheta[i] * self.sintheta[i] * rad2;
+
+            for j in 0..nnb {
+                if j == i {
+                    continue;
+                }
+                let nb_j = self.power_diagram.get_points()[neighbours_ids[j]].position;
+                let pw_j = (nb_j - cc).norm_squared() - self.nb_rad2[j];
+                if pw_j <= pw_i {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if ok {
+                if do_sasa {
+                    sasa_ia += two_pi * (Scalar::one() + self.costheta[i]);
+                    if sasa_ia > four * Scalar::pi() {
+                        sasa_ia -= four * Scalar::pi();
+                    }
+                }
+
+                if self.with_dsasa {
+                    self.dsasa_parts[iatom][i] = self.e[i]
+                        * (rad
+                            * Scalar::pi()
+                            * (Scalar::one() + (self.nb_rad2[i] - rad2) / (self.nb_dist[i] * self.nb_dist[i])));
+                }
+
+                let mut scone = Scalar::zero();
+                if self.with_vol || self.with_dvol {
+                    scone = self.sintheta[i] * self.sintheta[i] * two_pi;
+                }
+                if self.with_vol {
+                    vol2 += self.costheta[i] * scone;
+                }
+                if self.with_dvol {
+                    self.dvol[iatom] -= self.e[i] * (half * rad2 * scone);
+                }
+            }
+        }
+
         if self.with_sasa {
-            self.sasa[iatom] = four * Scalar::pi() * rad2;
+            self.sasa[iatom] = rad2 * sasa_ia;
+        }
+        if self.with_dsasa {
+            for i in 0..nnb {
+                self.dsasa[iatom] -= self.dsasa_parts[iatom][i];
+            }
         }
         if self.with_vol {
-            self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+            for i in 0..nnb {
+                if self.fknot[i] {
+                    vol3 += rad * self.volnb[i] * self.costheta[i];
+                }
+            }
+            self.vol[iatom] = rad * rad2 * sasa_ia / three + rad * rad2 * vol2 / six + vol3 / six;
         }
+
         for nb_id in neighbours_ids {
             if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
                 nb.visited_as = 0;
