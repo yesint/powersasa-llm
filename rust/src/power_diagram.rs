@@ -356,6 +356,24 @@ where
         self.involved_refs.clear();
     }
 
+    fn clear_involved(&mut self) {
+        self.involved_refs.clear();
+    }
+
+    fn push_involved(&mut self, r#ref: GeneratorRef) {
+        self.involved_refs.push(r#ref);
+    }
+
+    fn sort_involved_by_ref(&mut self) {
+        self.involved_refs.sort_by_key(|r| {
+            let kind_rank = match r.kind {
+                GeneratorKind::Point => 0usize,
+                GeneratorKind::Side => 1usize,
+            };
+            (kind_rank, r.index)
+        });
+    }
+
     fn insert_first(&mut self) {
         self.clear_interna();
         if self.points.is_empty() || self.vertices.len() < 8 {
@@ -539,13 +557,13 @@ where
         self.build_vertices(self.points.len());
 
         if self.params.fill_my_vertices {
-            self.fill_all_my_vertices();
+            self.fill_all_my_vertices_from(self.n_revert_points, self.n_revert_vertices.max(8));
         }
         if self.params.fill_neighbours {
-            self.fill_all_neighbours();
+            self.fill_all_neighbours_of_involved();
         }
         if self.params.fill_zero_points {
-            self.fill_all_zero_points();
+            self.fill_all_zero_points_from(self.n_revert_vertices.max(8), self.n_revert_zeros);
         }
     }
 
@@ -557,6 +575,15 @@ where
             self.zeros.truncate(self.n_revert_zeros);
         }
         self.n_vertices = self.n_revert_vertices;
+        if self.params.fill_my_vertices {
+            self.fill_all_my_vertices();
+        }
+        if self.params.fill_neighbours {
+            self.fill_all_neighbours();
+        }
+        if self.params.fill_zero_points {
+            self.fill_all_zero_points_from(8, 0);
+        }
 
         self.n_revert_vertices = 0;
         self.n_revert_zeros = 0;
@@ -564,11 +591,24 @@ where
     }
 
     pub fn fill_all_my_vertices(&mut self) {
+        self.fill_all_my_vertices_from(0, 8);
+    }
+
+    pub fn fill_all_my_vertices_from(&mut self, from_point: usize, from_vertex: usize) {
         for p in &mut self.points {
-            p.my_vertices_ids.clear();
-            p.my_zero_points.clear();
+            if from_point == 0 {
+                p.my_vertices_ids.clear();
+                p.my_zero_points.clear();
+            }
         }
-        for vi in 0..self.n_vertices.min(self.vertices.len()) {
+        if from_point > 0 {
+            self.clear_involved();
+            for p in &mut self.points[from_point..] {
+                p.my_vertices_ids.clear();
+                p.my_zero_points.clear();
+            }
+        }
+        for vi in from_vertex..self.n_vertices.min(self.vertices.len()) {
             let vtx = &self.vertices[vi];
             if vtx.invalid {
                 continue;
@@ -576,10 +616,15 @@ where
             if vtx.end_point_ids[0] == GeneratorRef::INVALID_ID {
                 continue;
             }
+            let refs = vtx.generator_refs;
             for g in 0..=3 {
-                let refg = vtx.generator_refs[g];
+                let refg = refs[g];
                 if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
                     self.points[refg.index].my_vertices_ids.push(vi);
+                    if from_point > 0 && self.points[refg.index].visited_as == 0 {
+                        self.points[refg.index].visited_as = -1;
+                        self.push_involved(GeneratorRef::new(GeneratorKind::Point, refg.index));
+                    }
                 }
             }
         }
@@ -633,6 +678,54 @@ where
 
         for p in &mut self.points {
             p.visited_as = 0;
+        }
+    }
+
+    pub fn fill_all_neighbours_of_involved(&mut self) {
+        self.sort_involved_by_ref();
+        for i in 0..self.involved_refs.len() {
+            let involved = self.involved_refs[i];
+            if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
+                continue;
+            }
+            self.points[involved.index].neighbours_ids.clear();
+            self.points[involved.index].visited_as = -1;
+        }
+
+        for i in 0..self.involved_refs.len() {
+            let involved = self.involved_refs[i];
+            if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
+                continue;
+            }
+            let current_id = involved.index;
+            let vids = self.points[current_id].my_vertices_ids.clone();
+            for vid in vids {
+                if vid >= self.vertices.len() {
+                    continue;
+                }
+                let v = &self.vertices[vid];
+                if v.end_point_ids[0] == GeneratorRef::INVALID_ID {
+                    continue;
+                }
+                for g in (0..=3).rev() {
+                    let refg = v.generator_refs[g];
+                    if refg.kind == GeneratorKind::Point
+                        && refg.index < self.points.len()
+                        && refg.index != current_id
+                        && self.points[refg.index].visited_as != current_id as i32
+                    {
+                        self.points[current_id].neighbours_ids.push(refg.index);
+                        self.points[refg.index].visited_as = current_id as i32;
+                    }
+                }
+            }
+        }
+
+        for i in 0..self.involved_refs.len() {
+            let involved = self.involved_refs[i];
+            if involved.kind == GeneratorKind::Point && involved.index < self.points.len() {
+                self.points[involved.index].visited_as = 0;
+            }
         }
     }
 
