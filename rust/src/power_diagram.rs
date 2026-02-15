@@ -1033,13 +1033,16 @@ where
 
         let this_vertex_id = *this_id;
         let this_start = if self.vertices[this_vertex_id].is_corner() { 1 } else { 0 };
-        for idx in this_start..=3 {
+        let mut idx = this_start;
+        while idx <= 3 {
             let endpoint_id = self.vertices[this_vertex_id].resolved_endpoint_id(idx);
             if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id >= self.vertices.len() {
+                idx += 1;
                 continue;
             }
             let base_ref = self.vertices[endpoint_id].resolved_generator_ref(0);
             if !self.valid_generator_ref(base_ref) {
+                idx += 1;
                 continue;
             }
             let base = self.get_generator(base_ref).clone();
@@ -1050,10 +1053,12 @@ where
                 if *value < Scalar::zero() {
                     return;
                 }
-                return self.find_replaced_vertex(this_id, value, insertion_point);
+                idx = this_start;
+                continue;
             } else if new_value == *value {
                 small_val = new_value;
             }
+            idx += 1;
         }
         if small_val != *value {
             return;
