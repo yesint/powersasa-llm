@@ -463,6 +463,9 @@ where
         let new_pos: Vec<Vector3<Scalar>> = pos_it.take(size).collect();
         let new_str: Vec<Scalar> = strength_it.take(size).collect();
 
+        let (lowest, highest) = get_bounding_box(&new_pos, &new_str);
+        self.center = (lowest + highest) * Scalar::from_f64(0.5).unwrap();
+
         self.points.clear();
         self.points.reserve(size);
         for i in 0..size {
@@ -480,6 +483,10 @@ where
         self.replaced_ids.clear();
         self.invalids.clear();
         self.involved_refs.clear();
+        self.n_vertices = 0;
+
+        self.build_cube(lowest - self.center, highest - self.center);
+        self.build_vertices(self.points.len());
 
         if self.params.fill_my_vertices {
             self.fill_all_my_vertices();
@@ -513,6 +520,8 @@ where
                 self.points.push(Cell::with_power(p - self.center, s.sqrt(), s));
             }
         }
+
+        self.build_vertices(self.points.len());
 
         if self.params.fill_my_vertices {
             self.fill_all_my_vertices();
