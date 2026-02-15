@@ -518,6 +518,35 @@ where
         });
     }
 
+    pub fn find_cell_inside_cube(&self, pos: Vector3<Scalar>, hint_id: Option<usize>) -> Option<usize> {
+        if self.points.is_empty() {
+            return None;
+        }
+        let mut current = hint_id.unwrap_or(self.points.len() / 2);
+        if current >= self.points.len() {
+            current = self.points.len() / 2;
+        }
+
+        loop {
+            let mut improved = false;
+            let current_power = self.points[current].power(pos);
+            for &neighbour_id in &self.points[current].neighbours_ids {
+                if neighbour_id >= self.points.len() {
+                    continue;
+                }
+                let neighbour_power = self.points[neighbour_id].power(pos);
+                if neighbour_power < current_power {
+                    current = neighbour_id;
+                    improved = true;
+                    break;
+                }
+            }
+            if !improved {
+                return Some(current);
+            }
+        }
+    }
+
     pub fn recalculate(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
