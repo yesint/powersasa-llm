@@ -410,7 +410,7 @@ where
 
         this.build_cube(cube_lowest, cube_highest);
         if params.create_vertices {
-            this.build_vertices(this.points.len());
+            this.build_vertices(this.points.len(), 0);
         }
         if this.params.fill_my_vertices {
             this.fill_all_my_vertices();
@@ -536,20 +536,23 @@ where
         }
     }
 
-    fn build_vertices(&mut self, _n: usize) {
+    fn build_vertices(&mut self, n_points: usize, from: usize) {
         if self.points.is_empty() {
             self.n_vertices = 0;
             return;
         }
         self.maxr2 = self.points[0].r2;
-        for p in &self.points {
-            if p.r2 > self.maxr2 {
-                self.maxr2 = p.r2;
+        for i in from..n_points.min(self.points.len()) {
+            if self.points[i].r2 > self.maxr2 {
+                self.maxr2 = self.points[i].r2;
             }
         }
         self.power_err = Scalar::from_f64(1000.0).unwrap() * Self::error(self.maxr2);
-        self.insert_first();
-        for i in 1..self.points.len() {
+        if from == 0 {
+            self.insert_first();
+        }
+        let start = if from == 0 { 1 } else { from };
+        for i in start..n_points.min(self.points.len()) {
             let mut done: u32 = 1;
             loop {
                 let success = match self.prepare_insertion(i) {
@@ -1567,7 +1570,7 @@ where
         self.n_vertices = 0;
 
         self.build_cube(lowest - self.center, highest - self.center);
-        self.build_vertices(self.points.len());
+        self.build_vertices(self.points.len(), 0);
 
         if self.params.fill_my_vertices {
             self.fill_all_my_vertices();
@@ -1603,7 +1606,7 @@ where
             }
         }
 
-        self.build_vertices(self.points.len());
+        self.build_vertices(self.points.len(), self.n_revert_points);
 
         if self.params.fill_my_vertices {
             self.fill_all_my_vertices_from(self.n_revert_points, self.n_revert_vertices.max(8));
