@@ -451,11 +451,16 @@ where
             return Err(PowerSasaError);
         }
 
-        let atom = &self.power_diagram.get_points()[iatom];
-        let rad = atom.r;
-        let rad2 = atom.r2;
-        let atom_pos = atom.position;
-        let neighbours_ids = atom.neighbours_ids.clone();
+        let (rad, rad2, atom_pos, neighbours_ids, my_vertices_ids) = {
+            let atom = &self.power_diagram.get_points()[iatom];
+            (
+                atom.r,
+                atom.r2,
+                atom.position,
+                atom.neighbours_ids.clone(),
+                atom.my_vertices_ids.clone(),
+            )
+        };
         let nnb = neighbours_ids.len();
 
         if nnb > self.np.len() {
@@ -467,6 +472,9 @@ where
         }
         if self.with_dsasa {
             self.dsasa[iatom] = Vector3::zeros();
+            for i in 0..nnb {
+                self.dsasa_parts[iatom][i] = Vector3::zeros();
+            }
         }
         if self.with_vol {
             self.vol[iatom] = Scalar::zero();
@@ -475,15 +483,43 @@ where
             self.dvol[iatom] = Vector3::zeros();
         }
 
+        let do_sasa = self.with_sasa || self.with_vol;
+
         if nnb == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
-            if self.with_sasa {
-                self.sasa[iatom] = four * Scalar::pi() * rad2;
+            let mut is_owner = false;
+            if let Some(first_vertex) = self.power_diagram.get_vertices().first() {
+                let gref = first_vertex.generator_refs[0];
+                if gref.is_valid() && gref.kind == crate::power_diagram::GeneratorKind::Point && gref.index == iatom {
+                    is_owner = true;
+                }
             }
-            if self.with_vol {
-                self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+            if is_owner {
+                if self.with_sasa {
+                    self.sasa[iatom] = four * Scalar::pi() * rad2;
+                }
+                if self.with_vol {
+                    self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
+                }
             }
+            return Ok(());
+        }
+
+        let mut covered = true;
+        for vid in &my_vertices_ids {
+            if *vid >= self.power_diagram.get_vertices().len() {
+                continue;
+            }
+            let atom_vertex = &self.power_diagram.get_vertices()[*vid];
+            if atom_vertex.power_value.abs() < self.tol_pow {
+                return Err(PowerSasaError);
+            }
+            if atom_vertex.power_value > Scalar::zero() {
+                covered = false;
+            }
+        }
+        if covered && !self.with_vol {
             return Ok(());
         }
 
@@ -549,7 +585,7 @@ where
             return Ok(());
         }
 
-        let _ = self.tol_pow;
+        let _ = do_sasa;
         let _ = self.get_ang(0, &[], Vector3::zeros(), Scalar::zero(), Scalar::zero(), &mut []);
         let _ = self.get_next(0, &mut [], &mut [], &[], Vector3::zeros());
 

@@ -260,6 +260,8 @@ impl<Scalar> PowerDiagram<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    pub const K_INVALID_ID: usize = GeneratorRef::INVALID_ID;
+
     pub fn create(
         size: usize,
         pos_begin: impl Iterator<Item = Vector3<Scalar>>,
@@ -464,8 +466,24 @@ where
         &self.vertices
     }
 
+    pub fn get_vertices_mut(&mut self) -> &mut [Vertex<Scalar>] {
+        &mut self.vertices
+    }
+
     pub fn get_zeros(&self) -> &[ZeroPoint<Scalar>] {
         &self.zeros
+    }
+
+    pub fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
+        &self.zeros
+    }
+
+    pub fn get_cell(&self, id: usize) -> &Cell<Scalar> {
+        &self.points[id]
+    }
+
+    pub fn get_cell_mut(&mut self, id: usize) -> &mut Cell<Scalar> {
+        &mut self.points[id]
     }
 
     pub fn get_generator(&self, aref: GeneratorRef) -> &Cell<Scalar> {
@@ -481,6 +499,24 @@ where
 
     pub fn get_points_cpp_name(&self) -> &[Cell<Scalar>] {
         &self.points
+    }
+
+    pub fn zero_point_valid(&self, zp: &ZeroPoint<Scalar>) -> bool {
+        if zp.from_id == GeneratorRef::INVALID_ID || zp.from_id >= self.vertices.len() {
+            return false;
+        }
+        if zp.branch < 0 || zp.branch > 3 {
+            return false;
+        }
+        let from = &self.vertices[zp.from_id];
+        let to_id = from.end_point_ids[zp.branch as usize];
+        to_id != GeneratorRef::INVALID_ID && to_id < self.vertices.len()
+    }
+
+    pub fn zero_point_pos(&self, zp: &ZeroPoint<Scalar>) -> Vector3<Scalar> {
+        let from = &self.vertices[zp.from_id];
+        let to = &self.vertices[from.end_point_ids[zp.branch as usize]];
+        to.position * zp.pos - from.position * (zp.pos - Scalar::one())
     }
 
     pub fn error(f: Scalar) -> Scalar {
