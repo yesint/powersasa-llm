@@ -470,8 +470,39 @@ where
         !(refg.kind == GeneratorKind::Point && refg.index < self.points.len())
     }
 
+    fn n_virtual_generators(&self, vtx: &Vertex<Scalar>) -> usize {
+        if !self.has_virtual_generators(vtx) {
+            return 0;
+        }
+        if vtx.end_point_ids[0] == GeneratorRef::INVALID_ID {
+            3
+        } else {
+            2
+        }
+    }
+
+    fn above_power_err(&self, value: Scalar) -> bool {
+        value > self.power_err
+    }
+
+    fn within_power_err(&self, value: Scalar) -> bool {
+        value.abs() <= self.power_err
+    }
+
     fn below_power_err(&self, value: Scalar) -> bool {
         value < self.power_err
+    }
+
+    fn below_neg_power_err(&self, value: Scalar) -> bool {
+        value < -self.power_err
+    }
+
+    fn power_err_scaled_epsilon(&self) -> Scalar {
+        self.power_err * Scalar::default_epsilon()
+    }
+
+    pub fn n_vertices_count(&self) -> usize {
+        self.n_vertices
     }
 
     fn push_zero_from_edge(&mut self, source_id: usize, branch: i32, sol: Scalar) {
