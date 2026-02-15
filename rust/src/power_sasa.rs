@@ -659,6 +659,97 @@ where
             self.np[ptn1] += 1;
         }
 
+        let pd_vertices = self.power_diagram.get_vertices().to_vec();
+        for node1_id in my_vertices_ids.iter().copied() {
+            if node1_id >= pd_vertices.len() {
+                continue;
+            }
+            let node1 = &pd_vertices[node1_id];
+            for kn in 0..4 {
+                let node2_id = node1.end_point_ids[kn];
+                if node2_id == crate::power_diagram::GeneratorRef::INVALID_ID || node2_id == node1_id {
+                    continue;
+                }
+                if node2_id >= pd_vertices.len() {
+                    continue;
+                }
+                if node2_id > node1_id {
+                    continue;
+                }
+                let node2 = &pd_vertices[node2_id];
+                if node1.power_value > Scalar::zero() || node2.power_value > Scalar::zero() {
+                    continue;
+                }
+
+                let mut node2_contains_atom = false;
+                for kg in 0..4 {
+                    let g2ref = node2.generator_refs[kg];
+                    if g2ref.is_valid()
+                        && g2ref.kind == crate::power_diagram::GeneratorKind::Point
+                        && g2ref.index == iatom
+                    {
+                        node2_contains_atom = true;
+                        break;
+                    }
+                }
+                if !node2_contains_atom {
+                    continue;
+                }
+
+                let mut ptn = 0_usize;
+                for kg in 0..4 {
+                    let g1ref = node1.generator_refs[kg];
+                    if !g1ref.is_valid() {
+                        continue;
+                    }
+                    if g1ref.kind == crate::power_diagram::GeneratorKind::Point && g1ref.index == iatom {
+                        continue;
+                    }
+                    let mut shared_generator = false;
+                    for kh in 0..4 {
+                        let g2ref = node2.generator_refs[kh];
+                        if g1ref.is_valid() && g2ref.is_valid() && g1ref.kind == g2ref.kind && g1ref.index == g2ref.index {
+                            shared_generator = true;
+                            break;
+                        }
+                    }
+                    if shared_generator {
+                        if ptn >= 2 {
+                            return Err(PowerSasaError);
+                        }
+                        partner[ptn] = self.power_diagram.get_generator(g1ref).visited_as;
+                        ptn += 1;
+                    }
+                }
+                if ptn != 2 {
+                    return Err(PowerSasaError);
+                }
+
+                let ptn0 = partner[0] as usize;
+                let ptn1 = partner[1] as usize;
+                if ptn0 >= nnb || ptn1 >= nnb {
+                    return Err(PowerSasaError);
+                }
+                self.nt[ptn0] += 1;
+                self.nt[ptn1] += 1;
+
+                if !self.fknot[ptn0] {
+                    self.fknot[ptn0] = true;
+                    self.knot[ptn0] = node1.position;
+                } else {
+                    self.volnb[ptn0] +=
+                        (node1.position - self.knot[ptn0]).cross(&(node2.position - self.knot[ptn0])).dot(&self.e[ptn0]).abs();
+                }
+                if !self.fknot[ptn1] {
+                    self.fknot[ptn1] = true;
+                    self.knot[ptn1] = node1.position;
+                } else {
+                    self.volnb[ptn1] +=
+                        (node1.position - self.knot[ptn1]).cross(&(node2.position - self.knot[ptn1])).dot(&self.e[ptn1]).abs();
+                }
+            }
+        }
+
         for i in 0..nnb {
             if self.np[i] <= 0 {
                 continue;
