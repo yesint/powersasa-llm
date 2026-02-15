@@ -922,36 +922,37 @@ where
     }
 
     pub fn fill_all_neighbours(&mut self) {
-        let has_any_my_vertices = self.points.iter().any(|p| !p.my_vertices_ids.is_empty());
         for p in &mut self.points {
             p.neighbours_ids.clear();
             p.visited_as = -1;
         }
 
-        if has_any_my_vertices {
-            for i in 0..self.points.len() {
-                for vid in self.points[i].my_vertices_ids.clone() {
-                    if vid >= self.vertices.len() {
+        for i in 0..self.points.len() {
+            for vid in self.points[i].my_vertices_ids.clone() {
+                if vid >= self.vertices.len() {
+                    continue;
+                }
+                let v = &self.vertices[vid];
+                if v.is_corner() {
+                    continue;
+                }
+                for g in (0..=3).rev() {
+                    let gref = v.resolved_generator_ref(g);
+                    if !gref.is_valid() || gref.kind != GeneratorKind::Point {
                         continue;
                     }
-                    let v = &self.vertices[vid];
-                    for g in 0..=3 {
-                        let gref = v.generator_refs[g];
-                        if !gref.is_valid() || gref.kind != GeneratorKind::Point {
-                            continue;
-                        }
-                        if gref.index == i || gref.index >= self.points.len() {
-                            continue;
-                        }
-                        if self.points[gref.index].visited_as == i as i32 {
-                            continue;
-                        }
-                        self.points[gref.index].visited_as = i as i32;
+                    if gref.index == i || gref.index >= self.points.len() {
+                        continue;
+                    }
+                    if self.points[gref.index].visited_as < i as i32 {
                         self.points[i].neighbours_ids.push(gref.index);
+                        self.points[gref.index].visited_as = i as i32;
                     }
                 }
             }
         }
+        // Temporary compatibility fallback while full insertion topology is not fully ported:
+        // if a cell has no vertex-derived neighbours, fall back to overlap adjacency.
         for i in 0..self.points.len() {
             if !self.points[i].neighbours_ids.is_empty() {
                 continue;
@@ -1011,6 +1012,7 @@ where
                     if refg.kind == GeneratorKind::Point
                         && refg.index < self.points.len()
                         && refg.index != current_id
+                        && self.points[refg.index].visited_as != 0
                         && self.points[refg.index].visited_as <= current_id as i32
                     {
                         self.points[current_id].neighbours_ids.push(refg.index);
