@@ -179,6 +179,11 @@ where
     pub fn resolved_generator_ref(&self, g: usize) -> GeneratorRef {
         self.generator_refs[g]
     }
+
+    pub fn powerdiff3d(&self, a_cell: &Cell<Scalar>, b_cell: &Cell<Scalar>) -> Scalar {
+        -b_cell.r2 + a_cell.r2 - (a_cell.position - b_cell.position).norm_squared()
+            + Scalar::from_f64(2.0).unwrap() * (a_cell.position - b_cell.position).dot(&(self.position - b_cell.position))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -638,6 +643,7 @@ where
             return false;
         }
         self.clear_interna();
+        self.collect_replaced_and_involved(point_id);
         self.push_involved(GeneratorRef::new(GeneratorKind::Point, point_id));
         self.push_involved(GeneratorRef::new(GeneratorKind::Point, representative));
         self.points[point_id].bond_to_id = representative;
@@ -649,6 +655,43 @@ where
             self.points[representative].neighbours_ids.push(point_id);
         }
         true
+    }
+
+    fn collect_replaced_and_involved(&mut self, point_id: usize) {
+        if point_id >= self.points.len() {
+            return;
+        }
+        let insertion = self.points[point_id].clone();
+        for vi in 0..self.n_vertices.min(self.vertices.len()) {
+            if self.vertices[vi].invalid {
+                continue;
+            }
+            let mut base_ref = GeneratorRef::invalid();
+            for g in 0..=3 {
+                let refg = self.vertices[vi].resolved_generator_ref(g);
+                if self.ref_is_real_point(refg) {
+                    base_ref = refg;
+                    break;
+                }
+            }
+            if !self.ref_is_real_point(base_ref) {
+                continue;
+            }
+            let base = self.points[base_ref.index].clone();
+            self.vertices[vi].rrv = self.vertices[vi].powerdiff3d(&base, &insertion);
+            if self.below_neg_power_err(self.vertices[vi].rrv) {
+                self.replaced_ids.push(vi);
+                for g in 0..=3 {
+                    let refg = self.vertices[vi].resolved_generator_ref(g);
+                    if !self.valid_generator_ref(refg) || refg.kind != GeneratorKind::Point {
+                        continue;
+                    }
+                    if !self.involved_refs.contains(&refg) {
+                        self.push_involved(refg);
+                    }
+                }
+            }
+        }
     }
 
     fn find_replaced_vertex_corner(&self, point_id: usize) -> Option<usize> {
