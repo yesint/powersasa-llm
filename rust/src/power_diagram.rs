@@ -288,6 +288,8 @@ where
 
     pub fn from_params(params: PowerDiagramParams<Scalar>) -> Self {
         let center = (params.highest_corner + params.lowest_corner) * Scalar::from_f64(0.5).unwrap();
+        let cube_lowest = params.lowest_corner - center;
+        let cube_highest = params.highest_corner - center;
 
         let mut points = Vec::with_capacity(params.size);
         for i in 0..params.size {
@@ -332,6 +334,7 @@ where
             planes: vec![EdgeEnds::default(); 64 * 64],
         };
 
+        this.build_cube(cube_lowest, cube_highest);
         if params.create_vertices {
             this.build_vertices(this.points.len());
         }
@@ -348,8 +351,85 @@ where
         this
     }
 
+    fn clear_interna(&mut self) {
+        self.replaced_ids.clear();
+        self.involved_refs.clear();
+    }
+
+    fn insert_first(&mut self) {
+        self.clear_interna();
+        if self.points.is_empty() || self.vertices.len() < 8 {
+            return;
+        }
+        for i in 0..8 {
+            self.vertices[i].power_value = self.points[0].power(self.vertices[i].position);
+            self.vertices[i].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, 0);
+            self.points[0].my_vertices_ids.push(i);
+            self.corner_owners[i] = 0;
+        }
+    }
+
+    fn build_cube(&mut self, lowest: Vector3<Scalar>, highest: Vector3<Scalar>) {
+        self.n_vertices = 1 << 3;
+        self.side_generators.clear();
+        for _ in 0..6 {
+            self.side_generators.push(Cell::new(Vector3::zeros(), Scalar::zero()));
+        }
+        self.vertices.clear();
+        self.vertices.resize(self.n_vertices, Vertex::default());
+
+        let mut lhc = lowest;
+        self.vertices[0].position = lowest;
+        self.vertices[0].invalid = false;
+        self.vertices[0].rrv = Scalar::zero();
+        for j in (0..3).rev() {
+            self.vertices[0].generator_refs[j + 1] = GeneratorRef::new(GeneratorKind::Side, j);
+        }
+
+        for i in 1..8 {
+            let mut j = 0usize;
+            while lhc[j] == highest[j] {
+                lhc[j] = lowest[j];
+                j += 1;
+                if j >= 3 {
+                    break;
+                }
+            }
+            if j < 3 {
+                lhc[j] = highest[j];
+            }
+            self.vertices[i].position = lhc;
+            self.vertices[i].invalid = false;
+            self.vertices[i].rrv = Scalar::zero();
+            for j in (0..3).rev() {
+                let side_idx = if lhc[j] == lowest[j] { j } else { j + 3 };
+                self.vertices[i].generator_refs[j + 1] = GeneratorRef::new(GeneratorKind::Side, side_idx);
+            }
+        }
+
+        for i in 0..8 {
+            for d in 0..3 {
+                let j = if (i >> d) % 2 == 1 { i - (1 << d) } else { i + (1 << d) };
+                self.vertices[i].end_point_ids[d + 1] = j;
+            }
+            self.vertices[i].end_point_ids[0] = GeneratorRef::INVALID_ID;
+        }
+    }
+
     fn build_vertices(&mut self, _n: usize) {
-        self.n_vertices = 0;
+        if self.points.is_empty() {
+            self.n_vertices = 0;
+            return;
+        }
+        self.maxr2 = self.points[0].r2;
+        for p in &self.points {
+            if p.r2 > self.maxr2 {
+                self.maxr2 = p.r2;
+            }
+        }
+        self.power_err = Scalar::from_f64(1000.0).unwrap() * Self::error(self.maxr2);
+        self.insert_first();
+        // Incremental insertion for points[1..] pending full port.
     }
 
     pub fn recalculate(
@@ -442,7 +522,21 @@ where
             p.my_vertices_ids.clear();
             p.my_zero_points.clear();
         }
-        // Full geometric reconstruction pending: this method will be populated by vertex ownership extraction.
+        for vi in 0..self.n_vertices.min(self.vertices.len()) {
+            let vtx = &self.vertices[vi];
+            if vtx.invalid {
+                continue;
+            }
+            if vtx.end_point_ids[0] == GeneratorRef::INVALID_ID {
+                continue;
+            }
+            for g in 0..=3 {
+                let refg = vtx.generator_refs[g];
+                if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
+                    self.points[refg.index].my_vertices_ids.push(vi);
+                }
+            }
+        }
     }
 
     pub fn fill_all_neighbours(&mut self) {
