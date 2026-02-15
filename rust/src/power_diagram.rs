@@ -694,6 +694,7 @@ where
                 }
             }
         }
+        self.compact_unused_vertices();
         for c in 0..8.min(self.vertices.len()) {
             let corner_pos = self.vertices[c].position;
             let mut owner = 0usize;
@@ -709,6 +710,51 @@ where
             self.vertices[c].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner);
             self.vertices[c].power_value = best_power;
         }
+    }
+
+    fn move_vertex_network_update_only(&mut self, from_id: usize, to_id: usize) {
+        if from_id >= self.vertices.len() || to_id >= self.vertices.len() {
+            return;
+        }
+        let moved = self.vertices[from_id].clone();
+        let endpoint_dim = moved.resolved_endpoint_id(3);
+        if endpoint_dim != GeneratorRef::INVALID_ID && endpoint_dim < self.vertices.len() {
+            let slot = self.vertices[endpoint_dim].endpoint_slot_to(from_id);
+            self.set_vertex_endpoint_deferred(endpoint_dim, slot, to_id);
+        }
+        for g in 0..3 {
+            let endpoint_id = moved.resolved_endpoint_id(g);
+            if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id >= self.vertices.len() {
+                continue;
+            }
+            let slot = self.vertices[endpoint_id].endpoint_slot_to(from_id);
+            self.set_vertex_endpoint_deferred(endpoint_id, slot, to_id);
+        }
+        self.vertices[to_id] = moved;
+    }
+
+    fn compact_unused_vertices(&mut self) {
+        self.unused.sort_unstable();
+        let mut idx = self.unused.len();
+        while idx > 0 {
+            idx -= 1;
+            let unused_id = self.unused[idx];
+            if self.n_vertices == 0 {
+                break;
+            }
+            if unused_id == GeneratorRef::INVALID_ID || unused_id >= self.vertices.len() || unused_id >= self.n_vertices {
+                continue;
+            }
+            if unused_id != self.n_vertices - 1 {
+                let source_id = self.n_vertices - 1;
+                self.n_vertices -= 1;
+                self.move_vertex_network_update_only(source_id, unused_id);
+            } else {
+                self.n_vertices -= 1;
+            }
+        }
+        self.unused.clear();
+        self.n_unused = 0;
     }
 
     fn prepare_insertion(&mut self, point_id: usize) -> Option<usize> {
