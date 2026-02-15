@@ -904,8 +904,16 @@ where
             if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
                 continue;
             }
-            self.points[involved.index].neighbours_ids.clear();
-            self.points[involved.index].visited_as = -1;
+            let current_id = involved.index;
+            let mut k = 0usize;
+            while k < self.points[current_id].neighbours_ids.len() {
+                let nb = self.points[current_id].neighbours_ids[k];
+                if nb >= self.points.len() || self.points[nb].visited_as == -1 {
+                    self.points[current_id].neighbours_ids.remove(k);
+                } else {
+                    k += 1;
+                }
+            }
         }
 
         for i in 0..self.involved_refs.len() {
@@ -928,10 +936,10 @@ where
                     if refg.kind == GeneratorKind::Point
                         && refg.index < self.points.len()
                         && refg.index != current_id
-                        && self.points[refg.index].visited_as != current_id as i32
+                        && self.points[refg.index].visited_as <= current_id as i32
                     {
                         self.points[current_id].neighbours_ids.push(refg.index);
-                        self.points[refg.index].visited_as = current_id as i32;
+                        self.points[refg.index].visited_as = current_id as i32 + 1;
                     }
                 }
             }
@@ -942,6 +950,13 @@ where
             if involved.kind == GeneratorKind::Point && involved.index < self.points.len() {
                 self.points[involved.index].visited_as = 0;
             }
+        }
+    }
+
+    pub fn clear_all_my_vertices(&mut self) {
+        for p in &mut self.points {
+            p.my_vertices_ids.clear();
+            p.my_zero_points.clear();
         }
     }
 
