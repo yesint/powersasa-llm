@@ -806,40 +806,7 @@ where
                 return None;
             }
         }
-
-        let insertion_pos = self.points[point_id].position;
-        {
-            let hint_vertex = &self.vertices[hint_id];
-            let mut best_cell = GeneratorRef::INVALID_ID;
-            let mut best_power = Scalar::zero();
-            for g in 0..=3 {
-                let refg = hint_vertex.resolved_generator_ref(g);
-                if refg.kind != GeneratorKind::Point || refg.index >= self.points.len() || refg.index == point_id {
-                    continue;
-                }
-                let p = self.points[refg.index].power(insertion_pos);
-                if best_cell == GeneratorRef::INVALID_ID || p < best_power {
-                    best_cell = refg.index;
-                    best_power = p;
-                }
-            }
-            if best_cell != GeneratorRef::INVALID_ID {
-                return Some(hint_id);
-            }
-        }
-        if let Some(id) = self.find_cell_inside_cube(self.points[point_id].position, None) {
-            let _ = id;
-            return Some(hint_id);
-        }
-        if let Some(owner) = self
-            .find_replaced_vertex_corner(point_id)
-            .and_then(|corner_id| self.corner_owners.get(corner_id).copied())
-            .filter(|&owner| owner < self.points.len())
-        {
-            let _ = owner;
-            return Some(hint_id);
-        }
-        None
+        Some(hint_id)
     }
 
     fn get_representative_vertex(&self, start_id: usize) -> usize {
