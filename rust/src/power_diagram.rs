@@ -571,30 +571,43 @@ where
     }
 
     pub fn fill_all_neighbours(&mut self) {
+        let has_any_my_vertices = self.points.iter().any(|p| !p.my_vertices_ids.is_empty());
         for p in &mut self.points {
             p.neighbours_ids.clear();
             p.visited_as = -1;
         }
 
-        for i in 0..self.points.len() {
-            for vid in self.points[i].my_vertices_ids.clone() {
-                if vid >= self.vertices.len() {
-                    continue;
+        if has_any_my_vertices {
+            for i in 0..self.points.len() {
+                for vid in self.points[i].my_vertices_ids.clone() {
+                    if vid >= self.vertices.len() {
+                        continue;
+                    }
+                    let v = &self.vertices[vid];
+                    for g in 0..=3 {
+                        let gref = v.generator_refs[g];
+                        if !gref.is_valid() || gref.kind != GeneratorKind::Point {
+                            continue;
+                        }
+                        if gref.index == i || gref.index >= self.points.len() {
+                            continue;
+                        }
+                        if self.points[gref.index].visited_as == i as i32 {
+                            continue;
+                        }
+                        self.points[gref.index].visited_as = i as i32;
+                        self.points[i].neighbours_ids.push(gref.index);
+                    }
                 }
-                let v = &self.vertices[vid];
-                for g in 0..=3 {
-                    let gref = v.generator_refs[g];
-                    if !gref.is_valid() || gref.kind != GeneratorKind::Point {
-                        continue;
+            }
+        } else {
+            for i in 0..self.points.len() {
+                for j in (i + 1)..self.points.len() {
+                    let dist = (self.points[j].position - self.points[i].position).norm();
+                    if dist <= self.points[i].r + self.points[j].r {
+                        self.points[i].neighbours_ids.push(j);
+                        self.points[j].neighbours_ids.push(i);
                     }
-                    if gref.index == i || gref.index >= self.points.len() {
-                        continue;
-                    }
-                    if self.points[gref.index].visited_as == i as i32 {
-                        continue;
-                    }
-                    self.points[gref.index].visited_as = i as i32;
-                    self.points[i].neighbours_ids.push(gref.index);
                 }
             }
         }
