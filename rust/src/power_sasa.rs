@@ -156,11 +156,19 @@ where
             }
         }
 
-        PowerDiagram::create(
-            coords.len(),
-            coords.iter().cloned(),
-            radii.iter().copied(),
-            bond_to.into_iter(),
+        PowerDiagram::from_params(
+            PowerDiagram::create(
+                coords.len(),
+                coords.iter().cloned(),
+                radii.iter().copied(),
+                bond_to.into_iter(),
+            )
+            .with_radii_given(true)
+            .with_calculate(true)
+            .with_cells(true)
+            .with_zero_points(true)
+            .with_warnings(false)
+            .without_check(true),
         )
     }
 
