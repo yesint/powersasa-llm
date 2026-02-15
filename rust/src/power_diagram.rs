@@ -850,7 +850,9 @@ where
         if !self.create_finite_vertices_from_replaced() {
             return false;
         }
-        self.connect_new_finites_among_themselves_3d();
+        if !self.connect_new_finites_among_themselves_3d() {
+            return false;
+        }
         self.update_unused();
         self.assign_representative_vertices_to_cells(hint_id);
         self.set_involved_persisting_visited_to_zero();
@@ -1277,10 +1279,10 @@ where
         true
     }
 
-    fn connect_new_finites_among_themselves_3d(&mut self) {
+    fn connect_new_finites_among_themselves_3d(&mut self) -> bool {
         let involved_count = self.involved_refs.len();
         if involved_count == 0 {
-            return;
+            return true;
         }
         let needed = involved_count * involved_count;
         if needed > self.planes.len() {
@@ -1293,7 +1295,7 @@ where
 
         let involved_front_id = self.involved_id_at(0);
         if involved_front_id == GeneratorRef::INVALID_ID {
-            return;
+            return false;
         }
         for vertex_idx in 0..8.min(self.vertices.len()) {
             if self.vertices[vertex_idx].rrv > Scalar::zero() {
@@ -1307,32 +1309,35 @@ where
             if vid == GeneratorRef::INVALID_ID || vid >= self.vertices.len() {
                 continue;
             }
-            self.register_vertex_for_connection_3d(vid);
+            if !self.register_vertex_for_connection_3d(vid) {
+                return false;
+            }
         }
+        true
     }
 
-    fn register_vertex_for_connection_3d(&mut self, self_id: usize) {
+    fn register_vertex_for_connection_3d(&mut self, self_id: usize) -> bool {
         if self_id >= self.vertices.len() || self.involved_refs.is_empty() {
-            return;
+            return false;
         }
         let g1_ref = self.vertices[self_id].resolved_generator_ref(1);
         let g2_ref = self.vertices[self_id].resolved_generator_ref(2);
         let g3_ref = self.vertices[self_id].resolved_generator_ref(3);
         if !self.valid_generator_ref(g1_ref) || !self.valid_generator_ref(g2_ref) || !self.valid_generator_ref(g3_ref) {
-            return;
+            return false;
         }
         let g1 = self.generator_visited_as(g1_ref);
         let g2 = self.generator_visited_as(g2_ref);
         let g3 = self.generator_visited_as(g3_ref);
         if g1 < 0 || g2 < 0 || g3 < 0 {
-            return;
+            return false;
         }
         let n = self.involved_refs.len();
         let i1 = g1 as usize;
         let i2 = g2 as usize;
         let i3 = g3 as usize;
         if i1 >= n || i2 >= n || i3 >= n {
-            return;
+            return false;
         }
         let idx_a = i2 * n + i1;
         let idx_b = i3 * n + i1;
@@ -1352,6 +1357,7 @@ where
             edge.store_or_connect(self, self_id, 1);
             self.planes[idx_c] = edge;
         }
+        true
     }
 
     fn erase_cell_my_vertex_by_id(&mut self, r#ref: GeneratorRef, id: usize) {
