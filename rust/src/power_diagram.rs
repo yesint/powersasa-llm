@@ -814,19 +814,34 @@ where
             if vtx.invalid {
                 continue;
             }
-            if vtx.end_point_ids[0] == GeneratorRef::INVALID_ID {
-                continue;
-            }
             let refs = vtx.generator_refs;
-            for g in 0..=3 {
-                let refg = refs[g];
-                if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
-                    self.points[refg.index].my_vertices_ids.push(vi);
-                    if from_point > 0 && self.points[refg.index].visited_as == 0 {
-                        self.points[refg.index].visited_as = -1;
-                        self.push_involved(GeneratorRef::new(GeneratorKind::Point, refg.index));
+            let is_corner = vtx.end_point_ids[0] == GeneratorRef::INVALID_ID;
+            if !self.has_virtual_generators(vtx) {
+                for &refg in &refs {
+                    if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
+                        self.points[refg.index].my_vertices_ids.push(vi);
+                        if from_point > 0 && self.points[refg.index].visited_as == 0 {
+                            self.points[refg.index].visited_as = -1;
+                            self.push_involved(GeneratorRef::new(GeneratorKind::Point, refg.index));
+                        }
                     }
                 }
+            } else if !is_corner {
+                for &refg in &refs {
+                    if refg.kind == GeneratorKind::Side {
+                        break;
+                    }
+                    if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
+                        self.points[refg.index].my_vertices_ids.push(vi);
+                        if from_point > 0 && self.points[refg.index].visited_as == 0 {
+                            self.points[refg.index].visited_as = -1;
+                            self.push_involved(GeneratorRef::new(GeneratorKind::Point, refg.index));
+                        }
+                    }
+                }
+            } else if !self.params.without_check {
+                // Mirrors C++ assert path: corners should not be propagated to SASA ownership sets.
+                return;
             }
         }
     }
