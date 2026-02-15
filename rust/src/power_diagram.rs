@@ -1064,6 +1064,10 @@ where
         let pwr = self.points[involved_front_id].power(self.vertices[self_id].position);
         self.vertices[self_id].power_value = pwr;
         self.vertices[self_id].invalid = false;
+        if self.within_power_err(self.vertices[self_id].power_value) {
+            self.vertices[self_id].invalid = true;
+            return true;
+        }
 
         for g in (1..=3).rev() {
             let src = g - usize::from(g <= keep);
