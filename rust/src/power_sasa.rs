@@ -371,21 +371,25 @@ where
         costheta: Scalar,
         ang: &mut [Scalar],
     ) -> Result<(), PowerSasaError> {
-        let mut pu0 = Vector3::zeros();
-        if e[0].abs() > Self::axis_component_threshold() {
-            pu0 = Vector3::new(-(e[1] + e[2]) / e[0], Scalar::one(), Scalar::one());
-        } else if e[1].abs() > Self::axis_component_threshold() {
-            pu0 = Vector3::new(Scalar::one(), -(e[0] + e[2]) / e[1], Scalar::one());
-        } else if e[2].abs() > Self::axis_component_threshold() {
-            pu0 = Vector3::new(Scalar::one(), Scalar::one(), -(e[0] + e[1]) / e[2]);
+        if np <= 0 {
+            return Ok(());
         }
-
-        pu0 /= pu0.norm();
-        pu0 = pu0 * sintheta + e * costheta;
-
-        for j in 0..(np as usize) {
-            let p_idx = p[j] as usize;
-            let pu = self.vx[p_idx];
+        let n = np as usize;
+        if n > p.len() || n > ang.len() {
+            return Err(PowerSasaError);
+        }
+        ang[0] = Scalar::zero();
+        let p0 = p[0] as usize;
+        if p0 >= self.vx.len() {
+            return Err(PowerSasaError);
+        }
+        let pu0 = (self.vx[p0] - e * costheta) / sintheta;
+        for j in 1..n {
+            let pj = p[j] as usize;
+            if pj >= self.vx.len() {
+                return Err(PowerSasaError);
+            }
+            let pu = (self.vx[pj] - e * costheta) / sintheta;
             ang[j] = self.ang_about(pu0, pu, e)?;
         }
         Ok(())
@@ -399,62 +403,81 @@ where
         p: &[i32],
         e: Vector3<Scalar>,
     ) -> Result<(), PowerSasaError> {
+        if n <= 0 {
+            return Ok(());
+        }
         let n_usize = n as usize;
-        if self.rang.len() < n_usize {
+        if n_usize > ang.len() || n_usize > next.len() || n_usize > p.len() {
+            return Err(PowerSasaError);
+        }
+        if self.rang.len() < n_usize || self.pos.len() < n_usize {
             self.resize_pnt(n_usize);
         }
-
         let two_pi = Scalar::from_f64(2.0).unwrap() * Scalar::pi();
-        for j in 0..n_usize {
-            if ang[j] > two_pi - Self::dang() {
-                ang[j] = Scalar::zero();
+
+        for j in 1..n_usize {
+            if ang[j] <= two_pi - Self::dang() {
+                continue;
             }
-            self.rang[j] = 0;
-            self.pos[j] = -1;
+            let pj = p[j] as usize;
+            let p0 = p[0] as usize;
+            if pj >= self.vx.len() || p0 >= self.vx.len() {
+                return Err(PowerSasaError);
+            }
+            let dp = self.vx[pj].cross(&self.vx[p0]).dot(&e);
+            if dp < Scalar::zero() {
+                ang[j] = Scalar::zero();
+            } else if dp == Scalar::zero() {
+                return Err(PowerSasaError);
+            }
         }
 
-        for j in 0..n_usize {
-            for k in 0..n_usize {
+        self.rang[0] = 0;
+        if n_usize > 1 {
+            self.rang[1] = 1;
+        }
+        for j in 2..n_usize {
+            let mut m = j as i32;
+            for k in 1..j {
                 if ang[k] > ang[j] + Self::dang() {
-                    self.rang[j] += 1;
+                    self.rang[k] += 1;
+                    m -= 1;
                 } else if ang[k] > ang[j] - Self::dang() {
-                    self.rang[j] += 0;
+                    let pj = p[j] as usize;
+                    let pk = p[k] as usize;
+                    if pj >= self.vx.len() || pk >= self.vx.len() {
+                        return Err(PowerSasaError);
+                    }
+                    let dp = self.vx[pj].cross(&self.vx[pk]).dot(&e);
+                    if dp > Scalar::zero() {
+                        self.rang[k] += 1;
+                        m -= 1;
+                    } else if dp == Scalar::zero() {
+                        return Err(PowerSasaError);
+                    }
                 }
             }
-            let rank = self.rang[j] as usize;
-            if rank >= n_usize || self.pos[rank] != -1 {
-                return Err(PowerSasaError);
-            }
-            self.pos[rank] = j as i32;
+            self.rang[j] = m;
         }
 
         for j in 0..n_usize {
-            if self.pos[j] < 0 {
+            self.pos[j] = -1;
+        }
+        for j in 0..n_usize {
+            let rj = self.rang[j];
+            if rj < 0 || (rj as usize) >= n_usize {
                 return Err(PowerSasaError);
             }
-            let to = if j + 1 < n_usize {
-                self.pos[j + 1]
+            self.pos[rj as usize] = j as i32;
+        }
+        for j in 0..n_usize {
+            let rj = self.rang[j];
+            if rj == (n_usize as i32 - 1) {
+                next[j] = self.pos[0];
             } else {
-                self.pos[0]
-            };
-            let idx = self.pos[j] as usize;
-            if idx >= next.len() {
-                return Err(PowerSasaError);
-            }
-            next[idx] = to;
-        }
-
-        for j in 0..n_usize {
-            if next[j] < 0 || next[j] >= n {
-                return Err(PowerSasaError);
-            }
-            let jj = p[j] as usize;
-            let kk = p[next[j] as usize] as usize;
-            if (self.vx[jj].cross(&self.vx[kk]).dot(&e)).abs() < Self::dang() {
-                return Err(PowerSasaError);
+                next[j] = self.pos[(rj + 1) as usize];
             }
         }
-
         Ok(())
     }
 
@@ -626,6 +649,7 @@ where
         }
 
         let mut nvx = 0_usize;
+        let pd_vertices = self.power_diagram.get_vertices().to_vec();
         let mut partner = [0_i32; 2];
         for zp_i in self.power_diagram.get_points()[iatom].my_zero_points.clone() {
             if zp_i < 0 {
@@ -635,11 +659,11 @@ where
             if zp_idx >= self.power_diagram.get_zero_points().len() {
                 continue;
             }
-            let zp = &self.power_diagram.get_zero_points()[zp_idx];
-            if !self.power_diagram.zero_point_valid(zp) {
+            let zp = self.power_diagram.get_zero_points()[zp_idx].clone();
+            if !self.power_diagram.zero_point_valid(&zp) {
                 continue;
             }
-            let zp_pos = self.power_diagram.zero_point_pos(zp);
+            let zp_pos = self.power_diagram.zero_point_pos(&zp);
             let mut ptn = 0_usize;
             for kg in 0..3 {
                 let zp_generator_ref = zp.generator_refs[kg];
@@ -688,9 +712,79 @@ where
             nvx += 1;
             self.np[ptn0] += 1;
             self.np[ptn1] += 1;
+
+            if self.with_vol {
+                let node1_id = zp.from_id;
+                if node1_id == crate::power_diagram::GeneratorRef::INVALID_ID || node1_id >= pd_vertices.len() {
+                    return Err(PowerSasaError);
+                }
+                let node1 = &pd_vertices[node1_id];
+                let node2_id = node1.end_point_ids[zp.branch as usize];
+                if node2_id == crate::power_diagram::GeneratorRef::INVALID_ID || node2_id >= pd_vertices.len() {
+                    return Err(PowerSasaError);
+                }
+                let node2 = &pd_vertices[node2_id];
+
+                if node1.power_value < Scalar::zero() && node2.power_value > Scalar::zero() {
+                    if !self.fknot[ptn0] {
+                        self.fknot[ptn0] = true;
+                        self.knot[ptn0] = node1.position;
+                    } else {
+                        self.volnb[ptn0] +=
+                            (node1.position - self.knot[ptn0]).cross(&(zp_pos - self.knot[ptn0])).dot(&self.e[ptn0]).abs();
+                    }
+                    if !self.fknot[ptn1] {
+                        self.fknot[ptn1] = true;
+                        self.knot[ptn1] = node1.position;
+                    } else {
+                        self.volnb[ptn1] +=
+                            (node1.position - self.knot[ptn1]).cross(&(zp_pos - self.knot[ptn1])).dot(&self.e[ptn1]).abs();
+                    }
+                } else if node1.power_value > Scalar::zero() && node2.power_value < Scalar::zero() {
+                    if !self.fknot[ptn0] {
+                        self.fknot[ptn0] = true;
+                        self.knot[ptn0] = node2.position;
+                    } else {
+                        self.volnb[ptn0] +=
+                            (node2.position - self.knot[ptn0]).cross(&(zp_pos - self.knot[ptn0])).dot(&self.e[ptn0]).abs();
+                    }
+                    if !self.fknot[ptn1] {
+                        self.fknot[ptn1] = true;
+                        self.knot[ptn1] = node2.position;
+                    } else {
+                        self.volnb[ptn1] +=
+                            (node2.position - self.knot[ptn1]).cross(&(zp_pos - self.knot[ptn1])).dot(&self.e[ptn1]).abs();
+                    }
+                } else if node1.power_value > Scalar::zero() && node2.power_value > Scalar::zero() {
+                    let denom =
+                        node2.power_value * zp.pos + node1.power_value * (Scalar::one() - zp.pos);
+                    if denom == Scalar::zero() {
+                        return Err(PowerSasaError);
+                    }
+                    let dpos = node1.power_value * (Scalar::one() - zp.pos) / denom - zp.pos;
+                    let half = Scalar::from_f64(0.5).unwrap();
+                    if !self.fknot[ptn0] {
+                        self.fknot[ptn0] = true;
+                        self.knot[ptn0] = zp_pos;
+                    } else {
+                        self.volnb[ptn0] +=
+                            (half * dpos * (zp_pos - self.knot[ptn0]).cross(&(node2.position - node1.position)).dot(&self.e[ptn0]))
+                                .abs();
+                    }
+                    if !self.fknot[ptn1] {
+                        self.fknot[ptn1] = true;
+                        self.knot[ptn1] = zp_pos;
+                    } else {
+                        self.volnb[ptn1] +=
+                            (half * dpos * (zp_pos - self.knot[ptn1]).cross(&(node2.position - node1.position)).dot(&self.e[ptn1]))
+                                .abs();
+                    }
+                } else {
+                    return Err(PowerSasaError);
+                }
+            }
         }
 
-        let pd_vertices = self.power_diagram.get_vertices().to_vec();
         for node1_id in my_vertices_ids.iter().copied() {
             if node1_id >= pd_vertices.len() {
                 continue;

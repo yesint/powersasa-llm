@@ -563,11 +563,7 @@ where
                     break;
                 }
 
-                let error_scale = if self.insertion_error_scale > Scalar::zero() {
-                    self.insertion_error_scale
-                } else {
-                    self.power_err
-                };
+                let error_scale = self.insertion_error_scale;
 
                 let mut identical_point_id = GeneratorRef::INVALID_ID;
                 done += 1;
@@ -736,7 +732,7 @@ where
             if self.n_vertices == 0 {
                 break;
             }
-            if unused_id == GeneratorRef::INVALID_ID || unused_id >= self.vertices.len() || unused_id >= self.n_vertices {
+            if unused_id == GeneratorRef::INVALID_ID || unused_id >= self.vertices.len() {
                 continue;
             }
             if unused_id != self.n_vertices - 1 {
@@ -755,7 +751,6 @@ where
         if point_id >= self.points.len() {
             return None;
         }
-        let insertion = self.points[point_id].clone();
         let mut hint_id = self.get_representative_vertex(self.points[point_id].bond_to_id);
         if hint_id >= self.vertices.len() {
             hint_id = 0;
@@ -767,15 +762,20 @@ where
         let mut value = {
             let base_ref = self.vertices[hint_id].resolved_generator_ref(0);
             let base = self.get_generator(base_ref).clone();
+            let insertion = self.points[point_id].clone();
             self.vertices[hint_id].powerdiff3d(&base, &insertion)
         };
-        self.find_replaced_vertex(&mut hint_id, &mut value, &insertion);
+        {
+            let insertion = self.points[point_id].clone();
+            self.find_replaced_vertex(&mut hint_id, &mut value, &insertion);
+        }
 
         let mut done: u32 = 1;
         loop {
             if done != 1 {
                 let base_ref = self.vertices[hint_id].resolved_generator_ref(0);
                 let base = self.get_generator(base_ref).clone();
+                let insertion = self.points[point_id].clone();
                 value = self.vertices[hint_id].powerdiff3d(&base, &insertion);
                 self.find_replaced_vertex(&mut hint_id, &mut value, &insertion);
             }
@@ -820,6 +820,7 @@ where
         let mut current_id = start_id;
         while current_id != GeneratorRef::INVALID_ID && current_id < self.points.len() {
             let current = &self.points[current_id];
+            let mut first_connected = GeneratorRef::INVALID_ID;
             for &vid in &current.my_vertices_ids {
                 if vid == GeneratorRef::INVALID_ID || vid >= self.vertices.len() {
                     continue;
@@ -828,12 +829,18 @@ where
                 if !candidate.is_connected() {
                     continue;
                 }
+                if first_connected == GeneratorRef::INVALID_ID {
+                    first_connected = vid;
+                }
                 for g in 0..=3 {
                     let refg = candidate.resolved_generator_ref(g);
                     if refg.kind == GeneratorKind::Point && refg.index == current_id {
                         return vid;
                     }
                 }
+            }
+            if first_connected != GeneratorRef::INVALID_ID {
+                return first_connected;
             }
             if current.bond_to_id == current_id {
                 break;
@@ -1237,10 +1244,6 @@ where
         let pwr = self.points[involved_front_id].power(self.vertices[self_id].position);
         self.vertices[self_id].power_value = pwr;
         self.vertices[self_id].invalid = false;
-        if self.within_power_err(self.vertices[self_id].power_value) {
-            self.insertion_error_scale = self.power_err;
-            return false;
-        }
 
         for g in (1..=3).rev() {
             let src = g - usize::from(g <= keep);
@@ -1257,6 +1260,10 @@ where
         }
         let slot = self.vertices[endpoint_id].endpoint_slot_to(this_id);
         self.set_vertex_endpoint_deferred(endpoint_id, slot, self_id);
+        if self.within_power_err(self.vertices[self_id].power_value) {
+            self.insertion_error_scale = self.power_err;
+            return false;
+        }
         true
     }
 
@@ -1288,10 +1295,6 @@ where
         if needed > self.planes.len() {
             self.planes.resize(needed, EdgeEnds::default());
         }
-        for p in &mut self.planes {
-            p.a_id = GeneratorRef::INVALID_ID;
-            p.a_slot = -1;
-        }
 
         let involved_front_id = self.involved_id_at(0);
         if involved_front_id == GeneratorRef::INVALID_ID {
@@ -1309,35 +1312,30 @@ where
             if vid == GeneratorRef::INVALID_ID || vid >= self.vertices.len() {
                 continue;
             }
-            if !self.register_vertex_for_connection_3d(vid) {
-                return false;
-            }
+            self.register_vertex_for_connection_3d(vid);
         }
         true
     }
 
-    fn register_vertex_for_connection_3d(&mut self, self_id: usize) -> bool {
+    fn register_vertex_for_connection_3d(&mut self, self_id: usize) {
         if self_id >= self.vertices.len() || self.involved_refs.is_empty() {
-            return false;
+            return;
         }
         let g1_ref = self.vertices[self_id].resolved_generator_ref(1);
         let g2_ref = self.vertices[self_id].resolved_generator_ref(2);
         let g3_ref = self.vertices[self_id].resolved_generator_ref(3);
-        if !self.valid_generator_ref(g1_ref) || !self.valid_generator_ref(g2_ref) || !self.valid_generator_ref(g3_ref) {
-            return false;
-        }
         let g1 = self.generator_visited_as(g1_ref);
         let g2 = self.generator_visited_as(g2_ref);
         let g3 = self.generator_visited_as(g3_ref);
         if g1 < 0 || g2 < 0 || g3 < 0 {
-            return false;
+            return;
         }
         let n = self.involved_refs.len();
         let i1 = g1 as usize;
         let i2 = g2 as usize;
         let i3 = g3 as usize;
         if i1 >= n || i2 >= n || i3 >= n {
-            return false;
+            return;
         }
         let idx_a = i2 * n + i1;
         let idx_b = i3 * n + i1;
@@ -1357,7 +1355,6 @@ where
             edge.store_or_connect(self, self_id, 1);
             self.planes[idx_c] = edge;
         }
-        true
     }
 
     fn erase_cell_my_vertex_by_id(&mut self, r#ref: GeneratorRef, id: usize) {
@@ -1604,65 +1601,196 @@ where
         strength_it: impl Iterator<Item = Scalar>,
         new_size: usize,
     ) {
-        let target_add = new_size.saturating_sub(self.points.len());
-        let pos_vec: Vec<Vector3<Scalar>> = pos_it.take(target_add).collect();
-        let str_vec: Vec<Scalar> = strength_it.take(target_add).collect();
+        let gap = if new_size < self.points.len() {
+            self.points.len() - new_size
+        } else {
+            1
+        };
+        let target_size = if new_size < self.points.len() {
+            self.points.len() + 1
+        } else {
+            new_size
+        };
+        let add_count = target_size.saturating_sub(self.points.len());
+        let pos_vec: Vec<Vector3<Scalar>> = pos_it.take(add_count).collect();
+        let str_vec: Vec<Scalar> = strength_it.take(add_count).collect();
 
         self.n_revert_vertices = self.n_vertices;
         self.n_revert_zeros = self.zeros.len();
         self.n_revert_points = self.points.len();
-        self.revert_corner_owners = self.corner_owners;
+        for c in 0..8 {
+            self.revert_corner_owners[c] = GeneratorRef::INVALID_ID;
+            if c < self.vertices.len() {
+                let r = self.vertices[c].generator_refs[0];
+                if r.kind == GeneratorKind::Point && r.index < self.points.len() {
+                    self.revert_corner_owners[c] = r.index;
+                }
+            }
+        }
 
-        for (p, s) in pos_vec.into_iter().zip(str_vec.into_iter()) {
+        for idx in 0..add_count.min(pos_vec.len()).min(str_vec.len()) {
+            let p = pos_vec[idx];
+            let s = str_vec[idx];
             if self.params.radii_given {
                 self.points.push(Cell::new(p - self.center, s));
             } else {
                 self.points.push(Cell::with_power(p - self.center, s.sqrt(), s));
             }
+            let new_idx = self.n_revert_points + idx;
+            self.points[new_idx].bond_to_id = if new_idx >= gap {
+                new_idx - gap
+            } else {
+                GeneratorRef::INVALID_ID
+            };
         }
 
-        self.build_vertices(self.points.len(), self.n_revert_points);
+        if add_count > 0 && !self.vertices.is_empty() {
+            let (lowest, highest) = get_bounding_box_with_padding(
+                &pos_vec,
+                &str_vec,
+                Scalar::zero(),
+            );
+            let mut rebuild = Vector3::zeros();
+            for d in 0..3 {
+                let low_gap = self.vertices[0].position[d] + self.center[d] - lowest[d];
+                if low_gap > rebuild[d] {
+                    rebuild[d] = low_gap;
+                }
+                let high_gap = self.vertices[7].position[d] + self.center[d] - highest[d];
+                if high_gap < rebuild[d] {
+                    rebuild[d] = -high_gap;
+                }
+            }
 
-        if self.params.fill_my_vertices {
-            self.fill_all_my_vertices_from(self.n_revert_points, self.n_revert_vertices.max(8));
+            if rebuild.norm_squared() > Scalar::zero() {
+                self.clear_all_my_vertices();
+                for vi in 0..self.n_vertices.min(self.vertices.len()) {
+                    self.vertices[vi].invalid = false;
+                    self.vertices[vi].rrv = Scalar::zero();
+                }
+
+                let cube_lowest = self.vertices[0].position - rebuild * Scalar::from_f64(2.0).unwrap();
+                let cube_highest = self.vertices[7].position + rebuild * Scalar::from_f64(2.0).unwrap();
+                self.build_cube(cube_lowest, cube_highest);
+                self.build_vertices(self.n_revert_points, 0);
+
+                if self.params.fill_my_vertices || self.params.fill_neighbours {
+                    self.fill_all_my_vertices_from(0, 8);
+                }
+                if self.params.fill_neighbours {
+                    self.fill_all_neighbours();
+                }
+                if self.params.fill_zero_points {
+                    self.fill_all_zero_points_from(8, self.n_revert_zeros);
+                }
+                self.n_revert_vertices = self.n_vertices;
+            }
+        }
+
+        self.build_vertices(target_size, self.n_revert_points);
+
+        if self.params.fill_my_vertices || self.params.fill_neighbours {
+            self.fill_all_my_vertices_from(self.n_revert_points, self.n_revert_vertices);
         }
         if self.params.fill_neighbours {
             self.fill_all_neighbours_of_involved();
         }
         if self.params.fill_zero_points {
-            self.fill_all_zero_points_from(self.n_revert_vertices.max(8), self.n_revert_zeros);
+            self.fill_all_zero_points_from(self.n_revert_vertices, self.n_revert_zeros);
         }
     }
 
     pub fn revert(&mut self) {
-        if self.n_revert_points > 0 && self.n_revert_points <= self.points.len() {
-            self.points.truncate(self.n_revert_points);
-        }
-        if self.n_revert_zeros <= self.zeros.len() {
-            self.zeros.truncate(self.n_revert_zeros);
+        let restore_corners = self.revert_corner_owners;
+        for vi in self.n_revert_vertices..self.n_vertices.min(self.vertices.len()) {
+            for gi in 1..=3 {
+                let gref = self.vertices[vi].generator_refs[gi];
+                if gref.kind == GeneratorKind::Point && gref.index < self.points.len() {
+                    self.erase_cell_my_vertex_by_id(gref, vi);
+                }
+            }
         }
         self.n_vertices = self.n_revert_vertices;
-        self.corner_owners = self.revert_corner_owners;
+        self.clear_involved();
+
+        if self.points.len() > self.n_revert_points {
+            self.points.truncate(self.n_revert_points);
+        }
         for c in 0..8.min(self.vertices.len()) {
-            let owner = self.corner_owners[c];
+            let owner = restore_corners[c];
             if owner != GeneratorRef::INVALID_ID && owner < self.points.len() {
                 self.vertices[c].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner);
                 self.vertices[c].power_value = self.points[owner].power(self.vertices[c].position);
             }
         }
-        if self.params.fill_my_vertices {
-            self.fill_all_my_vertices();
+
+        for invalid_id in self.invalids.clone() {
+            if invalid_id == GeneratorRef::INVALID_ID || invalid_id >= self.vertices.len() {
+                continue;
+            }
+            self.vertices[invalid_id].invalid = false;
+            self.vertices[invalid_id].rrv = Scalar::zero();
+            let start = if self.vertices[invalid_id].is_corner() { 1 } else { 0 };
+            for endpoint_idx in start..=3 {
+                let endpoint_id = self.vertices[invalid_id].resolved_endpoint_id(endpoint_idx);
+                if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id >= self.vertices.len() {
+                    continue;
+                }
+                let endpoint_start = if self.vertices[endpoint_id].is_corner() { 1 } else { 0 };
+                for g1 in start..=3 {
+                    for g2 in endpoint_start..=3 {
+                        let a0 = self.vertices[invalid_id].resolved_generator_ref(nth(0, g1 as i32) as usize);
+                        let a1 = self.vertices[invalid_id].resolved_generator_ref(nth(1, g1 as i32) as usize);
+                        let a2 = self.vertices[invalid_id].resolved_generator_ref(nth(2, g1 as i32) as usize);
+                        let b0 = self.vertices[endpoint_id].resolved_generator_ref(nth(0, g2 as i32) as usize);
+                        let b1 = self.vertices[endpoint_id].resolved_generator_ref(nth(1, g2 as i32) as usize);
+                        let b2 = self.vertices[endpoint_id].resolved_generator_ref(nth(2, g2 as i32) as usize);
+                        if a0 == b0 && a1 == b1 && a2 == b2 {
+                            self.set_vertex_endpoint_deferred(endpoint_id, g2, invalid_id);
+                        }
+                    }
+                }
+            }
+            for g in 0..=3 {
+                let gref = self.vertices[invalid_id].generator_refs[g];
+                if gref.kind == GeneratorKind::Point && gref.index < self.points.len() {
+                    self.points[gref.index].my_vertices_ids.push(invalid_id);
+                    if self.points[gref.index].visited_as == 0 {
+                        self.points[gref.index].visited_as = -1;
+                        self.push_involved(GeneratorRef::new(GeneratorKind::Point, gref.index));
+                    }
+                }
+            }
         }
+        self.invalids.clear();
+
         if self.params.fill_neighbours {
-            self.fill_all_neighbours();
+            self.fill_all_neighbours_of_involved();
         }
         if self.params.fill_zero_points {
-            self.fill_all_zero_points_from(8, 0);
+            for i in 0..self.involved_refs.len() {
+                let involved = self.involved_refs[i];
+                if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
+                    continue;
+                }
+                while let Some(&last) = self.points[involved.index].my_zero_points.last() {
+                    if (last as usize) > self.n_revert_zeros {
+                        self.points[involved.index].my_zero_points.pop();
+                    } else {
+                        break;
+                    }
+                }
+            }
+            if self.n_revert_zeros <= self.zeros.len() {
+                self.zeros.truncate(self.n_revert_zeros);
+            }
         }
 
+        self.corner_owners = [GeneratorRef::INVALID_ID; 8];
         self.n_revert_vertices = 0;
         self.n_revert_zeros = 0;
         self.n_revert_points = 0;
+        self.revert_corner_owners = [GeneratorRef::INVALID_ID; 8];
     }
 
     pub fn fill_all_my_vertices(&mut self) {
@@ -2002,14 +2130,9 @@ where
     }
 
     pub fn error(f: Scalar) -> Scalar {
-        let min_over_eps = Scalar::min_value().unwrap() / Scalar::default_epsilon();
-        if f > min_over_eps {
-            f * Scalar::default_epsilon()
-        } else if f < -min_over_eps {
-            -f * Scalar::default_epsilon()
-        } else {
-            min_over_eps
-        }
+        // C++ semantics rely on std::numeric_limits<T>::min() (minimum positive normal),
+        // making error() strictly non-negative and approximately |f|*eps for practical ranges.
+        f.abs() * Scalar::default_epsilon()
     }
 }
 
@@ -2020,6 +2143,18 @@ pub fn nth(n: i32, without: i32) -> i32 {
 pub fn get_bounding_box<Scalar>(
     pos: &[Vector3<Scalar>],
     strength: &[Scalar],
+) -> (Vector3<Scalar>, Vector3<Scalar>)
+where
+    Scalar: RealField + Copy,
+{
+    let additional_cube_size = Scalar::from_f64(2.0f64.powf(1.0 / 3.0) - 1.0).unwrap();
+    get_bounding_box_with_padding(pos, strength, additional_cube_size)
+}
+
+pub fn get_bounding_box_with_padding<Scalar>(
+    pos: &[Vector3<Scalar>],
+    strength: &[Scalar],
+    additional_cube_size: Scalar,
 ) -> (Vector3<Scalar>, Vector3<Scalar>)
 where
     Scalar: RealField + Copy,
@@ -2043,9 +2178,7 @@ where
     }
 
     let center = (low + high) * Scalar::from_f64(0.5).unwrap();
-    let additional_cube_size = Scalar::from_f64(2.0f64.powf(1.0 / 3.0) - 1.0).unwrap();
     low += (low - center) * additional_cube_size;
     high += (high - center) * additional_cube_size;
-
     (low, high)
 }
