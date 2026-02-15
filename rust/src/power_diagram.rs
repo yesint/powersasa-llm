@@ -25,7 +25,10 @@ impl GeneratorRef {
     pub const INVALID_ID: usize = usize::MAX;
 
     pub const fn new(kind: GeneratorKind, index: usize) -> Self {
-        Self { kind, index }
+        Self {
+            kind,
+            index,
+        }
     }
 
     pub const fn invalid() -> Self {
@@ -911,10 +914,10 @@ where
         let a = self.points[cell_id].clone();
         let b = self.get_generator(base_ref).clone();
         self.vertices[vertex_id].rrv = self.vertices[vertex_id].powerdiff3d(&a, &b);
-        if self.above_power_err(self.vertices[vertex_id].rrv) {
+        if self.vertices[vertex_id].rrv > self.power_err {
             return ReplaceState::Replaced;
         }
-        if self.below_neg_power_err(self.vertices[vertex_id].rrv) {
+        if self.vertices[vertex_id].rrv < -self.power_err {
             return ReplaceState::Persisting;
         }
         self.vertices[vertex_id].rrv = Scalar::zero();
@@ -1260,7 +1263,7 @@ where
         }
         let slot = self.vertices[endpoint_id].endpoint_slot_to(this_id);
         self.set_vertex_endpoint_deferred(endpoint_id, slot, self_id);
-        if self.within_power_err(self.vertices[self_id].power_value) {
+        if self.vertices[self_id].power_value.abs() <= self.power_err {
             self.insertion_error_scale = self.power_err;
             return false;
         }
@@ -1447,65 +1450,9 @@ where
         }
     }
 
-    fn find_replaced_vertex_corner(&self, point_id: usize) -> Option<usize> {
-        if point_id >= self.points.len() || self.vertices.is_empty() {
-            return None;
-        }
-        let insertion = &self.points[point_id];
-        let mut best_corner = None;
-        let mut best_val = Scalar::zero();
-        for c in 0..8.min(self.vertices.len()) {
-            let v = &self.vertices[c];
-            if v.invalid {
-                continue;
-            }
-            let val = insertion.power(v.position);
-            if best_corner.is_none() || val < best_val {
-                best_corner = Some(c);
-                best_val = val;
-            }
-        }
-        best_corner
-    }
-
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
         let refg = vtx.resolved_generator_ref(3);
         !self.ref_is_real_point(refg)
-    }
-
-    fn n_virtual_generators(&self, vtx: &Vertex<Scalar>) -> usize {
-        if !self.has_virtual_generators(vtx) {
-            return 0;
-        }
-        if vtx.is_corner() {
-            3
-        } else {
-            2
-        }
-    }
-
-    fn above_power_err(&self, value: Scalar) -> bool {
-        value > self.power_err
-    }
-
-    fn within_power_err(&self, value: Scalar) -> bool {
-        value.abs() <= self.power_err
-    }
-
-    fn below_power_err(&self, value: Scalar) -> bool {
-        value < self.power_err
-    }
-
-    fn below_neg_power_err(&self, value: Scalar) -> bool {
-        value < -self.power_err
-    }
-
-    fn power_err_scaled_epsilon(&self) -> Scalar {
-        self.power_err * Scalar::default_epsilon()
-    }
-
-    pub fn n_vertices_count(&self) -> usize {
-        self.n_vertices
     }
 
     fn push_zero_from_edge(&mut self, source_id: usize, branch: i32, sol: Scalar) {
@@ -1754,10 +1701,11 @@ where
             for g in 0..=3 {
                 let gref = self.vertices[invalid_id].generator_refs[g];
                 if gref.kind == GeneratorKind::Point && gref.index < self.points.len() {
-                    self.points[gref.index].my_vertices_ids.push(invalid_id);
-                    if self.points[gref.index].visited_as == 0 {
-                        self.points[gref.index].visited_as = -1;
-                        self.push_involved(GeneratorRef::new(GeneratorKind::Point, gref.index));
+                    let idx = gref.index;
+                    self.points[idx].my_vertices_ids.push(invalid_id);
+                    if self.points[idx].visited_as == 0 {
+                        self.points[idx].visited_as = -1;
+                        self.push_involved(GeneratorRef::new(GeneratorKind::Point, idx));
                     }
                 }
             }
@@ -1770,12 +1718,13 @@ where
         if self.params.fill_zero_points {
             for i in 0..self.involved_refs.len() {
                 let involved = self.involved_refs[i];
-                if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
+                if involved.kind != GeneratorKind::Point || !involved.index < self.points.len() {
                     continue;
                 }
-                while let Some(&last) = self.points[involved.index].my_zero_points.last() {
+                let involved_idx = involved.index;
+                while let Some(&last) = self.points[involved_idx].my_zero_points.last() {
                     if (last as usize) > self.n_revert_zeros {
-                        self.points[involved.index].my_zero_points.pop();
+                        self.points[involved_idx].my_zero_points.pop();
                     } else {
                         break;
                     }
@@ -1821,10 +1770,11 @@ where
             if !self.has_virtual_generators(vtx) {
                 for &refg in &refs {
                     if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
-                        self.points[refg.index].my_vertices_ids.push(vi);
-                        if from_point > 0 && self.points[refg.index].visited_as == 0 {
-                            self.points[refg.index].visited_as = -1;
-                            self.push_involved(GeneratorRef::new(GeneratorKind::Point, refg.index));
+                        let idx = refg.index;
+                        self.points[idx].my_vertices_ids.push(vi);
+                        if from_point > 0 && self.points[idx].visited_as == 0 {
+                            self.points[idx].visited_as = -1;
+                            self.push_involved(GeneratorRef::new(GeneratorKind::Point, idx));
                         }
                     }
                 }
@@ -1834,10 +1784,11 @@ where
                         break;
                     }
                     if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
-                        self.points[refg.index].my_vertices_ids.push(vi);
-                        if from_point > 0 && self.points[refg.index].visited_as == 0 {
-                            self.points[refg.index].visited_as = -1;
-                            self.push_involved(GeneratorRef::new(GeneratorKind::Point, refg.index));
+                        let idx = refg.index;
+                        self.points[idx].my_vertices_ids.push(vi);
+                        if from_point > 0 && self.points[idx].visited_as == 0 {
+                            self.points[idx].visited_as = -1;
+                            self.push_involved(GeneratorRef::new(GeneratorKind::Point, idx));
                         }
                     }
                 }
@@ -1868,12 +1819,13 @@ where
                     if !gref.is_valid() || gref.kind != GeneratorKind::Point {
                         continue;
                     }
-                    if gref.index == i || gref.index >= self.points.len() {
+                    let gidx = gref.index;
+                    if gidx == i || gidx >= self.points.len() {
                         continue;
                     }
-                    if self.points[gref.index].visited_as < i as i32 {
-                        self.points[i].neighbours_ids.push(gref.index);
-                        self.points[gref.index].visited_as = i as i32;
+                    if self.points[gidx].visited_as < i as i32 {
+                        self.points[i].neighbours_ids.push(gidx);
+                        self.points[gidx].visited_as = i as i32;
                     }
                 }
             }
@@ -1919,14 +1871,15 @@ where
                 }
                 for g in (0..=3).rev() {
                     let refg = v.resolved_generator_ref(g);
+                    let ridx = refg.index;
                     if refg.kind == GeneratorKind::Point
-                        && refg.index < self.points.len()
-                        && refg.index != current_id
-                        && self.points[refg.index].visited_as != 0
-                        && self.points[refg.index].visited_as <= current_id as i32
+                        && ridx < self.points.len()
+                        && ridx != current_id
+                        && self.points[ridx].visited_as != 0
+                        && self.points[ridx].visited_as <= current_id as i32
                     {
-                        self.points[current_id].neighbours_ids.push(refg.index);
-                        self.points[refg.index].visited_as = current_id as i32 + 1;
+                        self.points[current_id].neighbours_ids.push(ridx);
+                        self.points[ridx].visited_as = current_id as i32 + 1;
                     }
                 }
             }
@@ -1987,7 +1940,7 @@ where
                     if rootsq <= Scalar::zero() {
                         continue;
                     }
-                    if self.below_power_err(quot) && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
+                    if quot < self.power_err && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
                         continue;
                     }
                     let rootquot = rootsq.sqrt() / quot;
@@ -2018,7 +1971,7 @@ where
                     if rootsq <= Scalar::zero() {
                         continue;
                     }
-                    if self.below_power_err(quot) && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
+                    if quot < self.power_err && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
                         continue;
                     }
                     let rootquot = rootsq.sqrt() / quot;
@@ -2048,20 +2001,8 @@ where
         &self.points
     }
 
-    pub fn get_points_mut(&mut self) -> &mut [Cell<Scalar>] {
-        &mut self.points
-    }
-
     pub fn get_vertices(&self) -> &[Vertex<Scalar>] {
         &self.vertices
-    }
-
-    pub fn get_vertices_mut(&mut self) -> &mut [Vertex<Scalar>] {
-        &mut self.vertices
-    }
-
-    pub fn get_zeros(&self) -> &[ZeroPoint<Scalar>] {
-        &self.zeros
     }
 
     pub fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
@@ -2092,14 +2033,6 @@ where
             GeneratorKind::Point => aref.index < self.points.len(),
             GeneratorKind::Side => aref.index < self.side_generators.len(),
         }
-    }
-
-    pub fn get_points_compat(&self) -> &[Cell<Scalar>] {
-        &self.points
-    }
-
-    pub fn get_points_cpp_name(&self) -> &[Cell<Scalar>] {
-        &self.points
     }
 
     pub fn zero_point_valid(&self, zp: &ZeroPoint<Scalar>) -> bool {

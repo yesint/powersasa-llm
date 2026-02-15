@@ -559,8 +559,8 @@ where
         }
 
         for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
-            if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
-                nb.visited_as = i as i32;
+            if nb_id < self.power_diagram.get_points().len() {
+                self.power_diagram.get_cell_mut(nb_id).visited_as = i as i32;
             } else {
                 return Err(PowerSasaError);
             }
@@ -593,8 +593,8 @@ where
                     self.vol[iatom] = Scalar::zero();
                 }
                 for nb_id in neighbours_ids {
-                    if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
-                        nb.visited_as = 0;
+                    if nb_id < self.power_diagram.get_points().len() {
+                        self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                     }
                 }
                 return Ok(());
@@ -615,8 +615,8 @@ where
                     self.vol[iatom] = Scalar::zero();
                 }
                 for nb_id in neighbours_ids {
-                    if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
-                        nb.visited_as = 0;
+                    if nb_id < self.power_diagram.get_points().len() {
+                        self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                     }
                 }
                 return Ok(());
@@ -641,8 +641,8 @@ where
                 self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
             }
             for nb_id in neighbours_ids {
-                if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
-                    nb.visited_as = 0;
+                if nb_id < self.power_diagram.get_points().len() {
+                    self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                 }
             }
             return Ok(());
@@ -1101,8 +1101,8 @@ where
         }
 
         for nb_id in neighbours_ids {
-            if let Some(nb) = self.power_diagram.get_points_mut().get_mut(nb_id) {
-                nb.visited_as = 0;
+            if nb_id < self.power_diagram.get_points().len() {
+                self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
             }
         }
         Ok(())
