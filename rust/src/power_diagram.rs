@@ -473,10 +473,12 @@ where
         if self.points.is_empty() || self.vertices.len() < 8 {
             return;
         }
+        self.points[0].my_vertices_ids.clear();
         for i in 0..8 {
             self.vertices[i].power_value = self.points[0].power(self.vertices[i].position);
             self.set_vertex_generator(i, 0, GeneratorRef::new(GeneratorKind::Point, 0));
             self.corner_owners[i] = 0;
+            self.points[0].my_vertices_ids.push(i);
         }
     }
 
