@@ -160,6 +160,27 @@ where
     }
 }
 
+impl<Scalar> Vertex<Scalar>
+where
+    Scalar: RealField + Copy,
+{
+    pub fn is_corner(&self) -> bool {
+        self.end_point_ids[0] == GeneratorRef::INVALID_ID
+    }
+
+    pub fn is_connected(&self) -> bool {
+        !self.invalid
+    }
+
+    pub fn resolved_endpoint_id(&self, g: usize) -> usize {
+        self.end_point_ids[g]
+    }
+
+    pub fn resolved_generator_ref(&self, g: usize) -> GeneratorRef {
+        self.generator_refs[g]
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Cell<Scalar>
 where
@@ -608,7 +629,7 @@ where
     }
 
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
-        let refg = vtx.generator_refs[3];
+        let refg = vtx.resolved_generator_ref(3);
         !(refg.kind == GeneratorKind::Point && refg.index < self.points.len())
     }
 
@@ -616,7 +637,7 @@ where
         if !self.has_virtual_generators(vtx) {
             return 0;
         }
-        if vtx.end_point_ids[0] == GeneratorRef::INVALID_ID {
+        if vtx.is_corner() {
             3
         } else {
             2
@@ -825,7 +846,7 @@ where
                 continue;
             }
             let refs = vtx.generator_refs;
-            let is_corner = vtx.end_point_ids[0] == GeneratorRef::INVALID_ID;
+            let is_corner = vtx.is_corner();
             if !self.has_virtual_generators(vtx) {
                 for &refg in &refs {
                     if refg.kind == GeneratorKind::Point && refg.index < self.points.len() {
@@ -938,7 +959,7 @@ where
                     continue;
                 }
                 let v = &self.vertices[vid];
-                if v.end_point_ids[0] == GeneratorRef::INVALID_ID {
+                if v.is_corner() {
                     continue;
                 }
                 for g in (0..=3).rev() {
