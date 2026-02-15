@@ -1765,23 +1765,6 @@ where
                 }
             }
         }
-        // Temporary compatibility fallback while full insertion topology is not fully ported:
-        // if a cell has no vertex-derived neighbours, fall back to overlap adjacency.
-        for i in 0..self.points.len() {
-            if !self.points[i].neighbours_ids.is_empty() {
-                continue;
-            }
-            for j in 0..self.points.len() {
-                if i == j {
-                    continue;
-                }
-                let dist = (self.points[j].position - self.points[i].position).norm();
-                if dist <= self.points[i].r + self.points[j].r {
-                    self.points[i].neighbours_ids.push(j);
-                }
-            }
-        }
-
         for p in &mut self.points {
             p.visited_as = 0;
         }
