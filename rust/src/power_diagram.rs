@@ -600,14 +600,18 @@ where
                     }
                 }
             }
-        } else {
-            for i in 0..self.points.len() {
-                for j in (i + 1)..self.points.len() {
-                    let dist = (self.points[j].position - self.points[i].position).norm();
-                    if dist <= self.points[i].r + self.points[j].r {
-                        self.points[i].neighbours_ids.push(j);
-                        self.points[j].neighbours_ids.push(i);
-                    }
+        }
+        for i in 0..self.points.len() {
+            if !self.points[i].neighbours_ids.is_empty() {
+                continue;
+            }
+            for j in 0..self.points.len() {
+                if i == j {
+                    continue;
+                }
+                let dist = (self.points[j].position - self.points[i].position).norm();
+                if dist <= self.points[i].r + self.points[j].r {
+                    self.points[i].neighbours_ids.push(j);
                 }
             }
         }

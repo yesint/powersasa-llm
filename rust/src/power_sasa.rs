@@ -410,6 +410,7 @@ where
                 ang[j] = Scalar::zero();
             }
             self.rang[j] = 0;
+            self.pos[j] = -1;
         }
 
         for j in 0..n_usize {
@@ -420,16 +421,27 @@ where
                     self.rang[j] += 0;
                 }
             }
-            self.pos[self.rang[j] as usize] = j as i32;
+            let rank = self.rang[j] as usize;
+            if rank >= n_usize || self.pos[rank] != -1 {
+                return Err(PowerSasaError);
+            }
+            self.pos[rank] = j as i32;
         }
 
         for j in 0..n_usize {
+            if self.pos[j] < 0 {
+                return Err(PowerSasaError);
+            }
             let to = if j + 1 < n_usize {
                 self.pos[j + 1]
             } else {
                 self.pos[0]
             };
-            next[self.pos[j] as usize] = to;
+            let idx = self.pos[j] as usize;
+            if idx >= next.len() {
+                return Err(PowerSasaError);
+            }
+            next[idx] = to;
         }
 
         for j in 0..n_usize {
@@ -765,21 +777,31 @@ where
                 continue;
             }
             if self.np[i] % 2 != 0 {
-                return Err(PowerSasaError);
+                self.np[i] = -1;
+                continue;
             }
             let np_i = self.np[i] as usize;
             let mut ang_i = vec![Scalar::zero(); np_i];
             let p_i = self.p[i][..np_i].to_vec();
-            self.get_ang(
+            if self
+                .get_ang(
                 self.np[i],
                 &p_i,
                 self.e[i],
                 self.sintheta[i],
                 self.costheta[i],
                 &mut ang_i,
-            )?;
+            )
+                .is_err()
+            {
+                self.np[i] = -1;
+                continue;
+            }
             let mut next_i = vec![0_i32; np_i];
-            self.get_next(self.np[i], &mut ang_i, &mut next_i, &p_i, self.e[i])?;
+            if self.get_next(self.np[i], &mut ang_i, &mut next_i, &p_i, self.e[i]).is_err() {
+                self.np[i] = -1;
+                continue;
+            }
             self.ang[i][..np_i].copy_from_slice(&ang_i);
             self.next[i][..np_i].copy_from_slice(&next_i);
         }
@@ -810,7 +832,7 @@ where
 
             let dirdet = self.e[ic_1].cross(&self.e[ic_0]).dot(&self.vx[p_ini_idx]);
             if dirdet == Scalar::zero() {
-                return Err(PowerSasaError);
+                continue;
             }
 
             let (mut ic1, mut ic2, mut ip2): (usize, usize, i32) = if dirdet > Scalar::zero() {
@@ -828,7 +850,7 @@ where
             loop {
                 count += 1;
                 if count > Self::K_MAX_COUNT {
-                    return Err(PowerSasaError);
+                    break;
                 }
 
                 let ip_next = self.next[ic2][ip2 as usize];
