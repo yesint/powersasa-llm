@@ -598,8 +598,12 @@ where
                 if self.n_unused == 0 {
                     let my_vertices_len = self.points[i].my_vertices_ids.len();
                     let unused_len = self.unused.len();
-                    let dec = my_vertices_len.saturating_sub(unused_len) + self.n_unused;
-                    self.n_vertices = self.n_vertices.saturating_sub(dec);
+                    let delta = (my_vertices_len as isize) - (unused_len as isize) + (self.n_unused as isize);
+                    if delta >= 0 {
+                        self.n_vertices = self.n_vertices.saturating_sub(delta as usize);
+                    } else {
+                        self.n_vertices = self.n_vertices.saturating_add((-delta) as usize);
+                    }
                     for &involved_vid in &self.points[i].my_vertices_ids.clone() {
                         if involved_vid == GeneratorRef::INVALID_ID || involved_vid >= self.vertices.len() {
                             continue;
