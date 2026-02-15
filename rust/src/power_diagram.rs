@@ -384,7 +384,6 @@ where
         for i in 0..8 {
             self.vertices[i].power_value = self.points[0].power(self.vertices[i].position);
             self.vertices[i].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, 0);
-            self.points[0].my_vertices_ids.push(i);
             self.corner_owners[i] = 0;
         }
     }
