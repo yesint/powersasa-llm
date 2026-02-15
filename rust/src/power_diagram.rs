@@ -476,9 +476,9 @@ where
         for i in 0..8 {
             for d in 0..3 {
                 let j = if (i >> d) % 2 == 1 { i - (1 << d) } else { i + (1 << d) };
-                self.vertices[i].end_point_ids[d + 1] = j;
+                self.set_vertex_endpoint_deferred(i, d + 1, j);
             }
-            self.vertices[i].end_point_ids[0] = GeneratorRef::INVALID_ID;
+            self.set_vertex_endpoint_deferred(i, 0, GeneratorRef::INVALID_ID);
         }
     }
 
