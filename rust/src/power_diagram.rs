@@ -437,22 +437,55 @@ where
         self.n_revert_points = 0;
     }
 
-    pub fn fill_all_my_vertices(&mut self) {}
+    pub fn fill_all_my_vertices(&mut self) {
+        for p in &mut self.points {
+            p.my_vertices_ids.clear();
+            p.my_zero_points.clear();
+        }
+        // Full geometric reconstruction pending: this method will be populated by vertex ownership extraction.
+    }
 
     pub fn fill_all_neighbours(&mut self) {
-        let n = self.points.len();
+        for p in &mut self.points {
+            p.neighbours_ids.clear();
+            p.visited_as = -1;
+        }
+
         for i in 0..self.points.len() {
-            self.points[i].neighbours_ids.clear();
-            self.points[i].neighbours_ids.reserve(n.saturating_sub(1));
-            for j in 0..n {
-                if i != j {
-                    self.points[i].neighbours_ids.push(j);
+            for vid in self.points[i].my_vertices_ids.clone() {
+                if vid >= self.vertices.len() {
+                    continue;
+                }
+                let v = &self.vertices[vid];
+                for g in 0..=3 {
+                    let gref = v.generator_refs[g];
+                    if !gref.is_valid() || gref.kind != GeneratorKind::Point {
+                        continue;
+                    }
+                    if gref.index == i || gref.index >= self.points.len() {
+                        continue;
+                    }
+                    if self.points[gref.index].visited_as == i as i32 {
+                        continue;
+                    }
+                    self.points[gref.index].visited_as = i as i32;
+                    self.points[i].neighbours_ids.push(gref.index);
                 }
             }
         }
+
+        for p in &mut self.points {
+            p.visited_as = 0;
+        }
     }
 
-    pub fn fill_all_zero_points(&mut self) {}
+    pub fn fill_all_zero_points(&mut self) {
+        self.zeros.clear();
+        for p in &mut self.points {
+            p.my_zero_points.clear();
+        }
+        // Full zero-crossing extraction pending.
+    }
 
     pub fn get_points(&self) -> &[Cell<Scalar>] {
         &self.points
