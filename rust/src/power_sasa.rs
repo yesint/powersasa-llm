@@ -531,12 +531,19 @@ where
             }
         }
 
+        let mut n_apart = 0_usize;
         let mut contributing = 0_usize;
         for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
             let neighbour = &self.power_diagram.get_points()[nb_id];
             let nb_rad = neighbour.r;
             let nb_rad2 = neighbour.r2;
             self.nb_rad2[i] = nb_rad2;
+            if self.with_vol {
+                self.volnb[i] = Scalar::zero();
+                self.fknot[i] = false;
+            }
+            self.np[i] = 0;
+            self.nt[i] = 0;
 
             let rel_pos = neighbour.position - atom_pos;
             let dist = rel_pos.norm();
@@ -559,6 +566,8 @@ where
             }
 
             if dist >= rad + nb_rad || dist <= rad - nb_rad {
+                n_apart += 1;
+                self.np[i] = -1;
                 continue;
             }
 
@@ -568,7 +577,7 @@ where
             contributing += 1;
         }
 
-        if contributing == 0 {
+        if n_apart == nnb || contributing == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
             if self.with_sasa {
@@ -583,6 +592,71 @@ where
                 }
             }
             return Ok(());
+        }
+
+        let mut nvx = 0_usize;
+        let mut partner = [0_i32; 2];
+        for zp_i in self.power_diagram.get_points()[iatom].my_zero_points.clone() {
+            if zp_i < 0 {
+                continue;
+            }
+            let zp_idx = zp_i as usize;
+            if zp_idx >= self.power_diagram.get_zero_points().len() {
+                continue;
+            }
+            let zp = &self.power_diagram.get_zero_points()[zp_idx];
+            if !self.power_diagram.zero_point_valid(zp) {
+                continue;
+            }
+            let zp_pos = self.power_diagram.zero_point_pos(zp);
+            let mut ptn = 0_usize;
+            for kg in 0..3 {
+                let zp_generator_ref = zp.generator_refs[kg];
+                if !zp_generator_ref.is_valid() {
+                    continue;
+                }
+                if zp_generator_ref.kind != crate::power_diagram::GeneratorKind::Point || zp_generator_ref.index != iatom {
+                    partner[ptn] = self.power_diagram.get_generator(zp_generator_ref).visited_as;
+                    ptn += 1;
+                }
+            }
+            if ptn != 2 {
+                return Err(PowerSasaError);
+            }
+            let ptn0 = partner[0] as usize;
+            let ptn1 = partner[1] as usize;
+            if ptn0 >= nnb || ptn1 >= nnb {
+                return Err(PowerSasaError);
+            }
+
+            if zp.pos < Scalar::zero() || zp.pos > Scalar::one() {
+                self.nt[ptn0] += 1;
+                self.nt[ptn1] += 1;
+                continue;
+            }
+
+            if self.np[ptn0] < 0 || self.np[ptn1] < 0 {
+                return Err(PowerSasaError);
+            }
+            if (self.np[ptn0] as usize) >= self.rang.len() || (self.np[ptn1] as usize) >= self.rang.len() {
+                let new_pnt = if self.np[ptn0] > self.np[ptn1] { self.np[ptn0] + 1 } else { self.np[ptn1] + 1 };
+                self.resize_pnt(new_pnt as usize);
+            }
+            if nvx >= self.vx.len() {
+                self.resize_vx(nvx + 1);
+            }
+
+            self.vx[nvx] = (zp_pos - atom_pos) / rad;
+            self.p[ptn0][self.np[ptn0] as usize] = nvx as i32;
+            self.p[ptn1][self.np[ptn1] as usize] = nvx as i32;
+
+            self.br_c[nvx][0] = ptn0 as i32;
+            self.br_c[nvx][1] = ptn1 as i32;
+            self.br_p[nvx][0] = self.np[ptn0];
+            self.br_p[nvx][1] = self.np[ptn1];
+            nvx += 1;
+            self.np[ptn0] += 1;
+            self.np[ptn1] += 1;
         }
 
         let _ = do_sasa;
