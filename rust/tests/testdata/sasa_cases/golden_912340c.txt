@@ -1,0 +1,8 @@
+# Golden values generated with commit 912340cd059dd000862d85834d8cef198cb351cd
+# format: case_file expected_sasa expected_volume
+protein_coords.txt 144.812000 56.747000
+subset_case_01.txt 59.012836 5.827010
+subset_case_02.txt 80.653938 8.552024
+subset_case_03.txt 101.252495 10.658327
+subset_case_04.txt 117.714630 13.012940
+subset_case_05.txt 141.363693 16.070507

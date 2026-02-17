@@ -2,12 +2,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Clone)]
 pub enum SasaError {
-    #[error("power diagram exception")]
-    MyException,
-    #[error("identical point exception")]
-    IdenticalPoint,
-    #[error("vertices-full exception")]
-    VerticesFull,
     #[error("axis too short for stable orientation test")]
     AxisTooShort,
     #[error("invalid get_ang input")]

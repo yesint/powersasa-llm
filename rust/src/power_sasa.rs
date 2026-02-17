@@ -3,47 +3,78 @@ use nalgebra::{RealField, Vector3};
 use crate::error::SasaError;
 use crate::power_diagram::PowerDiagram;
 
+/// PowerSasa orchestrates per-atom SASA/volume evaluation over a power diagram, including optional derivatives.
 pub struct PowerSasa<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Weighted power diagram over solvent-expanded atomic spheres.
     power_diagram: PowerDiagram<Scalar>,
 
+    /// Enable per-atom SASA computation.
     with_sasa: bool,
+    /// Enable per-atom SASA gradient (`dsasa`) computation.
     with_dsasa: bool,
+    /// Enable per-atom volume computation.
     with_vol: bool,
+    /// Enable per-atom volume gradient (`dvol`) computation.
     with_dvol: bool,
 
+    /// Per-atom solvent-accessible surface area.
     sasa: Vec<Scalar>,
+    /// Per-atom, per-neighbor partial SASA-gradient contributions used to assemble `dsasa`.
     dsasa_parts: Vec<Vec<Vector3<Scalar>>>,
+    /// Final per-atom SASA gradient after summing neighbor contributions.
     dsasa: Vec<Vector3<Scalar>>,
+    /// Per-atom volume contribution.
     vol: Vec<Scalar>,
+    /// Per-atom volume gradient.
     dvol: Vec<Vector3<Scalar>>,
 
+    /// Tolerance for near-zero power values when classifying local topology.
     tol_pow: Scalar,
 
+    /// Number of contour points registered on each neighbor circle.
     np: Vec<i32>,
+    /// Marker/counter for "single circle" handling on each neighbor.
     nt: Vec<i32>,
+    /// Unit direction from current atom center to each neighbor center.
     e: Vec<Vector3<Scalar>>,
+    /// `sin(theta)` for each atom-neighbor intersection circle.
     sintheta: Vec<Scalar>,
+    /// `cos(theta)` for each atom-neighbor intersection circle.
     costheta: Vec<Scalar>,
+    /// Squared solvent-expanded neighbor radii.
     nb_rad2: Vec<Scalar>,
+    /// Center-to-center distance from current atom to each neighbor.
     nb_dist: Vec<Scalar>,
 
+    /// Per-contour-vertex visitation/ownership flag during loop traversal.
     off: Vec<i32>,
+    /// Unit vectors of contour vertices on the current atom sphere.
     vx: Vec<Vector3<Scalar>>,
+    /// For each contour vertex, the two incident neighbor-circle ids.
     br_c: Vec<Vec<i32>>,
+    /// For each contour vertex, local point indices on the two incident circles.
     br_p: Vec<Vec<i32>>,
 
+    /// Polar angle of each registered point on each neighbor circle.
     ang: Vec<Vec<Scalar>>,
+    /// Successor index for ordered traversal around each neighbor circle.
     next: Vec<Vec<i32>>,
+    /// Mapping from per-circle point slot to global contour-vertex index.
     p: Vec<Vec<i32>>,
 
+    /// Per-neighbor volume accumulator from triangulated contour sectors.
     volnb: Vec<Scalar>,
+    /// First anchor point used to build fan triangles for each neighbor volume term.
     knot: Vec<Vector3<Scalar>>,
+    /// Indicates whether `knot` has been initialized for a neighbor.
     fknot: Vec<bool>,
 
+    /// Temporary rank buffer used to sort circle points by angle.
     rang: Vec<i32>,
+    /// Temporary position/index buffer paired with `rang` for angle ordering.
     pos: Vec<i32>,
 }
 
@@ -57,36 +88,30 @@ where
     pub const K_MAX_COUNT: usize = 100;
 
     #[inline(always)]
+    /// Returns the power-value tolerance scale used to detect near-degenerate radius/power comparisons.
     pub(crate) fn drad2() -> Scalar {
         Scalar::from_f64(1000.0).unwrap() * Scalar::default_epsilon()
     }
 
     #[inline(always)]
+    /// Returns the angular tolerance used when sorting contour points on a neighbor circle.
     pub(crate) fn dang() -> Scalar {
         Scalar::from_f64(1000.0).unwrap() * Scalar::default_epsilon()
     }
 
     #[inline(always)]
+    /// Threshold for stable angle evaluation when cosine is very close to +-1.
     pub(crate) fn near_one_cosine_threshold() -> Scalar {
         Scalar::from_f64(0.999).unwrap()
     }
 
     #[inline(always)]
+    /// Minimum axis component magnitude used to pick a numerically stable orientation divisor.
     pub(crate) fn axis_component_threshold() -> Scalar {
         Scalar::from_f64(0.001).unwrap()
     }
 
-    #[inline(always)]
-    pub(crate) fn clamp_unit_interval(value: Scalar) -> Scalar {
-        if value < -Scalar::one() {
-            -Scalar::one()
-        } else if value > Scalar::one() {
-            Scalar::one()
-        } else {
-            value
-        }
-    }
-
+    /// Builds a PowerSasa with default chain bond hints and initializes all scratch/output buffers.
     pub fn new(
         coords: impl Iterator<Item = Vector3<Scalar>>,
         radii: impl Iterator<Item = Scalar>,
@@ -135,6 +160,7 @@ where
         this
     }
 
+    /// Builds a PowerSasa with explicit bond-parent hints for power-diagram insertion order.
     pub fn new_with_bond_to(
         coords: impl Iterator<Item = Vector3<Scalar>>,
         radii: impl Iterator<Item = Scalar>,
@@ -198,6 +224,7 @@ where
         this
     }
 
+    /// Creates a PowerDiagram using a simple i->i-1 bond chain when no bond map is supplied.
     fn create_with_chain_bond(coords: &[Vector3<Scalar>], radii: &[Scalar]) -> PowerDiagram<Scalar> {
         let mut bond_to = Vec::with_capacity(coords.len());
         if !coords.is_empty() {
@@ -223,6 +250,7 @@ where
         )
     }
 
+    /// Initializes atom-, neighbor-, vertex-, and point-ordering work arrays to default capacities.
     fn init(&mut self) {
         self.resize_na();
         self.resize_nb(Self::K_MAX_NB);
@@ -230,6 +258,7 @@ where
         self.resize_pnt(Self::K_MAX_PNT);
     }
 
+    /// Resizes all neighbor-scoped scratch buffers used by per-atom contour integration.
     fn resize_nb(&mut self, nnb: usize) {
         self.np.resize(nnb, 0);
         self.nt.resize(nnb, 0);
@@ -265,6 +294,7 @@ where
         }
     }
 
+    /// Resizes temporary contour-vertex storage and bridge tables linking circles through vertices.
     fn resize_vx(&mut self, nvx: usize) {
         self.off.resize(nvx, 0);
         self.vx.resize(nvx, Vector3::zeros());
@@ -272,6 +302,7 @@ where
         self.br_p.resize(nvx, vec![0; 2]);
     }
 
+    /// Resizes per-circle point-order arrays used to sort angles and build successor links.
     fn resize_pnt(&mut self, npnt: usize) {
         for i in 0..self.p.len() {
             self.next[i].resize(npnt, 0);
@@ -282,6 +313,7 @@ where
         self.pos.resize(npnt, 0);
     }
 
+    /// Resizes per-atom output arrays and refreshes the power ambiguity tolerance from current radii.
     fn resize_na(&mut self) {
         let n = self.power_diagram.get_points().len();
         if self.with_sasa {
@@ -316,6 +348,7 @@ where
         self.tol_pow = maxr2 * Self::drad2();
     }
 
+    /// Computes the oriented angle from vector a to b around axis c, normalized to [0, 2*pi).
     fn ang_about(&self, a: Vector3<Scalar>, b: Vector3<Scalar>, c: Vector3<Scalar>) -> Result<Scalar, SasaError> {
         let co = a.dot(&b);
         let mut ang;
@@ -350,6 +383,7 @@ where
         Ok(ang)
     }
 
+    /// Computes polar angles of contour points projected onto one neighbor intersection circle.
     fn get_ang(
         &self,
         np: i32,
@@ -383,6 +417,7 @@ where
         Ok(())
     }
 
+    /// Sorts circle points by angle (with tolerances) and builds cyclic next-point traversal links.
     fn get_next(
         &mut self,
         n: i32,
@@ -469,6 +504,7 @@ where
         Ok(())
     }
 
+    /// Evaluates SASA, volume, and optional derivatives for one atom from local power-diagram topology.
     pub fn calc_sasa_single(&mut self, iatom: usize) -> Result<(), SasaError> {
         if iatom >= self.power_diagram.get_points().len() {
             return Err(SasaError::AtomIndexOutOfBounds);
@@ -953,7 +989,7 @@ where
                 if do_sasa {
                     let mut co = (self.e[ic1].dot(&self.e[ic2]) - self.costheta[ic1] * self.costheta[ic2])
                         / (self.sintheta[ic1] * self.sintheta[ic2]);
-                    co = Self::clamp_unit_interval(co);
+                    co = co.clamp(-Scalar::one(), Scalar::one());
                     sasa_ia += phi * self.costheta[ic2] - co.acos();
                 }
 
@@ -1096,6 +1132,7 @@ where
         Ok(())
     }
 
+    /// Runs per-atom SASA/volume evaluation for all atoms in the current power diagram.
     pub fn calc_sasa_all(&mut self) -> Result<(), SasaError> {
         for i in 0..self.power_diagram.get_points().len() {
             self.calc_sasa_single(i)?;
@@ -1103,6 +1140,7 @@ where
         Ok(())
     }
 
+    /// Recalculates the underlying power diagram for new coordinates/radii and resizes outputs.
     pub fn update_coords(
         &mut self,
         coords: impl Iterator<Item = Vector3<Scalar>>,
@@ -1113,6 +1151,7 @@ where
         self.resize_na();
     }
 
+    /// Incrementally inserts additional points into the power diagram, then resizes outputs.
     pub fn add_more(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
@@ -1124,41 +1163,49 @@ where
     }
 
     #[inline(always)]
+    /// Restores the power diagram to the snapshot saved before the latest incremental insertion.
     pub fn revert(&mut self) {
         self.power_diagram.revert();
     }
 
     #[inline(always)]
+    /// Returns read-only access to the underlying power diagram data structure.
     pub fn get_power_diagram(&self) -> &PowerDiagram<Scalar> {
         &self.power_diagram
     }
 
     #[inline(always)]
+    /// Returns the number of neighbors currently registered for a given atom.
     pub fn num_of_neighbours(&self, iatom: usize) -> usize {
         self.power_diagram.get_points()[iatom].neighbours_ids.len()
     }
 
     #[inline(always)]
+    /// Maps an atom-local neighbor index to the corresponding global atom index.
     pub fn atom_no(&self, i_atom: usize, i_neighbour: usize) -> usize {
         self.power_diagram.get_points()[i_atom].neighbours_ids[i_neighbour]
     }
 
     #[inline(always)]
+    /// Returns per-atom SASA values from the most recent computation.
     pub fn get_sasa(&self) -> &[Scalar] {
         &self.sasa
     }
 
     #[inline(always)]
+    /// Returns per-atom volume values from the most recent computation.
     pub fn get_vol(&self) -> &[Scalar] {
         &self.vol
     }
 
     #[inline(always)]
+    /// Returns per-atom volume gradients when derivative computation is enabled.
     pub fn get_dvol(&self) -> &[Vector3<Scalar>] {
         &self.dvol
     }
 
     #[inline(always)]
+    /// Returns per-atom SASA gradients when derivative computation is enabled.
     pub fn get_dsasa(&self) -> &[Vector3<Scalar>] {
         &self.dsasa
     }

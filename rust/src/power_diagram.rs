@@ -1,14 +1,18 @@
 use nalgebra::{RealField, Vector3};
 
+/// Reference kind used to distinguish real point generators from boundary side generators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GeneratorKind {
     Point,
     Side,
 }
 
+/// Compact handle to a generator entry used by vertices and traversal state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GeneratorRef {
+    /// Source table kind (`Point` for `points`, `Side` for `side_generators`).
     pub kind: GeneratorKind,
+    /// Index within the source table selected by `kind`.
     pub index: usize,
 }
 
@@ -16,6 +20,7 @@ impl GeneratorRef {
     pub const INVALID_ID: usize = usize::MAX;
 
     #[inline(always)]
+    /// Executes the `new` step of the power-diagram algorithm/state machine.
     pub const fn new(kind: GeneratorKind, index: usize) -> Self {
         Self {
             kind,
@@ -24,6 +29,7 @@ impl GeneratorRef {
     }
 
     #[inline(always)]
+    /// Executes the `invalid` step of the power-diagram algorithm/state machine.
     pub const fn invalid() -> Self {
         Self {
             kind: GeneratorKind::Point,
@@ -32,22 +38,31 @@ impl GeneratorRef {
     }
 
     #[inline(always)]
+    /// Executes the `is_valid` step of the power-diagram algorithm/state machine.
     pub const fn is_valid(self) -> bool {
         self.index != Self::INVALID_ID
     }
 }
 
+/// Runtime feature switches controlling which derived topology caches are maintained.
 #[derive(Debug, Clone)]
 pub struct PowerDiagramRuntimeParams {
+    /// Interpret input strengths as radii (`true`) or raw power weights (`false`).
     pub radii_given: bool,
+    /// Populate `Cell::my_vertices_ids` ownership lists.
     pub fill_my_vertices: bool,
+    /// Populate `Cell::neighbours_ids` adjacency lists.
     pub fill_neighbours: bool,
+    /// Populate zero-crossing caches (`zeros` and `Cell::my_zero_points`).
     pub fill_zero_points: bool,
+    /// Enable warning output for corrective insertion fallbacks.
     pub with_warnings: bool,
+    /// Skip strict consistency checks in edge/corner cases.
     pub without_check: bool,
 }
 
 impl Default for PowerDiagramRuntimeParams {
+    /// Executes the `default` step of the power-diagram algorithm/state machine.
     fn default() -> Self {
         Self {
             radii_given: true,
@@ -60,18 +75,27 @@ impl Default for PowerDiagramRuntimeParams {
     }
 }
 
+/// Input bundle for creating/rebuilding a power diagram from weighted points.
 #[derive(Debug, Clone)]
 pub struct PowerDiagramParams<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Build vertices/topology immediately when `true`.
     pub create_vertices: bool,
+    /// Runtime cache/behavior toggles.
     pub runpar: PowerDiagramRuntimeParams,
+    /// Lower corner of initial clipping cube.
     pub lowest_corner: Vector3<Scalar>,
+    /// Upper corner of initial clipping cube.
     pub highest_corner: Vector3<Scalar>,
+    /// Number of input points to consume.
     pub size: usize,
+    /// Input point coordinates.
     pub pos: Vec<Vector3<Scalar>>,
+    /// Input strengths (radii or powers, depending on `runpar.radii_given`).
     pub strength: Vec<Scalar>,
+    /// Parent-hint map for incremental insertion seed selection.
     pub bond_to: Vec<i32>,
 }
 
@@ -80,18 +104,21 @@ where
     Scalar: RealField + Copy,
 {
     #[inline(always)]
+    /// Executes the `with_radii_given` step of the power-diagram algorithm/state machine.
     pub(crate) fn with_radii_given(mut self, yes: bool) -> Self {
         self.runpar.radii_given = yes;
         self
     }
 
     #[inline(always)]
+    /// Executes the `with_calculate` step of the power-diagram algorithm/state machine.
     pub(crate) fn with_calculate(mut self, yes: bool) -> Self {
         self.create_vertices = yes;
         self
     }
 
     #[inline(always)]
+    /// Executes the `with_cells` step of the power-diagram algorithm/state machine.
     pub(crate) fn with_cells(mut self, yes: bool) -> Self {
         self.runpar.fill_neighbours = yes;
         self.runpar.fill_my_vertices = yes;
@@ -99,6 +126,7 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `with_zero_points` step of the power-diagram algorithm/state machine.
     pub(crate) fn with_zero_points(mut self, yes: bool) -> Self {
         self.runpar.fill_zero_points = yes;
         self.runpar.fill_my_vertices = yes;
@@ -106,39 +134,53 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `with_warnings` step of the power-diagram algorithm/state machine.
     pub(crate) fn with_warnings(mut self, yes: bool) -> Self {
         self.runpar.with_warnings = yes;
         self
     }
 
     #[inline(always)]
+    /// Executes the `without_check` step of the power-diagram algorithm/state machine.
     pub(crate) fn without_check(mut self, yes: bool) -> Self {
         self.runpar.without_check = yes;
         self
     }
 }
 
+/// Power-zero crossing sampled along a vertex edge, used for SASA contour extraction.
 #[derive(Debug, Clone)]
 pub(crate) struct ZeroPoint<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Interpolation parameter in `[0, 1]` along the source edge.
     pub pos: Scalar,
+    /// Source vertex id owning the edge branch.
     pub from_id: usize,
+    /// Branch index at `from_id` that defines the edge.
     pub branch: i32,
+    /// Generator triple defining the local zero-crossing context.
     pub generator_refs: [GeneratorRef; 3],
 }
 
+/// One power-diagram vertex with generator tuple, adjacency links, and replacement flags.
 #[derive(Debug, Clone)]
 pub(crate) struct Vertex<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Relative replace value used to classify vertex during insertion.
     pub rrv: Scalar,
+    /// Whether this vertex slot is currently inactive/disconnected.
     pub invalid: bool,
+    /// Generator tuple defining the vertex.
     pub generator_refs: [GeneratorRef; 4],
+    /// Vertex position in centered coordinates.
     pub position: Vector3<Scalar>,
+    /// Cached power value against the current insertion front.
     pub power_value: Scalar,
+    /// Adjacent vertex ids by branch slot (slot 0 is corner sentinel semantics).
     pub end_point_ids: [usize; 4],
 }
 
@@ -146,6 +188,7 @@ impl<Scalar> Default for Vertex<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Executes the `default` step of the power-diagram algorithm/state machine.
     fn default() -> Self {
         Self {
             rrv: Scalar::zero(),
@@ -163,30 +206,36 @@ where
     Scalar: RealField + Copy,
 {
     #[inline(always)]
+    /// Executes the `is_corner` step of the power-diagram algorithm/state machine.
     pub(crate) fn is_corner(&self) -> bool {
         self.end_point_ids[0] == GeneratorRef::INVALID_ID
     }
 
     #[inline(always)]
+    /// Executes the `is_connected` step of the power-diagram algorithm/state machine.
     pub(crate) fn is_connected(&self) -> bool {
         !self.invalid
     }
 
     #[inline(always)]
+    /// Executes the `resolved_endpoint_id` step of the power-diagram algorithm/state machine.
     pub(crate) fn resolved_endpoint_id(&self, g: usize) -> usize {
         self.end_point_ids[g]
     }
 
     #[inline(always)]
+    /// Executes the `resolved_generator_ref` step of the power-diagram algorithm/state machine.
     pub(crate) fn resolved_generator_ref(&self, g: usize) -> GeneratorRef {
         self.generator_refs[g]
     }
 
+    /// Executes the `powerdiff3d` step of the power-diagram algorithm/state machine.
     pub(crate) fn powerdiff3d(&self, a_cell: &Cell<Scalar>, b_cell: &Cell<Scalar>) -> Scalar {
         -b_cell.r2 + a_cell.r2 - (a_cell.position - b_cell.position).norm_squared()
             + Scalar::from_f64(2.0).unwrap() * (a_cell.position - b_cell.position).dot(&(self.position - b_cell.position))
     }
 
+    /// Executes the `endpoint_slot_to` step of the power-diagram algorithm/state machine.
     pub(crate) fn endpoint_slot_to(&self, comp_id: usize) -> usize {
         for g in (1..=3).rev() {
             if self.end_point_ids[g] == comp_id {
@@ -197,10 +246,12 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `get_power_point_on_line2` step of the power-diagram algorithm/state machine.
     pub(crate) fn get_power_point_on_line2(&self, persist: &Self) -> Vector3<Scalar> {
         (persist.position - self.position) * (self.rrv / (self.rrv - persist.rrv)) + self.position
     }
 
+    /// Executes the `end_points_and_position_overwrite` step of the power-diagram algorithm/state machine.
     pub(crate) fn end_points_and_position_overwrite(&mut self, endpoint_id: usize, pos: Vector3<Scalar>) {
         self.end_point_ids[0] = endpoint_id;
         self.rrv = Scalar::zero();
@@ -209,18 +260,27 @@ where
     }
 }
 
+/// One weighted generator cell and its local topology caches.
 #[derive(Debug, Clone)]
 pub struct Cell<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Temporary traversal mark for incremental update passes.
     pub visited_as: i32,
+    /// Generator position in centered coordinates.
     pub position: Vector3<Scalar>,
+    /// Radius (or sqrt(weight) in power-input mode).
     pub r: Scalar,
+    /// Squared radius/power used by distance comparisons.
     pub r2: Scalar,
+    /// Parent hint to a nearby already-inserted cell.
     pub bond_to_id: usize,
+    /// Adjacent point-generator ids.
     pub neighbours_ids: Vec<usize>,
+    /// Owned vertex ids of this cell.
     pub my_vertices_ids: Vec<usize>,
+    /// Zero-crossing ids associated with this cell.
     pub my_zero_points: Vec<i32>,
 }
 
@@ -228,6 +288,7 @@ impl<Scalar> Cell<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Executes the `new` step of the power-diagram algorithm/state machine.
     pub(crate) fn new(position: Vector3<Scalar>, root: Scalar) -> Self {
         Self {
             visited_as: 0,
@@ -241,6 +302,7 @@ where
         }
     }
 
+    /// Executes the `with_power` step of the power-diagram algorithm/state machine.
     pub(crate) fn with_power(position: Vector3<Scalar>, root: Scalar, power: Scalar) -> Self {
         Self {
             visited_as: 0,
@@ -255,18 +317,23 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `power` step of the power-diagram algorithm/state machine.
     pub(crate) fn power(&self, coord: Vector3<Scalar>) -> Scalar {
         (self.position - coord).norm_squared() - self.r2
     }
 }
 
+/// Temporary edge-pair holder used to connect newly created finite vertices.
 #[derive(Debug, Clone)]
 pub struct EdgeEnds {
+    /// First endpoint id waiting for its pair.
     pub a_id: usize,
+    /// Slot on `a_id` that must be linked when the pair arrives.
     pub a_slot: i32,
 }
 
 impl Default for EdgeEnds {
+    /// Executes the `default` step of the power-diagram algorithm/state machine.
     fn default() -> Self {
         Self {
             a_id: GeneratorRef::INVALID_ID,
@@ -276,6 +343,7 @@ impl Default for EdgeEnds {
 }
 
 impl EdgeEnds {
+    /// Pairs two half-edge endpoints and writes reciprocal connectivity links.
     fn store_or_connect<Scalar>(&mut self, owner: &mut PowerDiagram<Scalar>, pvertex_id: usize, slot: usize)
     where
         Scalar: RealField + Copy,
@@ -294,35 +362,57 @@ impl EdgeEnds {
     }
 }
 
+/// Core weighted power-diagram state and incremental insertion/revert engine.
 #[derive(Debug, Clone)]
 pub struct PowerDiagram<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Global center shift applied to all coordinates.
     pub center: Vector3<Scalar>,
+    /// Maximum squared radius/weight among current point generators.
     pub maxr2: Scalar,
 
+    /// Runtime toggles for optional caches and validation behavior.
     params: PowerDiagramRuntimeParams,
+    /// Number of active vertices in `vertices`.
     n_vertices: usize,
+    /// Number of reusable ids currently reserved in `unused`.
     n_unused: usize,
 
+    /// Free-list of detached vertex ids.
     unused: Vec<usize>,
+    /// Real point generators.
     points: Vec<Cell<Scalar>>,
+    /// Vertex pool for the current diagram.
     vertices: Vec<Vertex<Scalar>>,
+    /// Cached zero-power crossings.
     zeros: Vec<ZeroPoint<Scalar>>,
+    /// Virtual side generators that encode clipping cube planes.
     side_generators: Vec<Cell<Scalar>>,
 
+    /// Revert snapshot: vertex count before `add_more`.
     n_revert_vertices: usize,
+    /// Revert snapshot: zero-crossing count before `add_more`.
     n_revert_zeros: usize,
+    /// Revert snapshot: point count before `add_more`.
     n_revert_points: usize,
+    /// Revert snapshot: corner owners before `add_more`.
     revert_corner_owners: [usize; 8],
+    /// Current point owner for each corner vertex.
     corner_owners: [usize; 8],
 
+    /// Tolerance used for replacement/power-sign decisions.
     power_err: Scalar,
+    /// Scale of the last insertion-failure correction.
     insertion_error_scale: Scalar,
+    /// Vertex ids marked as replaced in current insertion.
     replaced_ids: Vec<usize>,
+    /// Previously existing vertices invalidated by insertion.
     invalids: Vec<usize>,
+    /// Generators participating in current local insertion neighborhood.
     involved_refs: Vec<GeneratorRef>,
+    /// Pairing table for connecting newly created finite vertices.
     planes: Vec<EdgeEnds>,
 }
 
@@ -339,6 +429,7 @@ where
 {
     pub const K_INVALID_ID: usize = GeneratorRef::INVALID_ID;
 
+    /// Executes the `create` step of the power-diagram algorithm/state machine.
     pub(crate) fn create(
         size: usize,
         pos_begin: impl Iterator<Item = Vector3<Scalar>>,
@@ -363,6 +454,7 @@ where
         }
     }
 
+    /// Executes the `from_params` step of the power-diagram algorithm/state machine.
     pub(crate) fn from_params(params: PowerDiagramParams<Scalar>) -> Self {
         let center = (params.highest_corner + params.lowest_corner) * Scalar::from_f64(0.5).unwrap();
         let cube_lowest = params.lowest_corner - center;
@@ -429,23 +521,27 @@ where
         this
     }
 
+    /// Executes the `clear_interna` step of the power-diagram algorithm/state machine.
     fn clear_interna(&mut self) {
         self.replaced_ids.clear();
         self.involved_refs.clear();
     }
 
+    /// Executes the `set_vertex_generator` step of the power-diagram algorithm/state machine.
     fn set_vertex_generator(&mut self, vertex_id: usize, slot: usize, r#ref: GeneratorRef) {
         if vertex_id < self.vertices.len() && slot <= 3 {
             self.vertices[vertex_id].generator_refs[slot] = r#ref;
         }
     }
 
+    /// Executes the `set_vertex_endpoint_deferred` step of the power-diagram algorithm/state machine.
     fn set_vertex_endpoint_deferred(&mut self, vertex_id: usize, slot: usize, endpoint_id: usize) {
         if vertex_id < self.vertices.len() && slot <= 3 {
             self.vertices[vertex_id].end_point_ids[slot] = endpoint_id;
         }
     }
 
+    /// Executes the `swap_vertex_link_slots` step of the power-diagram algorithm/state machine.
     fn swap_vertex_link_slots(&mut self, vertex_id: usize, a: usize, b: usize) {
         if vertex_id >= self.vertices.len() || a > 3 || b > 3 {
             return;
@@ -455,15 +551,18 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `clear_involved` step of the power-diagram algorithm/state machine.
     fn clear_involved(&mut self) {
         self.involved_refs.clear();
     }
 
     #[inline(always)]
+    /// Executes the `push_involved` step of the power-diagram algorithm/state machine.
     fn push_involved(&mut self, r#ref: GeneratorRef) {
         self.involved_refs.push(r#ref);
     }
 
+    /// Executes the `sort_involved_by_ref` step of the power-diagram algorithm/state machine.
     fn sort_involved_by_ref(&mut self) {
         self.involved_refs.sort_by_key(|r| {
             let kind_rank = match r.kind {
@@ -474,6 +573,7 @@ where
         });
     }
 
+    /// Executes the `insert_first` step of the power-diagram algorithm/state machine.
     fn insert_first(&mut self) {
         self.clear_interna();
         if self.points.is_empty() || self.vertices.len() < 8 {
@@ -488,6 +588,7 @@ where
         }
     }
 
+    /// Executes the `build_cube` step of the power-diagram algorithm/state machine.
     fn build_cube(&mut self, lowest: Vector3<Scalar>, highest: Vector3<Scalar>) {
         self.n_vertices = 1 << 3;
         self.side_generators.clear();
@@ -542,6 +643,7 @@ where
         }
     }
 
+    /// Executes the `build_vertices` step of the power-diagram algorithm/state machine.
     fn build_vertices(&mut self, n_points: usize, from: usize) {
         if self.points.is_empty() {
             self.n_vertices = 0;
@@ -708,6 +810,7 @@ where
         self.compact_unused_vertices();
     }
 
+    /// Executes the `move_vertex_network_update_only` step of the power-diagram algorithm/state machine.
     fn move_vertex_network_update_only(&mut self, from_id: usize, to_id: usize) {
         if from_id >= self.vertices.len() || to_id >= self.vertices.len() {
             return;
@@ -729,6 +832,7 @@ where
         self.vertices[to_id] = moved;
     }
 
+    /// Executes the `compact_unused_vertices` step of the power-diagram algorithm/state machine.
     fn compact_unused_vertices(&mut self) {
         self.unused.sort_unstable();
         let mut idx = self.unused.len();
@@ -753,6 +857,7 @@ where
         self.n_unused = 0;
     }
 
+    /// Executes the `prepare_insertion` step of the power-diagram algorithm/state machine.
     fn prepare_insertion(&mut self, point_id: usize) -> Option<usize> {
         if point_id >= self.points.len() {
             return None;
@@ -822,6 +927,7 @@ where
         Some(hint_id)
     }
 
+    /// Executes the `get_representative_vertex` step of the power-diagram algorithm/state machine.
     fn get_representative_vertex(&self, start_id: usize) -> usize {
         let mut current_id = start_id;
         while current_id != GeneratorRef::INVALID_ID && current_id < self.points.len() {
@@ -856,6 +962,7 @@ where
         0
     }
 
+    /// Executes the `do_insertion` step of the power-diagram algorithm/state machine.
     fn do_insertion(&mut self, point_id: usize, hint_id: usize) -> bool {
         if point_id >= self.points.len() || hint_id >= self.vertices.len() {
             return false;
@@ -872,6 +979,7 @@ where
         true
     }
 
+    /// Executes the `add_to_involved` step of the power-diagram algorithm/state machine.
     fn add_to_involved(&mut self, r#ref: GeneratorRef) {
         if !self.valid_generator_ref(r#ref) {
             return;
@@ -883,6 +991,7 @@ where
         self.push_involved(r#ref);
     }
 
+    /// Executes the `generator_visited_as` step of the power-diagram algorithm/state machine.
     fn generator_visited_as(&self, r#ref: GeneratorRef) -> i32 {
         if !self.valid_generator_ref(r#ref) {
             return 0;
@@ -893,6 +1002,7 @@ where
         }
     }
 
+    /// Executes the `involved_id_at` step of the power-diagram algorithm/state machine.
     fn involved_id_at(&self, index: usize) -> usize {
         if index >= self.involved_refs.len() {
             return GeneratorRef::INVALID_ID;
@@ -905,6 +1015,7 @@ where
         }
     }
 
+    /// Executes the `finite_replaced` step of the power-diagram algorithm/state machine.
     fn finite_replaced(&mut self, vertex_id: usize, cell_id: usize) -> ReplaceState {
         if vertex_id >= self.vertices.len() || cell_id == GeneratorRef::INVALID_ID || cell_id >= self.points.len() {
             return ReplaceState::Ambiguous;
@@ -927,6 +1038,7 @@ where
         ReplaceState::Ambiguous
     }
 
+    /// Executes the `replace_check` step of the power-diagram algorithm/state machine.
     fn replace_check(&mut self, self_id: usize) -> bool {
         if self_id >= self.vertices.len() {
             return false;
@@ -938,6 +1050,7 @@ where
         }
     }
 
+    /// Executes the `finite_replace_check` step of the power-diagram algorithm/state machine.
     fn finite_replace_check(&mut self, self_id: usize) -> bool {
         let involved_front_id = self.involved_id_at(0);
         if involved_front_id == GeneratorRef::INVALID_ID {
@@ -950,6 +1063,7 @@ where
         }
     }
 
+    /// Executes the `corner_replace_check` step of the power-diagram algorithm/state machine.
     fn corner_replace_check(&mut self, self_id: usize) -> bool {
         let involved_front_id = self.involved_id_at(0);
         if involved_front_id == GeneratorRef::INVALID_ID {
@@ -962,6 +1076,7 @@ where
         }
     }
 
+    /// Executes the `corner_to_replaced_and_go` step of the power-diagram algorithm/state machine.
     fn corner_to_replaced_and_go(&mut self, self_id: usize) -> bool {
         if self_id >= self.vertices.len() {
             return false;
@@ -992,6 +1107,7 @@ where
         true
     }
 
+    /// Executes the `finite_to_replaced_and_go` step of the power-diagram algorithm/state machine.
     fn finite_to_replaced_and_go(&mut self, self_id: usize) -> bool {
         if self_id >= self.vertices.len() {
             return false;
@@ -1018,6 +1134,7 @@ where
         true
     }
 
+    /// Executes the `fill_replaced_persisting_and_involved` step of the power-diagram algorithm/state machine.
     fn fill_replaced_persisting_and_involved(&mut self, this_id: usize, start_id: usize) -> bool {
         if this_id == GeneratorRef::INVALID_ID || this_id >= self.points.len() {
             return false;
@@ -1040,6 +1157,7 @@ where
         }
     }
 
+    /// Executes the `find_replaced_vertex` step of the power-diagram algorithm/state machine.
     fn find_replaced_vertex(&mut self, this_id: &mut usize, value: &mut Scalar, insertion_point: &Cell<Scalar>) {
         if *value < Scalar::zero() || *this_id >= self.vertices.len() {
             return;
@@ -1168,6 +1286,7 @@ where
         }
     }
 
+    /// Executes the `set_involved_persisting_visited_to_zero` step of the power-diagram algorithm/state machine.
     fn set_involved_persisting_visited_to_zero(&mut self) {
         for i in 1..self.involved_refs.len() {
             let refg = self.involved_refs[i];
@@ -1205,6 +1324,7 @@ where
         }
     }
 
+    /// Executes the `try_to_build_vertex_on_edge` step of the power-diagram algorithm/state machine.
     fn try_to_build_vertex_on_edge(&mut self, this_id: usize, here: usize) -> bool {
         if this_id >= self.vertices.len() {
             self.insertion_error_scale = self.power_err;
@@ -1241,6 +1361,7 @@ where
         self.init_new_vertex_from_replaced(this_id, here, built_vertex_id)
     }
 
+    /// Executes the `init_new_vertex_from_replaced` step of the power-diagram algorithm/state machine.
     fn init_new_vertex_from_replaced(&mut self, this_id: usize, keep: usize, self_id: usize) -> bool {
         let involved_front_id = self.involved_id_at(0);
         if involved_front_id == GeneratorRef::INVALID_ID || this_id >= self.vertices.len() || self_id >= self.vertices.len() {
@@ -1273,6 +1394,7 @@ where
         true
     }
 
+    /// Executes the `create_finite_vertices_from_replaced` step of the power-diagram algorithm/state machine.
     fn create_finite_vertices_from_replaced(&mut self) -> bool {
         for replaced_id in self.replaced_ids.clone() {
             if replaced_id == GeneratorRef::INVALID_ID || replaced_id >= self.vertices.len() {
@@ -1292,6 +1414,7 @@ where
         true
     }
 
+    /// Executes the `connect_new_finites_among_themselves_3d` step of the power-diagram algorithm/state machine.
     fn connect_new_finites_among_themselves_3d(&mut self) -> bool {
         let involved_count = self.involved_refs.len();
         if involved_count == 0 {
@@ -1323,6 +1446,7 @@ where
         true
     }
 
+    /// Executes the `register_vertex_for_connection_3d` step of the power-diagram algorithm/state machine.
     fn register_vertex_for_connection_3d(&mut self, self_id: usize) {
         if self_id >= self.vertices.len() || self.involved_refs.is_empty() {
             return;
@@ -1363,6 +1487,7 @@ where
         }
     }
 
+    /// Executes the `erase_cell_my_vertex_by_id` step of the power-diagram algorithm/state machine.
     fn erase_cell_my_vertex_by_id(&mut self, r#ref: GeneratorRef, id: usize) {
         if !self.valid_generator_ref(r#ref) {
             return;
@@ -1376,6 +1501,7 @@ where
         }
     }
 
+    /// Executes the `update_unused` step of the power-diagram algorithm/state machine.
     fn update_unused(&mut self) {
         self.unused.truncate(self.n_unused);
         let mut idx = 0usize;
@@ -1423,6 +1549,7 @@ where
         self.n_unused = self.unused.len();
     }
 
+    /// Executes the `assign_representative_vertices_to_cells` step of the power-diagram algorithm/state machine.
     fn assign_representative_vertices_to_cells(&mut self, default_id: usize) {
         let involved_front_id = self.involved_id_at(0);
         if involved_front_id == GeneratorRef::INVALID_ID {
@@ -1454,11 +1581,13 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `has_virtual_generators` step of the power-diagram algorithm/state machine.
     fn has_virtual_generators(&self, vtx: &Vertex<Scalar>) -> bool {
         let refg = vtx.resolved_generator_ref(3);
         !self.ref_is_real_point(refg)
     }
 
+    /// Executes the `push_zero_from_edge` step of the power-diagram algorithm/state machine.
     fn push_zero_from_edge(&mut self, source_id: usize, branch: i32, sol: Scalar) {
         let source = &self.vertices[source_id];
         let g0 = source.generator_refs[nth(0, branch) as usize];
@@ -1472,6 +1601,7 @@ where
         });
     }
 
+    /// Executes the `recalculate` step of the power-diagram algorithm/state machine.
     pub(crate) fn recalculate(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
@@ -1517,6 +1647,7 @@ where
         }
     }
 
+    /// Executes the `add_more` step of the power-diagram algorithm/state machine.
     pub(crate) fn add_more(
         &mut self,
         pos_it: impl Iterator<Item = Vector3<Scalar>>,
@@ -1622,6 +1753,7 @@ where
         }
     }
 
+    /// Executes the `revert` step of the power-diagram algorithm/state machine.
     pub(crate) fn revert(&mut self) {
         let restore_corners = self.revert_corner_owners;
         for vi in self.n_revert_vertices..self.n_vertices.min(self.vertices.len()) {
@@ -1717,10 +1849,12 @@ where
         self.revert_corner_owners = [GeneratorRef::INVALID_ID; 8];
     }
 
+    /// Executes the `fill_all_my_vertices` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_my_vertices(&mut self) {
         self.fill_all_my_vertices_from(0, 8);
     }
 
+    /// Executes the `fill_all_my_vertices_from` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_my_vertices_from(&mut self, from_point: usize, from_vertex: usize) {
         for p in &mut self.points {
             if from_point == 0 {
@@ -1774,6 +1908,7 @@ where
         }
     }
 
+    /// Executes the `fill_all_neighbours` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_neighbours(&mut self) {
         for p in &mut self.points {
             p.neighbours_ids.clear();
@@ -1810,6 +1945,7 @@ where
         }
     }
 
+    /// Executes the `fill_all_neighbours_of_involved` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_neighbours_of_involved(&mut self) {
         self.sort_involved_by_ref();
         for i in 0..self.involved_refs.len() {
@@ -1868,6 +2004,7 @@ where
         }
     }
 
+    /// Executes the `clear_all_my_vertices` step of the power-diagram algorithm/state machine.
     pub(crate) fn clear_all_my_vertices(&mut self) {
         for p in &mut self.points {
             p.my_vertices_ids.clear();
@@ -1875,10 +2012,12 @@ where
         }
     }
 
+    /// Executes the `fill_all_zero_points` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_zero_points(&mut self) {
         self.fill_all_zero_points_from(8, 0);
     }
 
+    /// Executes the `fill_all_zero_points_from` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_zero_points_from(&mut self, from_vertex: usize, from_zero: usize) {
         if from_zero <= self.zeros.len() {
             self.zeros.truncate(from_zero);
@@ -1973,25 +2112,30 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `get_points` step of the power-diagram algorithm/state machine.
     pub(crate) fn get_points(&self) -> &[Cell<Scalar>] {
         &self.points
     }
 
     #[inline(always)]
+    /// Executes the `get_vertices` step of the power-diagram algorithm/state machine.
     pub(crate) fn get_vertices(&self) -> &[Vertex<Scalar>] {
         &self.vertices
     }
 
     #[inline(always)]
+    /// Executes the `get_zero_points` step of the power-diagram algorithm/state machine.
     pub(crate) fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
         &self.zeros
     }
 
     #[inline(always)]
+    /// Executes the `get_cell_mut` step of the power-diagram algorithm/state machine.
     pub(crate) fn get_cell_mut(&mut self, id: usize) -> &mut Cell<Scalar> {
         &mut self.points[id]
     }
 
+    /// Executes the `get_generator` step of the power-diagram algorithm/state machine.
     pub(crate) fn get_generator(&self, aref: GeneratorRef) -> &Cell<Scalar> {
         match aref.kind {
             GeneratorKind::Point => &self.points[aref.index],
@@ -2000,10 +2144,12 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `ref_is_real_point` step of the power-diagram algorithm/state machine.
     pub(crate) fn ref_is_real_point(&self, aref: GeneratorRef) -> bool {
         aref.kind == GeneratorKind::Point && aref.index < self.points.len()
     }
 
+    /// Executes the `valid_generator_ref` step of the power-diagram algorithm/state machine.
     pub(crate) fn valid_generator_ref(&self, aref: GeneratorRef) -> bool {
         match aref.kind {
             GeneratorKind::Point => aref.index < self.points.len(),
@@ -2011,6 +2157,7 @@ where
         }
     }
 
+    /// Executes the `zero_point_valid` step of the power-diagram algorithm/state machine.
     pub(crate) fn zero_point_valid(&self, zp: &ZeroPoint<Scalar>) -> bool {
         if zp.from_id == GeneratorRef::INVALID_ID || zp.from_id >= self.n_vertices || zp.from_id >= self.vertices.len() {
             return false;
@@ -2030,6 +2177,7 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `zero_point_pos` step of the power-diagram algorithm/state machine.
     pub(crate) fn zero_point_pos(&self, zp: &ZeroPoint<Scalar>) -> Vector3<Scalar> {
         if !self.zero_point_valid(zp) {
             return Vector3::zeros();
@@ -2040,6 +2188,7 @@ where
     }
 
     #[inline(always)]
+    /// Executes the `error` step of the power-diagram algorithm/state machine.
     pub(crate) fn error(f: Scalar) -> Scalar {
         // C++ semantics rely on std::numeric_limits<T>::min() (minimum positive normal),
         // making error() strictly non-negative and approximately |f|*eps for practical ranges.
@@ -2048,10 +2197,12 @@ where
 }
 
 #[inline(always)]
+/// Executes the `nth` step of the power-diagram algorithm/state machine.
 pub(crate) fn nth(n: i32, without: i32) -> i32 {
     n + i32::from(without <= n)
 }
 
+/// Computes a radius-aware bounding box and applies default padding used by initial clipping.
 pub(crate) fn get_bounding_box<Scalar>(
     pos: &[Vector3<Scalar>],
     strength: &[Scalar],
@@ -2063,6 +2214,7 @@ where
     get_bounding_box_with_padding(pos, strength, additional_cube_size)
 }
 
+/// Computes a radius-aware bounding box with caller-specified extra padding.
 pub(crate) fn get_bounding_box_with_padding<Scalar>(
     pos: &[Vector3<Scalar>],
     strength: &[Scalar],

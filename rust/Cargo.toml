@@ -1,7 +1,15 @@
 [package]
-name = "powersasa_rust"
+name = "powersasa"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+description = "Power-diagram-based SASA and volume computation for molecular structures."
+license = "LGPL-3.0-or-later"
+repository = "https://github.com/yesint/powersasa-llm"
+homepage = "https://github.com/yesint/powersasa-llm"
+documentation = "https://docs.rs/powersasa_rust"
+keywords = ["sasa", "molecular", "geometry", "power-diagram", "computational-chemistry"]
+categories = ["science", "mathematics", "algorithms"]
 
 [dependencies]
 nalgebra = "0.33"
