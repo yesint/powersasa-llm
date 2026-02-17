@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use nalgebra::Vector3;
-use powersasa_rust::PowerSasa;
+use powersasa_rust::{PowerSasa, PowerSasaSettings};
 
 #[derive(Debug, Clone)]
 struct GoldenCase {
@@ -130,10 +130,12 @@ fn main() -> Result<(), String> {
         let mut ps = PowerSasa::<f32>::new(
             coords.clone().into_iter(),
             weights.clone().into_iter(),
-            true,
-            false,
-            true,
-            false,
+            PowerSasaSettings {
+                with_sasa: true,
+                with_dsasa: false,
+                with_vol: true,
+                with_dvol: false,
+            },
         );
         ps.calc_sasa_all().map_err(|e| format!("calc_sasa_all failed: {e}"))?;
 

@@ -3,47 +3,83 @@ use nalgebra::{RealField, Vector3};
 use crate::error::SasaError;
 use crate::power_diagram::PowerDiagram;
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PowerSasaSettings {
+    /// Enable per-atom SASA computation.
+    pub with_sasa: bool,
+    /// Enable per-atom SASA gradient (`dsasa`) computation.
+    pub with_dsasa: bool,
+    /// Enable per-atom volume computation.
+    pub with_vol: bool,
+    /// Enable per-atom volume gradient (`dvol`) computation.
+    pub with_dvol: bool,
+}
+
 pub struct PowerSasa<Scalar>
 where
     Scalar: RealField + Copy,
 {
+    /// Weighted power diagram over solvent-expanded atomic spheres.
     power_diagram: PowerDiagram<Scalar>,
 
-    with_sasa: bool,
-    with_dsasa: bool,
-    with_vol: bool,
-    with_dvol: bool,
+    /// Runtime output-selection and derivative toggles for this calculator instance.
+    settings: PowerSasaSettings,
 
+    /// Per-atom solvent-accessible surface area.
     sasa: Vec<Scalar>,
+    /// Per-atom, per-neighbor partial SASA-gradient contributions used to assemble `dsasa`.
     dsasa_parts: Vec<Vec<Vector3<Scalar>>>,
+    /// Final per-atom SASA gradient after summing neighbor contributions.
     dsasa: Vec<Vector3<Scalar>>,
+    /// Per-atom volume contribution.
     vol: Vec<Scalar>,
+    /// Per-atom volume gradient.
     dvol: Vec<Vector3<Scalar>>,
 
+    /// Tolerance for near-zero power values when classifying local topology.
     tol_pow: Scalar,
 
+    /// Number of contour points registered on each neighbor circle.
     np: Vec<i32>,
+    /// Marker/counter for "single circle" handling on each neighbor.
     nt: Vec<i32>,
+    /// Unit direction from current atom center to each neighbor center.
     e: Vec<Vector3<Scalar>>,
+    /// `sin(theta)` for each atom-neighbor intersection circle.
     sintheta: Vec<Scalar>,
+    /// `cos(theta)` for each atom-neighbor intersection circle.
     costheta: Vec<Scalar>,
+    /// Squared solvent-expanded neighbor radii.
     nb_rad2: Vec<Scalar>,
+    /// Center-to-center distance from current atom to each neighbor.
     nb_dist: Vec<Scalar>,
 
+    /// Per-contour-vertex visitation/ownership flag during loop traversal.
     off: Vec<i32>,
+    /// Unit vectors of contour vertices on the current atom sphere.
     vx: Vec<Vector3<Scalar>>,
+    /// For each contour vertex, the two incident neighbor-circle ids.
     br_c: Vec<Vec<i32>>,
+    /// For each contour vertex, local point indices on the two incident circles.
     br_p: Vec<Vec<i32>>,
 
+    /// Polar angle of each registered point on each neighbor circle.
     ang: Vec<Vec<Scalar>>,
+    /// Successor index for ordered traversal around each neighbor circle.
     next: Vec<Vec<i32>>,
+    /// Mapping from per-circle point slot to global contour-vertex index.
     p: Vec<Vec<i32>>,
 
+    /// Per-neighbor volume accumulator from triangulated contour sectors.
     volnb: Vec<Scalar>,
+    /// First anchor point used to build fan triangles for each neighbor volume term.
     knot: Vec<Vector3<Scalar>>,
+    /// Indicates whether `knot` has been initialized for a neighbor.
     fknot: Vec<bool>,
 
+    /// Temporary rank buffer used to sort circle points by angle.
     rang: Vec<i32>,
+    /// Temporary position/index buffer paired with `rang` for angle ordering.
     pos: Vec<i32>,
 }
 
@@ -90,10 +126,7 @@ where
     pub fn new(
         coords: impl Iterator<Item = Vector3<Scalar>>,
         radii: impl Iterator<Item = Scalar>,
-        with_sasa: bool,
-        with_dsasa: bool,
-        with_vol: bool,
-        with_dvol: bool,
+        settings: PowerSasaSettings,
     ) -> Self {
         let coords_vec: Vec<Vector3<Scalar>> = coords.collect();
         let radii_vec: Vec<Scalar> = radii.collect();
@@ -101,10 +134,7 @@ where
 
         let mut this = Self {
             power_diagram,
-            with_sasa,
-            with_dsasa,
-            with_vol,
-            with_dvol,
+            settings,
             sasa: Vec::new(),
             dsasa_parts: Vec::new(),
             dsasa: Vec::new(),
@@ -139,10 +169,7 @@ where
         coords: impl Iterator<Item = Vector3<Scalar>>,
         radii: impl Iterator<Item = Scalar>,
         bond_to: impl Iterator<Item = i32>,
-        with_sasa: bool,
-        with_dsasa: bool,
-        with_vol: bool,
-        with_dvol: bool,
+        settings: PowerSasaSettings,
     ) -> Self {
         let coords_vec: Vec<Vector3<Scalar>> = coords.collect();
         let radii_vec: Vec<Scalar> = radii.collect();
@@ -164,10 +191,7 @@ where
 
         let mut this = Self {
             power_diagram,
-            with_sasa,
-            with_dsasa,
-            with_vol,
-            with_dvol,
+            settings,
             sasa: Vec::new(),
             dsasa_parts: Vec::new(),
             dsasa: Vec::new(),
@@ -258,7 +282,7 @@ where
             self.ang[i].resize(npnt, Scalar::zero());
         }
 
-        if self.with_dsasa {
+        if self.settings.with_dsasa {
             for i in 0..self.dsasa_parts.len() {
                 self.dsasa_parts[i].resize(nnb, Vector3::zeros());
             }
@@ -284,10 +308,10 @@ where
 
     fn resize_na(&mut self) {
         let n = self.power_diagram.get_points().len();
-        if self.with_sasa {
+        if self.settings.with_sasa {
             self.sasa.resize(n, Scalar::zero());
         }
-        if self.with_dsasa {
+        if self.settings.with_dsasa {
             let nnb = if self.dsasa_parts.is_empty() || self.dsasa_parts[0].is_empty() {
                 Self::K_MAX_NB
             } else {
@@ -300,10 +324,10 @@ where
                 self.dsasa_parts[i].resize(nnb, Vector3::zeros());
             }
         }
-        if self.with_vol {
+        if self.settings.with_vol {
             self.vol.resize(n, Scalar::zero());
         }
-        if self.with_dvol {
+        if self.settings.with_dvol {
             self.dvol.resize(n, Vector3::zeros());
         }
 
@@ -490,23 +514,23 @@ where
             self.resize_nb(nnb);
         }
 
-        if self.with_sasa {
+        if self.settings.with_sasa {
             self.sasa[iatom] = Scalar::zero();
         }
-        if self.with_dsasa {
+        if self.settings.with_dsasa {
             self.dsasa[iatom] = Vector3::zeros();
             for i in 0..nnb {
                 self.dsasa_parts[iatom][i] = Vector3::zeros();
             }
         }
-        if self.with_vol {
+        if self.settings.with_vol {
             self.vol[iatom] = Scalar::zero();
         }
-        if self.with_dvol {
+        if self.settings.with_dvol {
             self.dvol[iatom] = Vector3::zeros();
         }
 
-        let do_sasa = self.with_sasa || self.with_vol;
+        let do_sasa = self.settings.with_sasa || self.settings.with_vol;
 
         if nnb == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
@@ -519,10 +543,10 @@ where
                 }
             }
             if is_owner {
-                if self.with_sasa {
+                if self.settings.with_sasa {
                     self.sasa[iatom] = four * Scalar::pi() * rad2;
                 }
-                if self.with_vol {
+                if self.settings.with_vol {
                     self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
                 }
             }
@@ -542,7 +566,7 @@ where
                 covered = false;
             }
         }
-        if covered && !self.with_vol {
+        if covered && !self.settings.with_vol {
             return Ok(());
         }
 
@@ -561,7 +585,7 @@ where
             let nb_rad = neighbour.r;
             let nb_rad2 = neighbour.r2;
             self.nb_rad2[i] = nb_rad2;
-            if self.with_vol {
+            if self.settings.with_vol {
                 self.volnb[i] = Scalar::zero();
                 self.fknot[i] = false;
             }
@@ -574,10 +598,10 @@ where
 
             if dist <= nb_rad - rad {
                 // Completely covered by one larger neighbor.
-                if self.with_sasa {
+                if self.settings.with_sasa {
                     self.sasa[iatom] = Scalar::zero();
                 }
-                if self.with_vol {
+                if self.settings.with_vol {
                     self.vol[iatom] = Scalar::zero();
                 }
                 for nb_id in neighbours_ids {
@@ -596,10 +620,10 @@ where
 
             self.costheta[i] = (Scalar::from_f64(0.5).unwrap() * (dist + (rad2 - nb_rad2) / dist)) / rad;
             if self.costheta[i] <= -Scalar::one() {
-                if self.with_sasa {
+                if self.settings.with_sasa {
                     self.sasa[iatom] = Scalar::zero();
                 }
-                if self.with_vol {
+                if self.settings.with_vol {
                     self.vol[iatom] = Scalar::zero();
                 }
                 for nb_id in neighbours_ids {
@@ -622,10 +646,10 @@ where
         if n_apart == nnb || contributing == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
-            if self.with_sasa {
+            if self.settings.with_sasa {
                 self.sasa[iatom] = four * Scalar::pi() * rad2;
             }
-            if self.with_vol {
+            if self.settings.with_vol {
                 self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
             }
             for nb_id in neighbours_ids {
@@ -701,7 +725,7 @@ where
             self.np[ptn0] += 1;
             self.np[ptn1] += 1;
 
-            if self.with_vol {
+            if self.settings.with_vol {
                 let node1_id = zp.from_id;
                 if node1_id == crate::power_diagram::GeneratorRef::INVALID_ID || node1_id >= pd_vertices.len() {
                     return Err(SasaError::VolumeNodeOutOfBounds);
@@ -972,7 +996,7 @@ where
                     ip2 = self.br_p[ivx][0];
                 }
 
-                if self.with_dsasa {
+                if self.settings.with_dsasa {
                     let ds1 = half
                         * rad
                         * phi
@@ -984,12 +1008,12 @@ where
 
                 let mut scone = Scalar::zero();
                 let mut vv = Vector3::zeros();
-                if self.with_vol || self.with_dvol {
+                if self.settings.with_vol || self.settings.with_dvol {
                     vv = (atom_pos + self.vx[pt0_idx] * rad).cross(&(atom_pos + self.vx[pt_idx] * rad));
                     scone = self.sintheta[ic1] * self.sintheta[ic1] * (phi - phi.sin());
                 }
 
-                if self.with_vol {
+                if self.settings.with_vol {
                     vol2 += self.costheta[ic1] * scone;
                     if !self.fknot[ic1] {
                         self.fknot[ic1] = true;
@@ -1001,7 +1025,7 @@ where
                     }
                 }
 
-                if self.with_dvol {
+                if self.settings.with_dvol {
                     self.dvol[iatom] -= (vv + self.e[ic1] * (rad2 * scone)) * half;
                 }
 
@@ -1051,7 +1075,7 @@ where
                     }
                 }
 
-                if self.with_dsasa {
+                if self.settings.with_dsasa {
                     self.dsasa_parts[iatom][i] = self.e[i]
                         * (rad
                             * Scalar::pi()
@@ -1059,27 +1083,27 @@ where
                 }
 
                 let mut scone = Scalar::zero();
-                if self.with_vol || self.with_dvol {
+                if self.settings.with_vol || self.settings.with_dvol {
                     scone = self.sintheta[i] * self.sintheta[i] * two_pi;
                 }
-                if self.with_vol {
+                if self.settings.with_vol {
                     vol2 += self.costheta[i] * scone;
                 }
-                if self.with_dvol {
+                if self.settings.with_dvol {
                     self.dvol[iatom] -= self.e[i] * (half * rad2 * scone);
                 }
             }
         }
 
-        if self.with_sasa {
+        if self.settings.with_sasa {
             self.sasa[iatom] = rad2 * sasa_ia;
         }
-        if self.with_dsasa {
+        if self.settings.with_dsasa {
             for i in 0..nnb {
                 self.dsasa[iatom] -= self.dsasa_parts[iatom][i];
             }
         }
-        if self.with_vol {
+        if self.settings.with_vol {
             for i in 0..nnb {
                 if self.fknot[i] {
                     vol3 += rad * self.volnb[i] * self.costheta[i];
