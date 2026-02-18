@@ -8,7 +8,7 @@ license = "LGPL-3.0-or-later"
 repository = "https://github.com/yesint/powersasa-llm"
 homepage = "https://github.com/yesint/powersasa-llm"
 documentation = "https://docs.rs/powersasa"
-keywords = ["sasa", "molecular", "geometry", "power-diagram", "computational-chemistry"]
+keywords = ["sasa", "molecular", "geometry", "power-diagram"]
 categories = ["science", "mathematics", "algorithms"]
 
 [dependencies]
