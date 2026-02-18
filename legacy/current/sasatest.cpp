@@ -91,11 +91,12 @@ bool load_golden_manifest(const fs::path& manifestPath, std::vector<GoldenCase>&
 
 fs::path find_manifest()
 {
-	constexpr std::string_view kRel = "testdata/sasa_cases/golden_912340c.txt";
+	constexpr std::string_view kRel = "tests/testdata/sasa_cases/golden_912340c.txt";
 	const fs::path candidates[] = {
 	    fs::path(kRel),
 	    fs::path("..") / kRel,
 	    fs::path("../..") / kRel,
+	    fs::path("../../..") / kRel,
 	};
 	for (const fs::path& candidate : candidates) {
 		if (fs::exists(candidate)) {

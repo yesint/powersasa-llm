@@ -24,9 +24,10 @@ struct Frame {
 
 bool load_protein(std::vector<Vec3<float>>& coords, std::vector<float>& weights) {
   const fs::path candidates[] = {
-      fs::path("protein_coords.txt"),
-      fs::path("../protein_coords.txt"),
-      fs::path("../../protein_coords.txt"),
+      fs::path("tests/testdata/sasa_cases/protein_coords.txt"),
+      fs::path("../tests/testdata/sasa_cases/protein_coords.txt"),
+      fs::path("../../tests/testdata/sasa_cases/protein_coords.txt"),
+      fs::path("../../../tests/testdata/sasa_cases/protein_coords.txt"),
   };
 
   fs::path path;
@@ -38,7 +39,7 @@ bool load_protein(std::vector<Vec3<float>>& coords, std::vector<float>& weights)
   }
 
   if (path.empty()) {
-    std::cerr << "Error: Could not find protein_coords.txt\n";
+    std::cerr << "Error: Could not find tests/testdata/sasa_cases/protein_coords.txt\n";
     return false;
   }
 
