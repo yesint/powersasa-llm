@@ -315,7 +315,7 @@ where
 
     /// Resizes per-atom output arrays and refreshes the power ambiguity tolerance from current radii.
     fn resize_na(&mut self) {
-        let n = self.power_diagram.get_points().len();
+        let n = self.power_diagram.points.len();
         if self.with_sasa {
             self.sasa.resize(n, Scalar::zero());
         }
@@ -340,7 +340,7 @@ where
         }
 
         let mut maxr2 = Scalar::zero();
-        for p in self.power_diagram.get_points() {
+        for p in &self.power_diagram.points {
             if p.r2 > maxr2 {
                 maxr2 = p.r2;
             }
@@ -505,13 +505,13 @@ where
     }
 
     /// Evaluates SASA, volume, and optional derivatives for one atom from local power-diagram topology.
-    pub fn calc_sasa_single(&mut self, iatom: usize) -> Result<(), SasaError> {
-        if iatom >= self.power_diagram.get_points().len() {
+    pub fn calc_single(&mut self, iatom: usize) -> Result<(), SasaError> {
+        if iatom >= self.power_diagram.points.len() {
             return Err(SasaError::AtomIndexOutOfBounds);
         }
 
         let (rad, rad2, atom_pos, neighbours_ids, my_vertices_ids) = {
-            let atom = &self.power_diagram.get_points()[iatom];
+            let atom = &self.power_diagram.points[iatom];
             (
                 atom.r,
                 atom.r2,
@@ -548,7 +548,7 @@ where
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
             let mut is_owner = false;
-            if let Some(first_vertex) = self.power_diagram.get_vertices().first() {
+            if let Some(first_vertex) = self.power_diagram.vertices.first() {
                 let gref = first_vertex.generator_refs[0];
                 if gref.is_valid() && gref.kind == crate::power_diagram::GeneratorKind::Point && gref.index == iatom {
                     is_owner = true;
@@ -567,10 +567,10 @@ where
 
         let mut covered = true;
         for vid in &my_vertices_ids {
-            if *vid >= self.power_diagram.get_vertices().len() {
+            if *vid >= self.power_diagram.vertices.len() {
                 continue;
             }
-            let atom_vertex = &self.power_diagram.get_vertices()[*vid];
+            let atom_vertex = &self.power_diagram.vertices[*vid];
             if atom_vertex.power_value.abs() < self.tol_pow {
                 return Err(SasaError::AmbiguousVertexPower);
             }
@@ -583,7 +583,7 @@ where
         }
 
         for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
-            if nb_id < self.power_diagram.get_points().len() {
+            if nb_id < self.power_diagram.points.len() {
                 self.power_diagram.get_cell_mut(nb_id).visited_as = i as i32;
             } else {
                 return Err(SasaError::NeighbourIndexOutOfBounds);
@@ -593,7 +593,7 @@ where
         let mut n_apart = 0_usize;
         let mut contributing = 0_usize;
         for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
-            let neighbour = &self.power_diagram.get_points()[nb_id];
+            let neighbour = &self.power_diagram.points[nb_id];
             let nb_rad = neighbour.r;
             let nb_rad2 = neighbour.r2;
             self.nb_rad2[i] = nb_rad2;
@@ -617,7 +617,7 @@ where
                     self.vol[iatom] = Scalar::zero();
                 }
                 for nb_id in neighbours_ids {
-                    if nb_id < self.power_diagram.get_points().len() {
+                    if nb_id < self.power_diagram.points.len() {
                         self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                     }
                 }
@@ -639,7 +639,7 @@ where
                     self.vol[iatom] = Scalar::zero();
                 }
                 for nb_id in neighbours_ids {
-                    if nb_id < self.power_diagram.get_points().len() {
+                    if nb_id < self.power_diagram.points.len() {
                         self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                     }
                 }
@@ -665,7 +665,7 @@ where
                 self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
             }
             for nb_id in neighbours_ids {
-                if nb_id < self.power_diagram.get_points().len() {
+                if nb_id < self.power_diagram.points.len() {
                     self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                 }
             }
@@ -673,17 +673,17 @@ where
         }
 
         let mut nvx = 0_usize;
-        let pd_vertices = self.power_diagram.get_vertices().to_vec();
+        let pd_vertices = self.power_diagram.vertices.to_vec();
         let mut partner = [0_i32; 2];
-        for zp_i in self.power_diagram.get_points()[iatom].my_zero_points.clone() {
+        for zp_i in self.power_diagram.points[iatom].my_zero_points.clone() {
             if zp_i < 0 {
                 continue;
             }
             let zp_idx = zp_i as usize;
-            if zp_idx >= self.power_diagram.get_zero_points().len() {
+            if zp_idx >= self.power_diagram.zeros.len() {
                 continue;
             }
-            let zp = self.power_diagram.get_zero_points()[zp_idx].clone();
+            let zp = self.power_diagram.zeros[zp_idx].clone();
             if !self.power_diagram.zero_point_valid(&zp) {
                 continue;
             }
@@ -1071,7 +1071,7 @@ where
                 if j == i {
                     continue;
                 }
-                let nb_j = self.power_diagram.get_points()[neighbours_ids[j]].position;
+                let nb_j = self.power_diagram.points[neighbours_ids[j]].position;
                 let pw_j = (nb_j - cc).norm_squared() - self.nb_rad2[j];
                 if pw_j <= pw_i {
                     ok = false;
@@ -1125,7 +1125,7 @@ where
         }
 
         for nb_id in neighbours_ids {
-            if nb_id < self.power_diagram.get_points().len() {
+            if nb_id < self.power_diagram.points.len() {
                 self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
             }
         }
@@ -1133,15 +1133,16 @@ where
     }
 
     /// Runs per-atom SASA/volume evaluation for all atoms in the current power diagram.
-    pub fn calc_sasa_all(&mut self) -> Result<(), SasaError> {
-        for i in 0..self.power_diagram.get_points().len() {
-            self.calc_sasa_single(i)?;
+    pub fn calc_all(&mut self) -> Result<(), SasaError> {
+        for i in 0..self.power_diagram.points.len() {
+            self.calc_single(i)?;
         }
         Ok(())
     }
 
     /// Recalculates the underlying power diagram for new coordinates/radii and resizes outputs.
-    pub fn update_coords(
+    /// This is typically faster than creating new Sasa object.
+    pub fn update(
         &mut self,
         coords: impl Iterator<Item = Vector3<Scalar>>,
         radii: impl Iterator<Item = Scalar>,
@@ -1151,62 +1152,27 @@ where
         self.resize_na();
     }
 
-    /// Incrementally inserts additional points into the power diagram, then resizes outputs.
-    pub fn add_more(
-        &mut self,
-        pos_it: impl Iterator<Item = Vector3<Scalar>>,
-        strength_it: impl Iterator<Item = Scalar>,
-        new_size: usize,
-    ) {
-        self.power_diagram.add_more(pos_it, strength_it, new_size);
-        self.resize_na();
-    }
-
-    #[inline(always)]
-    /// Restores the power diagram to the snapshot saved before the latest incremental insertion.
-    pub fn revert(&mut self) {
-        self.power_diagram.revert();
-    }
-
-    #[inline(always)]
-    /// Returns read-only access to the underlying power diagram data structure.
-    pub fn get_power_diagram(&self) -> &PowerDiagram<Scalar> {
-        &self.power_diagram
-    }
-
-    #[inline(always)]
-    /// Returns the number of neighbors currently registered for a given atom.
-    pub fn num_of_neighbours(&self, iatom: usize) -> usize {
-        self.power_diagram.get_points()[iatom].neighbours_ids.len()
-    }
-
-    #[inline(always)]
-    /// Maps an atom-local neighbor index to the corresponding global atom index.
-    pub fn atom_no(&self, i_atom: usize, i_neighbour: usize) -> usize {
-        self.power_diagram.get_points()[i_atom].neighbours_ids[i_neighbour]
-    }
-
     #[inline(always)]
     /// Returns per-atom SASA values from the most recent computation.
-    pub fn get_sasa(&self) -> &[Scalar] {
+    pub fn per_atom_sasa(&self) -> &[Scalar] {
         &self.sasa
     }
 
     #[inline(always)]
     /// Returns per-atom volume values from the most recent computation.
-    pub fn get_vol(&self) -> &[Scalar] {
+    pub fn per_atom_vol(&self) -> &[Scalar] {
         &self.vol
     }
 
     #[inline(always)]
     /// Returns per-atom volume gradients when derivative computation is enabled.
-    pub fn get_dvol(&self) -> &[Vector3<Scalar>] {
+    pub fn per_atom_dvol(&self) -> &[Vector3<Scalar>] {
         &self.dvol
     }
 
     #[inline(always)]
     /// Returns per-atom SASA gradients when derivative computation is enabled.
-    pub fn get_dsasa(&self) -> &[Vector3<Scalar>] {
+    pub fn per_atom_dsasa(&self) -> &[Vector3<Scalar>] {
         &self.dsasa
     }
 }

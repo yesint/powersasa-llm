@@ -383,22 +383,16 @@ where
     /// Free-list of detached vertex ids.
     unused: Vec<usize>,
     /// Real point generators.
-    points: Vec<Cell<Scalar>>,
+    pub(crate) points: Vec<Cell<Scalar>>,
     /// Vertex pool for the current diagram.
-    vertices: Vec<Vertex<Scalar>>,
+    pub(crate) vertices: Vec<Vertex<Scalar>>,
     /// Cached zero-power crossings.
-    zeros: Vec<ZeroPoint<Scalar>>,
+    pub(crate) zeros: Vec<ZeroPoint<Scalar>>,
     /// Virtual side generators that encode clipping cube planes.
     side_generators: Vec<Cell<Scalar>>,
 
     /// Revert snapshot: vertex count before `add_more`.
     n_revert_vertices: usize,
-    /// Revert snapshot: zero-crossing count before `add_more`.
-    n_revert_zeros: usize,
-    /// Revert snapshot: point count before `add_more`.
-    n_revert_points: usize,
-    /// Revert snapshot: corner owners before `add_more`.
-    revert_corner_owners: [usize; 8],
     /// Current point owner for each corner vertex.
     corner_owners: [usize; 8],
 
@@ -492,9 +486,6 @@ where
             zeros: Vec::new(),
             side_generators: Vec::new(),
             n_revert_vertices: 0,
-            n_revert_zeros: 0,
-            n_revert_points: 0,
-            revert_corner_owners: [GeneratorRef::INVALID_ID; 8],
             corner_owners: [GeneratorRef::INVALID_ID; 8],
             power_err: Scalar::default_epsilon(),
             insertion_error_scale: Scalar::zero(),
@@ -560,17 +551,6 @@ where
     /// Executes the `push_involved` step of the power-diagram algorithm/state machine.
     fn push_involved(&mut self, r#ref: GeneratorRef) {
         self.involved_refs.push(r#ref);
-    }
-
-    /// Executes the `sort_involved_by_ref` step of the power-diagram algorithm/state machine.
-    fn sort_involved_by_ref(&mut self) {
-        self.involved_refs.sort_by_key(|r| {
-            let kind_rank = match r.kind {
-                GeneratorKind::Point => 0usize,
-                GeneratorKind::Side => 1usize,
-            };
-            (kind_rank, r.index)
-        });
     }
 
     /// Executes the `insert_first` step of the power-diagram algorithm/state machine.
@@ -1647,208 +1627,6 @@ where
         }
     }
 
-    /// Executes the `add_more` step of the power-diagram algorithm/state machine.
-    pub(crate) fn add_more(
-        &mut self,
-        pos_it: impl Iterator<Item = Vector3<Scalar>>,
-        strength_it: impl Iterator<Item = Scalar>,
-        new_size: usize,
-    ) {
-        let gap = if new_size < self.points.len() {
-            self.points.len() - new_size
-        } else {
-            1
-        };
-        let target_size = if new_size < self.points.len() {
-            self.points.len() + 1
-        } else {
-            new_size
-        };
-        let add_count = target_size.saturating_sub(self.points.len());
-        let pos_vec: Vec<Vector3<Scalar>> = pos_it.take(add_count).collect();
-        let str_vec: Vec<Scalar> = strength_it.take(add_count).collect();
-
-        self.n_revert_vertices = self.n_vertices;
-        self.n_revert_zeros = self.zeros.len();
-        self.n_revert_points = self.points.len();
-        for c in 0..8 {
-            self.revert_corner_owners[c] = GeneratorRef::INVALID_ID;
-            if c < self.vertices.len() {
-                let r = self.vertices[c].generator_refs[0];
-                if r.kind == GeneratorKind::Point && r.index < self.points.len() {
-                    self.revert_corner_owners[c] = r.index;
-                }
-            }
-        }
-
-        for idx in 0..add_count.min(pos_vec.len()).min(str_vec.len()) {
-            let p = pos_vec[idx];
-            let s = str_vec[idx];
-            if self.params.radii_given {
-                self.points.push(Cell::new(p - self.center, s));
-            } else {
-                self.points.push(Cell::with_power(p - self.center, s.sqrt(), s));
-            }
-            let new_idx = self.n_revert_points + idx;
-            self.points[new_idx].bond_to_id = if new_idx >= gap {
-                new_idx - gap
-            } else {
-                GeneratorRef::INVALID_ID
-            };
-        }
-
-        if add_count > 0 && !self.vertices.is_empty() {
-            let (lowest, highest) = get_bounding_box_with_padding(
-                &pos_vec,
-                &str_vec,
-                Scalar::zero(),
-            );
-            let mut rebuild = Vector3::zeros();
-            for d in 0..3 {
-                let low_gap = self.vertices[0].position[d] + self.center[d] - lowest[d];
-                if low_gap > rebuild[d] {
-                    rebuild[d] = low_gap;
-                }
-                let high_gap = self.vertices[7].position[d] + self.center[d] - highest[d];
-                if high_gap < rebuild[d] {
-                    rebuild[d] = -high_gap;
-                }
-            }
-
-            if rebuild.norm_squared() > Scalar::zero() {
-                self.clear_all_my_vertices();
-                for vi in 0..self.n_vertices.min(self.vertices.len()) {
-                    self.vertices[vi].invalid = false;
-                    self.vertices[vi].rrv = Scalar::zero();
-                }
-
-                let cube_lowest = self.vertices[0].position - rebuild * Scalar::from_f64(2.0).unwrap();
-                let cube_highest = self.vertices[7].position + rebuild * Scalar::from_f64(2.0).unwrap();
-                self.build_cube(cube_lowest, cube_highest);
-                self.build_vertices(self.n_revert_points, 0);
-
-                if self.params.fill_my_vertices || self.params.fill_neighbours {
-                    self.fill_all_my_vertices_from(0, 8);
-                }
-                if self.params.fill_neighbours {
-                    self.fill_all_neighbours();
-                }
-                if self.params.fill_zero_points {
-                    self.fill_all_zero_points_from(8, self.n_revert_zeros);
-                }
-                self.n_revert_vertices = self.n_vertices;
-            }
-        }
-
-        self.build_vertices(target_size, self.n_revert_points);
-
-        if self.params.fill_my_vertices || self.params.fill_neighbours {
-            self.fill_all_my_vertices_from(self.n_revert_points, self.n_revert_vertices);
-        }
-        if self.params.fill_neighbours {
-            self.fill_all_neighbours_of_involved();
-        }
-        if self.params.fill_zero_points {
-            self.fill_all_zero_points_from(self.n_revert_vertices, self.n_revert_zeros);
-        }
-    }
-
-    /// Executes the `revert` step of the power-diagram algorithm/state machine.
-    pub(crate) fn revert(&mut self) {
-        let restore_corners = self.revert_corner_owners;
-        for vi in self.n_revert_vertices..self.n_vertices.min(self.vertices.len()) {
-            for gi in 1..=3 {
-                let gref = self.vertices[vi].generator_refs[gi];
-                if gref.kind == GeneratorKind::Point && gref.index < self.points.len() {
-                    self.erase_cell_my_vertex_by_id(gref, vi);
-                }
-            }
-        }
-        self.n_vertices = self.n_revert_vertices;
-        self.clear_involved();
-
-        if self.points.len() > self.n_revert_points {
-            self.points.truncate(self.n_revert_points);
-        }
-        for c in 0..8.min(self.vertices.len()) {
-            let owner = restore_corners[c];
-            if owner != GeneratorRef::INVALID_ID && owner < self.points.len() {
-                self.vertices[c].generator_refs[0] = GeneratorRef::new(GeneratorKind::Point, owner);
-                self.vertices[c].power_value = self.points[owner].power(self.vertices[c].position);
-            }
-        }
-
-        for invalid_id in self.invalids.clone() {
-            if invalid_id == GeneratorRef::INVALID_ID || invalid_id >= self.vertices.len() {
-                continue;
-            }
-            self.vertices[invalid_id].invalid = false;
-            self.vertices[invalid_id].rrv = Scalar::zero();
-            let start = if self.vertices[invalid_id].is_corner() { 1 } else { 0 };
-            for endpoint_idx in start..=3 {
-                let endpoint_id = self.vertices[invalid_id].resolved_endpoint_id(endpoint_idx);
-                if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id >= self.vertices.len() {
-                    continue;
-                }
-                let endpoint_start = if self.vertices[endpoint_id].is_corner() { 1 } else { 0 };
-                for g1 in start..=3 {
-                    for g2 in endpoint_start..=3 {
-                        let a0 = self.vertices[invalid_id].resolved_generator_ref(nth(0, g1 as i32) as usize);
-                        let a1 = self.vertices[invalid_id].resolved_generator_ref(nth(1, g1 as i32) as usize);
-                        let a2 = self.vertices[invalid_id].resolved_generator_ref(nth(2, g1 as i32) as usize);
-                        let b0 = self.vertices[endpoint_id].resolved_generator_ref(nth(0, g2 as i32) as usize);
-                        let b1 = self.vertices[endpoint_id].resolved_generator_ref(nth(1, g2 as i32) as usize);
-                        let b2 = self.vertices[endpoint_id].resolved_generator_ref(nth(2, g2 as i32) as usize);
-                        if a0 == b0 && a1 == b1 && a2 == b2 {
-                            self.set_vertex_endpoint_deferred(endpoint_id, g2, invalid_id);
-                        }
-                    }
-                }
-            }
-            for g in 0..=3 {
-                let gref = self.vertices[invalid_id].generator_refs[g];
-                if gref.kind == GeneratorKind::Point && gref.index < self.points.len() {
-                    let idx = gref.index;
-                    self.points[idx].my_vertices_ids.push(invalid_id);
-                    if self.points[idx].visited_as == 0 {
-                        self.points[idx].visited_as = -1;
-                        self.push_involved(GeneratorRef::new(GeneratorKind::Point, idx));
-                    }
-                }
-            }
-        }
-        self.invalids.clear();
-
-        if self.params.fill_neighbours {
-            self.fill_all_neighbours_of_involved();
-        }
-        if self.params.fill_zero_points {
-            for i in 0..self.involved_refs.len() {
-                let involved = self.involved_refs[i];
-                if involved.kind != GeneratorKind::Point || !involved.index < self.points.len() {
-                    continue;
-                }
-                let involved_idx = involved.index;
-                while let Some(&last) = self.points[involved_idx].my_zero_points.last() {
-                    if (last as usize) > self.n_revert_zeros {
-                        self.points[involved_idx].my_zero_points.pop();
-                    } else {
-                        break;
-                    }
-                }
-            }
-            if self.n_revert_zeros <= self.zeros.len() {
-                self.zeros.truncate(self.n_revert_zeros);
-            }
-        }
-
-        self.corner_owners = [GeneratorRef::INVALID_ID; 8];
-        self.n_revert_vertices = 0;
-        self.n_revert_zeros = 0;
-        self.n_revert_points = 0;
-        self.revert_corner_owners = [GeneratorRef::INVALID_ID; 8];
-    }
-
     /// Executes the `fill_all_my_vertices` step of the power-diagram algorithm/state machine.
     pub(crate) fn fill_all_my_vertices(&mut self) {
         self.fill_all_my_vertices_from(0, 8);
@@ -1942,73 +1720,6 @@ where
         }
         for p in &mut self.points {
             p.visited_as = 0;
-        }
-    }
-
-    /// Executes the `fill_all_neighbours_of_involved` step of the power-diagram algorithm/state machine.
-    pub(crate) fn fill_all_neighbours_of_involved(&mut self) {
-        self.sort_involved_by_ref();
-        for i in 0..self.involved_refs.len() {
-            let involved = self.involved_refs[i];
-            if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
-                continue;
-            }
-            let current_id = involved.index;
-            let mut k = 0usize;
-            while k < self.points[current_id].neighbours_ids.len() {
-                let nb = self.points[current_id].neighbours_ids[k];
-                if nb >= self.points.len() || self.points[nb].visited_as == -1 {
-                    self.points[current_id].neighbours_ids.remove(k);
-                } else {
-                    k += 1;
-                }
-            }
-        }
-
-        for i in 0..self.involved_refs.len() {
-            let involved = self.involved_refs[i];
-            if involved.kind != GeneratorKind::Point || involved.index >= self.points.len() {
-                continue;
-            }
-            let current_id = involved.index;
-            let vids = self.points[current_id].my_vertices_ids.clone();
-            for vid in vids {
-                if vid >= self.vertices.len() {
-                    continue;
-                }
-                let v = &self.vertices[vid];
-                if v.is_corner() {
-                    continue;
-                }
-                for g in (0..=3).rev() {
-                    let refg = v.resolved_generator_ref(g);
-                    let ridx = refg.index;
-                    if refg.kind == GeneratorKind::Point
-                        && ridx < self.points.len()
-                        && ridx != current_id
-                        && self.points[ridx].visited_as != 0
-                        && self.points[ridx].visited_as <= current_id as i32
-                    {
-                        self.points[current_id].neighbours_ids.push(ridx);
-                        self.points[ridx].visited_as = current_id as i32 + 1;
-                    }
-                }
-            }
-        }
-
-        for i in 0..self.involved_refs.len() {
-            let involved = self.involved_refs[i];
-            if involved.kind == GeneratorKind::Point && involved.index < self.points.len() {
-                self.points[involved.index].visited_as = 0;
-            }
-        }
-    }
-
-    /// Executes the `clear_all_my_vertices` step of the power-diagram algorithm/state machine.
-    pub(crate) fn clear_all_my_vertices(&mut self) {
-        for p in &mut self.points {
-            p.my_vertices_ids.clear();
-            p.my_zero_points.clear();
         }
     }
 
@@ -2109,24 +1820,6 @@ where
                 }
             }
         }
-    }
-
-    #[inline(always)]
-    /// Executes the `get_points` step of the power-diagram algorithm/state machine.
-    pub(crate) fn get_points(&self) -> &[Cell<Scalar>] {
-        &self.points
-    }
-
-    #[inline(always)]
-    /// Executes the `get_vertices` step of the power-diagram algorithm/state machine.
-    pub(crate) fn get_vertices(&self) -> &[Vertex<Scalar>] {
-        &self.vertices
-    }
-
-    #[inline(always)]
-    /// Executes the `get_zero_points` step of the power-diagram algorithm/state machine.
-    pub(crate) fn get_zero_points(&self) -> &[ZeroPoint<Scalar>] {
-        &self.zeros
     }
 
     #[inline(always)]
