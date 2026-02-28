@@ -12,5 +12,5 @@ keywords = ["sasa", "molecular", "geometry", "power-diagram"]
 categories = ["science", "mathematics", "algorithms"]
 
 [dependencies]
-nalgebra = ">=0.33"
+nalgebra = ">=0.34"
 thiserror = "2"
