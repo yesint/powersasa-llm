@@ -22,8 +22,8 @@ where
 
     /// Per-atom solvent-accessible surface area.
     sasa: Vec<Scalar>,
-    /// Per-atom, per-neighbor partial SASA-gradient contributions used to assemble `dsasa`.
-    dsasa_parts: Vec<Vec<Vector3<Scalar>>>,
+    /// Per-neighbor partial SASA-gradient contributions used to assemble `dsasa` (scratch, reset per atom).
+    dsasa_parts: Vec<Vector3<Scalar>>,
     /// Final per-atom SASA gradient after summing neighbor contributions.
     dsasa: Vec<Vector3<Scalar>>,
     /// Per-atom volume contribution.
@@ -252,10 +252,10 @@ where
 
     /// Initializes atom-, neighbor-, vertex-, and point-ordering work arrays to default capacities.
     fn init(&mut self) {
-        self.resize_na();
         self.resize_nb(Self::K_MAX_NB);
         self.resize_vx(Self::K_MAX_VX);
         self.resize_pnt(Self::K_MAX_PNT);
+        self.update_tol_pow();
     }
 
     /// Resizes all neighbor-scoped scratch buffers used by per-atom contour integration.
@@ -288,9 +288,7 @@ where
         }
 
         if self.with_dsasa {
-            for i in 0..self.dsasa_parts.len() {
-                self.dsasa_parts[i].resize(nnb, Vector3::zeros());
-            }
+            self.dsasa_parts.resize(nnb, Vector3::zeros());
         }
     }
 
@@ -313,38 +311,11 @@ where
         self.pos.resize(npnt, 0);
     }
 
-    /// Resizes per-atom output arrays and refreshes the power ambiguity tolerance from current radii.
-    fn resize_na(&mut self) {
-        let n = self.power_diagram.points.len();
-        if self.with_sasa {
-            self.sasa.resize(n, Scalar::zero());
-        }
-        if self.with_dsasa {
-            let nnb = if self.dsasa_parts.is_empty() || self.dsasa_parts[0].is_empty() {
-                Self::K_MAX_NB
-            } else {
-                self.dsasa_parts[0].len()
-            };
-            let old = self.dsasa.len();
-            self.dsasa.resize(n, Vector3::zeros());
-            self.dsasa_parts.resize(n, Vec::new());
-            for i in old..n {
-                self.dsasa_parts[i].resize(nnb, Vector3::zeros());
-            }
-        }
-        if self.with_vol {
-            self.vol.resize(n, Scalar::zero());
-        }
-        if self.with_dvol {
-            self.dvol.resize(n, Vector3::zeros());
-        }
-
-        let mut maxr2 = Scalar::zero();
-        for p in &self.power_diagram.points {
-            if p.r2 > maxr2 {
-                maxr2 = p.r2;
-            }
-        }
+    /// Refreshes the power ambiguity tolerance from the current maximum atom radius.
+    fn update_tol_pow(&mut self) {
+        let maxr2 = self.power_diagram.points.iter()
+            .map(|p| p.r2)
+            .fold(Scalar::zero(), |a, b| if b > a { b } else { a });
         self.tol_pow = maxr2 * Self::drad2();
     }
 
@@ -505,7 +476,7 @@ where
     }
 
     /// Evaluates SASA, volume, and optional derivatives for one atom from local power-diagram topology.
-    pub fn calc_single(&mut self, iatom: usize) -> Result<(), SasaError> {
+    fn calc_single(&mut self, iatom: usize) -> Result<(), SasaError> {
         if iatom >= self.power_diagram.points.len() {
             return Err(SasaError::AtomIndexOutOfBounds);
         }
@@ -526,20 +497,15 @@ where
             self.resize_nb(nnb);
         }
 
-        if self.with_sasa {
-            self.sasa[iatom] = Scalar::zero();
-        }
+        let mut local_sasa = Scalar::zero();
+        let mut local_vol = Scalar::zero();
+        let mut local_dsasa: Vector3<Scalar> = Vector3::zeros();
+        let mut local_dvol: Vector3<Scalar> = Vector3::zeros();
+
         if self.with_dsasa {
-            self.dsasa[iatom] = Vector3::zeros();
             for i in 0..nnb {
-                self.dsasa_parts[iatom][i] = Vector3::zeros();
+                self.dsasa_parts[i] = Vector3::zeros();
             }
-        }
-        if self.with_vol {
-            self.vol[iatom] = Scalar::zero();
-        }
-        if self.with_dvol {
-            self.dvol[iatom] = Vector3::zeros();
         }
 
         let do_sasa = self.with_sasa || self.with_vol;
@@ -555,13 +521,13 @@ where
                 }
             }
             if is_owner {
-                if self.with_sasa {
-                    self.sasa[iatom] = four * Scalar::pi() * rad2;
-                }
-                if self.with_vol {
-                    self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
-                }
+                if self.with_sasa { local_sasa = four * Scalar::pi() * rad2; }
+                if self.with_vol  { local_vol  = (four / three) * Scalar::pi() * rad * rad2; }
             }
+            if self.with_sasa  { self.sasa.push(local_sasa); }
+            if self.with_vol   { self.vol.push(local_vol);   }
+            if self.with_dsasa { self.dsasa.push(local_dsasa); }
+            if self.with_dvol  { self.dvol.push(local_dvol);  }
             return Ok(());
         }
 
@@ -579,6 +545,10 @@ where
             }
         }
         if covered && !self.with_vol {
+            if self.with_sasa  { self.sasa.push(local_sasa); }
+            if self.with_vol   { self.vol.push(local_vol);   }
+            if self.with_dsasa { self.dsasa.push(local_dsasa); }
+            if self.with_dvol  { self.dvol.push(local_dvol);  }
             return Ok(());
         }
 
@@ -610,17 +580,15 @@ where
 
             if dist <= nb_rad - rad {
                 // Completely covered by one larger neighbor.
-                if self.with_sasa {
-                    self.sasa[iatom] = Scalar::zero();
-                }
-                if self.with_vol {
-                    self.vol[iatom] = Scalar::zero();
-                }
                 for nb_id in neighbours_ids {
                     if nb_id < self.power_diagram.points.len() {
                         self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                     }
                 }
+                if self.with_sasa  { self.sasa.push(local_sasa); }
+                if self.with_vol   { self.vol.push(local_vol);   }
+                if self.with_dsasa { self.dsasa.push(local_dsasa); }
+                if self.with_dvol  { self.dvol.push(local_dvol);  }
                 return Ok(());
             }
 
@@ -632,17 +600,15 @@ where
 
             self.costheta[i] = (Scalar::from_f64(0.5).unwrap() * (dist + (rad2 - nb_rad2) / dist)) / rad;
             if self.costheta[i] <= -Scalar::one() {
-                if self.with_sasa {
-                    self.sasa[iatom] = Scalar::zero();
-                }
-                if self.with_vol {
-                    self.vol[iatom] = Scalar::zero();
-                }
                 for nb_id in neighbours_ids {
                     if nb_id < self.power_diagram.points.len() {
                         self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                     }
                 }
+                if self.with_sasa  { self.sasa.push(local_sasa); }
+                if self.with_vol   { self.vol.push(local_vol);   }
+                if self.with_dsasa { self.dsasa.push(local_dsasa); }
+                if self.with_dvol  { self.dvol.push(local_dvol);  }
                 return Ok(());
             }
             if self.costheta[i] >= Scalar::one() {
@@ -658,17 +624,17 @@ where
         if n_apart == nnb || contributing == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
-            if self.with_sasa {
-                self.sasa[iatom] = four * Scalar::pi() * rad2;
-            }
-            if self.with_vol {
-                self.vol[iatom] = (four / three) * Scalar::pi() * rad * rad2;
-            }
+            if self.with_sasa { local_sasa = four * Scalar::pi() * rad2; }
+            if self.with_vol  { local_vol  = (four / three) * Scalar::pi() * rad * rad2; }
             for nb_id in neighbours_ids {
                 if nb_id < self.power_diagram.points.len() {
                     self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
                 }
             }
+            if self.with_sasa  { self.sasa.push(local_sasa); }
+            if self.with_vol   { self.vol.push(local_vol);   }
+            if self.with_dsasa { self.dsasa.push(local_dsasa); }
+            if self.with_dvol  { self.dvol.push(local_dvol);  }
             return Ok(());
         }
 
@@ -1014,7 +980,7 @@ where
                         * phi
                         * (Scalar::one() + (self.nb_rad2[ic1] - rad2) / (self.nb_dist[ic1] * self.nb_dist[ic1]));
                     let ds2 = rad2 / self.nb_dist[ic1];
-                    self.dsasa_parts[iatom][ic1] += self.e[ic1] * ds1
+                    self.dsasa_parts[ic1] += self.e[ic1] * ds1
                         - (self.vx[pt_idx] - self.vx[pt0_idx]).cross(&self.e[ic1]) * ds2;
                 }
 
@@ -1038,7 +1004,7 @@ where
                 }
 
                 if self.with_dvol {
-                    self.dvol[iatom] -= (vv + self.e[ic1] * (rad2 * scone)) * half;
+                    local_dvol -= (vv + self.e[ic1] * (rad2 * scone)) * half;
                 }
 
                 if pt_idx == p_ini_idx {
@@ -1088,7 +1054,7 @@ where
                 }
 
                 if self.with_dsasa {
-                    self.dsasa_parts[iatom][i] = self.e[i]
+                    self.dsasa_parts[i] = self.e[i]
                         * (rad
                             * Scalar::pi()
                             * (Scalar::one() + (self.nb_rad2[i] - rad2) / (self.nb_dist[i] * self.nb_dist[i])));
@@ -1102,17 +1068,17 @@ where
                     vol2 += self.costheta[i] * scone;
                 }
                 if self.with_dvol {
-                    self.dvol[iatom] -= self.e[i] * (half * rad2 * scone);
+                    local_dvol -= self.e[i] * (half * rad2 * scone);
                 }
             }
         }
 
         if self.with_sasa {
-            self.sasa[iatom] = rad2 * sasa_ia;
+            local_sasa = rad2 * sasa_ia;
         }
         if self.with_dsasa {
             for i in 0..nnb {
-                self.dsasa[iatom] -= self.dsasa_parts[iatom][i];
+                local_dsasa -= self.dsasa_parts[i];
             }
         }
         if self.with_vol {
@@ -1121,7 +1087,7 @@ where
                     vol3 += rad * self.volnb[i] * self.costheta[i];
                 }
             }
-            self.vol[iatom] = rad * rad2 * sasa_ia / three + rad * rad2 * vol2 / six + vol3 / six;
+            local_vol = rad * rad2 * sasa_ia / three + rad * rad2 * vol2 / six + vol3 / six;
         }
 
         for nb_id in neighbours_ids {
@@ -1129,19 +1095,28 @@ where
                 self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
             }
         }
+        if self.with_sasa  { self.sasa.push(local_sasa); }
+        if self.with_vol   { self.vol.push(local_vol);   }
+        if self.with_dsasa { self.dsasa.push(local_dsasa); }
+        if self.with_dvol  { self.dvol.push(local_dvol);  }
         Ok(())
     }
 
     /// Runs per-atom SASA/volume evaluation for all atoms in the current power diagram.
     pub fn calc_all(&mut self) -> Result<(), SasaError> {
-        for i in 0..self.power_diagram.points.len() {
+        let n = self.power_diagram.points.len();
+        if self.with_sasa  { self.sasa.clear();  self.sasa.reserve(n);  }
+        if self.with_vol   { self.vol.clear();   self.vol.reserve(n);   }
+        if self.with_dsasa { self.dsasa.clear(); self.dsasa.reserve(n); }
+        if self.with_dvol  { self.dvol.clear();  self.dvol.reserve(n);  }
+        for i in 0..n {
             self.calc_single(i)?;
         }
         Ok(())
     }
 
-    /// Recalculates the underlying power diagram for new coordinates/radii and resizes outputs.
-    /// This is typically faster than creating new Sasa object.
+    /// Recalculates the underlying power diagram for new coordinates/radii. Output arrays are
+    /// repopulated by the next `calc_all()` call.
     pub fn update(
         &mut self,
         coords: impl Iterator<Item = Vector3<Scalar>>,
@@ -1149,30 +1124,30 @@ where
         size: usize,
     ) {
         self.power_diagram.recalculate(coords, radii, size);
-        self.resize_na();
+        self.update_tol_pow();
     }
 
-    #[inline(always)]
     /// Returns per-atom SASA values from the most recent computation.
     pub fn per_atom_sasa(&self) -> &[Scalar] {
+        assert!(self.with_sasa, "per_atom_sasa() called but with_sasa was not enabled");
         &self.sasa
     }
 
-    #[inline(always)]
     /// Returns per-atom volume values from the most recent computation.
     pub fn per_atom_vol(&self) -> &[Scalar] {
+        assert!(self.with_vol, "per_atom_vol() called but with_vol was not enabled");
         &self.vol
     }
 
-    #[inline(always)]
     /// Returns per-atom volume gradients when derivative computation is enabled.
     pub fn per_atom_dvol(&self) -> &[Vector3<Scalar>] {
+        assert!(self.with_dvol, "per_atom_dvol() called but with_dvol was not enabled");
         &self.dvol
     }
 
-    #[inline(always)]
     /// Returns per-atom SASA gradients when derivative computation is enabled.
     pub fn per_atom_dsasa(&self) -> &[Vector3<Scalar>] {
+        assert!(self.with_dsasa, "per_atom_dsasa() called but with_dsasa was not enabled");
         &self.dsasa
     }
 }

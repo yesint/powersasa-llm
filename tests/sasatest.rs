@@ -128,11 +128,12 @@ fn sasatest_matches_golden_912340c() -> Result<(), String> {
             true,
             false,
         );
-        ps.calc_sasa_all()
+        
+        ps.calc_all()
             .map_err(|e| format!("calc_sasa_all failed for {}: {e}", c.file_path))?;
 
-        let total_sasa: f32 = ps.get_sasa().iter().copied().sum();
-        let total_vol: f32 = ps.get_vol().iter().copied().sum();
+        let total_sasa: f32 = ps.per_atom_sasa().iter().copied().sum();
+        let total_vol: f32 = ps.per_atom_vol().iter().copied().sum();
 
         if (total_sasa - c.expected_sasa).abs() > EPSILON {
             return Err(format!(
