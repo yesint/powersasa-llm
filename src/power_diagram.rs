@@ -165,7 +165,7 @@ where
 }
 
 /// One power-diagram vertex with generator tuple, adjacency links, and replacement flags.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Vertex<Scalar>
 where
     Scalar: RealField + Copy,
@@ -688,7 +688,8 @@ where
                     } else {
                         self.n_vertices = self.n_vertices.saturating_add((-delta) as usize);
                     }
-                    for &involved_vid in &self.points[i].my_vertices_ids.clone() {
+                    for idx in 0..self.points[i].my_vertices_ids.len() {
+                        let involved_vid = self.points[i].my_vertices_ids[idx];
                         if involved_vid == GeneratorRef::INVALID_ID || involved_vid >= self.vertices.len() {
                             continue;
                         }
@@ -709,7 +710,8 @@ where
                 }
                 self.n_unused = self.unused.len();
 
-                for replaced_id in self.replaced_ids.clone() {
+                for ridx in 0..self.replaced_ids.len() {
+                    let replaced_id = self.replaced_ids[ridx];
                     if replaced_id == GeneratorRef::INVALID_ID || replaced_id >= self.vertices.len() {
                         continue;
                     }
@@ -760,7 +762,8 @@ where
 
                 self.set_involved_persisting_visited_to_zero();
                 self.points[i].my_vertices_ids.clear();
-                for replaced_id in self.replaced_ids.clone() {
+                for ridx in 0..self.replaced_ids.len() {
+                    let replaced_id = self.replaced_ids[ridx];
                     if replaced_id == GeneratorRef::INVALID_ID || replaced_id >= self.vertices.len() {
                         continue;
                     }
@@ -795,7 +798,7 @@ where
         if from_id >= self.vertices.len() || to_id >= self.vertices.len() {
             return;
         }
-        let moved = self.vertices[from_id].clone();
+        let moved = self.vertices[from_id];
         let endpoint_dim = moved.resolved_endpoint_id(3);
         if endpoint_dim != GeneratorRef::INVALID_ID && endpoint_dim < self.vertices.len() {
             let slot = self.vertices[endpoint_dim].endpoint_slot_to(from_id);
@@ -852,23 +855,16 @@ where
 
         let mut value = {
             let base_ref = self.vertices[hint_id].resolved_generator_ref(0);
-            let base = self.get_generator(base_ref).clone();
-            let insertion = self.points[point_id].clone();
-            self.vertices[hint_id].powerdiff3d(&base, &insertion)
+            self.vertices[hint_id].powerdiff3d(self.get_generator(base_ref), &self.points[point_id])
         };
-        {
-            let insertion = self.points[point_id].clone();
-            self.find_replaced_vertex(&mut hint_id, &mut value, &insertion);
-        }
+        self.find_replaced_vertex(&mut hint_id, &mut value, point_id);
 
         let mut done: u32 = 1;
         loop {
             if done != 1 {
                 let base_ref = self.vertices[hint_id].resolved_generator_ref(0);
-                let base = self.get_generator(base_ref).clone();
-                let insertion = self.points[point_id].clone();
-                value = self.vertices[hint_id].powerdiff3d(&base, &insertion);
-                self.find_replaced_vertex(&mut hint_id, &mut value, &insertion);
+                value = self.vertices[hint_id].powerdiff3d(self.get_generator(base_ref), &self.points[point_id]);
+                self.find_replaced_vertex(&mut hint_id, &mut value, point_id);
             }
 
             if self.fill_replaced_persisting_and_involved(point_id, hint_id) {
@@ -877,7 +873,8 @@ where
 
             self.set_involved_persisting_visited_to_zero();
             self.points[point_id].my_vertices_ids.clear();
-            for replaced_id in self.replaced_ids.clone() {
+            for ridx in 0..self.replaced_ids.len() {
+                let replaced_id = self.replaced_ids[ridx];
                 if replaced_id >= self.vertices.len() {
                     continue;
                 }
@@ -1005,9 +1002,8 @@ where
             self.vertices[vertex_id].rrv = Scalar::zero();
             return ReplaceState::Ambiguous;
         }
-        let a = self.points[cell_id].clone();
-        let b = self.get_generator(base_ref).clone();
-        self.vertices[vertex_id].rrv = self.vertices[vertex_id].powerdiff3d(&a, &b);
+        let rrv = self.vertices[vertex_id].powerdiff3d(&self.points[cell_id], self.get_generator(base_ref));
+        self.vertices[vertex_id].rrv = rrv;
         if self.vertices[vertex_id].rrv > self.power_err {
             return ReplaceState::Replaced;
         }
@@ -1138,7 +1134,7 @@ where
     }
 
     /// Executes the `find_replaced_vertex` step of the power-diagram algorithm/state machine.
-    fn find_replaced_vertex(&mut self, this_id: &mut usize, value: &mut Scalar, insertion_point: &Cell<Scalar>) {
+    fn find_replaced_vertex(&mut self, this_id: &mut usize, value: &mut Scalar, insertion_id: usize) {
         if *value < Scalar::zero() || *this_id >= self.vertices.len() {
             return;
         }
@@ -1158,8 +1154,7 @@ where
                 idx += 1;
                 continue;
             }
-            let base = self.get_generator(base_ref).clone();
-            let new_value = self.vertices[endpoint_id].powerdiff3d(&base, insertion_point);
+            let new_value = self.vertices[endpoint_id].powerdiff3d(self.get_generator(base_ref), &self.points[insertion_id]);
             if new_value < *value {
                 *value = new_value;
                 *this_id = endpoint_id;
@@ -1193,12 +1188,11 @@ where
                 if !self.valid_generator_ref(base_ref) {
                     continue;
                 }
-                let base = self.get_generator(base_ref).clone();
-                let new_value = self.vertices[candidate_id].powerdiff3d(&base, insertion_point);
+                let new_value = self.vertices[candidate_id].powerdiff3d(self.get_generator(base_ref), &self.points[insertion_id]);
                 if new_value < *value {
                     *value = new_value;
                     *this_id = candidate_id;
-                    return self.find_replaced_vertex(this_id, value, insertion_point);
+                    return self.find_replaced_vertex(this_id, value, insertion_id);
                 } else if new_value == *value {
                     small_val = new_value;
                 }
@@ -1234,12 +1228,11 @@ where
                     if !self.valid_generator_ref(base_ref) {
                         continue;
                     }
-                    let base = self.get_generator(base_ref).clone();
-                    let new_value = self.vertices[candidate_id].powerdiff3d(&base, insertion_point);
+                    let new_value = self.vertices[candidate_id].powerdiff3d(self.get_generator(base_ref), &self.points[insertion_id]);
                     if new_value < *value {
                         *value = new_value;
                         *this_id = candidate_id;
-                        return self.find_replaced_vertex(this_id, value, insertion_point);
+                        return self.find_replaced_vertex(this_id, value, insertion_id);
                     } else if new_value == *value {
                         small_val = new_value;
                     }
@@ -1257,8 +1250,7 @@ where
             if !self.valid_generator_ref(base_ref) {
                 continue;
             }
-            let base = self.get_generator(base_ref).clone();
-            let v = self.vertices[vi].powerdiff3d(&base, insertion_point);
+            let v = self.vertices[vi].powerdiff3d(self.get_generator(base_ref), &self.points[insertion_id]);
             if v < *value {
                 *value = v;
                 *this_id = vi;
@@ -1282,8 +1274,8 @@ where
         if involved_front_id == GeneratorRef::INVALID_ID {
             return;
         }
-        let my_vertices = self.points[involved_front_id].my_vertices_ids.clone();
-        for vid in my_vertices {
+        for vidx in 0..self.points[involved_front_id].my_vertices_ids.len() {
+            let vid = self.points[involved_front_id].my_vertices_ids[vidx];
             if vid == GeneratorRef::INVALID_ID || vid >= self.vertices.len() {
                 continue;
             }
@@ -1376,7 +1368,8 @@ where
 
     /// Executes the `create_finite_vertices_from_replaced` step of the power-diagram algorithm/state machine.
     fn create_finite_vertices_from_replaced(&mut self) -> bool {
-        for replaced_id in self.replaced_ids.clone() {
+        for ridx in 0..self.replaced_ids.len() {
+            let replaced_id = self.replaced_ids[ridx];
             if replaced_id == GeneratorRef::INVALID_ID || replaced_id >= self.vertices.len() {
                 continue;
             }
@@ -1416,8 +1409,8 @@ where
             }
         }
 
-        let vids = self.points[involved_front_id].my_vertices_ids.clone();
-        for vid in vids {
+        for vidx in 0..self.points[involved_front_id].my_vertices_ids.len() {
+            let vid = self.points[involved_front_id].my_vertices_ids[vidx];
             if vid == GeneratorRef::INVALID_ID || vid >= self.vertices.len() {
                 continue;
             }
@@ -1510,7 +1503,8 @@ where
                 }
             }
         } else {
-            for replaced_id in self.replaced_ids.clone() {
+            for ridx in 0..self.replaced_ids.len() {
+                let replaced_id = self.replaced_ids[ridx];
                 if replaced_id == GeneratorRef::INVALID_ID || replaced_id >= self.vertices.len() {
                     continue;
                 }
@@ -1694,11 +1688,12 @@ where
         }
 
         for i in 0..self.points.len() {
-            for vid in self.points[i].my_vertices_ids.clone() {
+            for vidx in 0..self.points[i].my_vertices_ids.len() {
+                let vid = self.points[i].my_vertices_ids[vidx];
                 if vid >= self.vertices.len() {
                     continue;
                 }
-                let v = &self.vertices[vid];
+                let v = self.vertices[vid];
                 if v.is_corner() {
                     continue;
                 }
@@ -1739,7 +1734,7 @@ where
             p.my_zero_points.clear();
         }
         for vertex_index in from_vertex..self.n_vertices.min(self.vertices.len()) {
-            let current = self.vertices[vertex_index].clone();
+            let current = self.vertices[vertex_index];
             if current.invalid {
                 continue;
             }
@@ -1753,7 +1748,7 @@ where
                 if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id <= vertex_index || endpoint_id >= self.n_vertices {
                     continue;
                 }
-                let endpoint = self.vertices[endpoint_id].clone();
+                let endpoint = self.vertices[endpoint_id];
                 if current.power_value > Scalar::zero() {
                     let branch = endpoint_idx as i32;
                     let v3 = endpoint.power_value;
