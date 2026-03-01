@@ -1734,27 +1734,31 @@ where
             p.my_zero_points.clear();
         }
         for vertex_index in from_vertex..self.n_vertices.min(self.vertices.len()) {
-            let current = self.vertices[vertex_index];
-            if current.invalid {
+            if self.vertices[vertex_index].invalid {
                 continue;
             }
-            let boundary_ref = current.generator_refs[2];
-            if !(boundary_ref.kind == GeneratorKind::Point && boundary_ref.index < self.points.len()) {
+            let current_boundary_ref = self.vertices[vertex_index].generator_refs[2];
+            if !(current_boundary_ref.kind == GeneratorKind::Point && current_boundary_ref.index < self.points.len()) {
                 continue;
             }
-            let endpoint_start = if self.has_virtual_generators(&current) { 3 } else { 0 };
+            let current_gen3 = self.vertices[vertex_index].generator_refs[3];
+            let endpoint_start = if !self.ref_is_real_point(current_gen3) { 3 } else { 0 };
+            let current_end_point_ids  = self.vertices[vertex_index].end_point_ids;
+            let current_power_value    = self.vertices[vertex_index].power_value;
+            let current_generator_refs = self.vertices[vertex_index].generator_refs;
+            let current_position       = self.vertices[vertex_index].position;
             for endpoint_idx in endpoint_start..=3 {
-                let endpoint_id = current.end_point_ids[endpoint_idx];
+                let endpoint_id = current_end_point_ids[endpoint_idx];
                 if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id <= vertex_index || endpoint_id >= self.n_vertices {
                     continue;
                 }
-                let endpoint = self.vertices[endpoint_id];
-                if current.power_value > Scalar::zero() {
+                if current_power_value > Scalar::zero() {
                     let branch = endpoint_idx as i32;
+                    let endpoint = &self.vertices[endpoint_id];
                     let v3 = endpoint.power_value;
-                    let v2 = current.power_value;
-                    let refg = current.generator_refs[if branch == 0 { 1 } else { 0 }];
-                    let v1 = self.get_generator(refg).power(current.position * Scalar::from_f64(2.0).unwrap() - endpoint.position);
+                    let v2 = current_power_value;
+                    let refg = current_generator_refs[if branch == 0 { 1 } else { 0 }];
+                    let v1 = self.get_generator(refg).power(current_position * Scalar::from_f64(2.0).unwrap() - endpoint.position);
                     let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
                     let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
                     if rootsq <= Scalar::zero() {
@@ -1767,8 +1771,9 @@ where
                     let min = (v1 - v3) / quot;
                     let sol1 = min + rootquot;
                     let sol2 = min - rootquot;
+                    let ep_positive = v3 > Scalar::zero();
                     if sol1 > Scalar::zero() && sol1 < Scalar::one() {
-                        if endpoint.power_value > Scalar::zero() {
+                        if ep_positive {
                             self.push_zero_from_edge(vertex_index, branch, sol1);
                             self.push_zero_from_edge(vertex_index, branch, sol2);
                         } else {
@@ -1780,28 +1785,33 @@ where
                         self.push_zero_from_edge(vertex_index, branch, sol1);
                         self.push_zero_from_edge(vertex_index, branch, sol2);
                     }
-                } else if endpoint.power_value > Scalar::zero() {
-                    let branch = endpoint_idx as i32;
-                    let v3 = endpoint.power_value;
-                    let v2 = current.power_value;
-                    let refg = current.generator_refs[if branch == 0 { 1 } else { 0 }];
-                    let v1 = self.get_generator(refg).power(current.position * Scalar::from_f64(2.0).unwrap() - endpoint.position);
-                    let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
-                    let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
-                    if rootsq <= Scalar::zero() {
-                        continue;
-                    }
-                    if quot < self.power_err && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
-                        continue;
-                    }
-                    let rootquot = rootsq.sqrt() / quot;
-                    let min = (v1 - v3) / quot;
-                    let sol1 = min + rootquot;
-                    let sol2 = min - rootquot;
-                    if sol1 > Scalar::zero() && sol1 < Scalar::one() {
-                        self.push_zero_from_edge(vertex_index, branch, sol1);
-                    } else {
-                        self.push_zero_from_edge(vertex_index, branch, sol2);
+                } else {
+                    let endpoint = &self.vertices[endpoint_id];
+                    let ep_power = endpoint.power_value;
+                    let ep_position = endpoint.position;
+                    if ep_power > Scalar::zero() {
+                        let branch = endpoint_idx as i32;
+                        let v3 = ep_power;
+                        let v2 = current_power_value;
+                        let refg = current_generator_refs[if branch == 0 { 1 } else { 0 }];
+                        let v1 = self.get_generator(refg).power(current_position * Scalar::from_f64(2.0).unwrap() - ep_position);
+                        let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
+                        let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
+                        if rootsq <= Scalar::zero() {
+                            continue;
+                        }
+                        if quot < self.power_err && v1 >= Scalar::zero() && v2 >= Scalar::zero() && v3 >= Scalar::zero() {
+                            continue;
+                        }
+                        let rootquot = rootsq.sqrt() / quot;
+                        let min = (v1 - v3) / quot;
+                        let sol1 = min + rootquot;
+                        let sol2 = min - rootquot;
+                        if sol1 > Scalar::zero() && sol1 < Scalar::one() {
+                            self.push_zero_from_edge(vertex_index, branch, sol1);
+                        } else {
+                            self.push_zero_from_edge(vertex_index, branch, sol2);
+                        }
                     }
                 }
             }

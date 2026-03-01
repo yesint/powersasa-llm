@@ -639,9 +639,10 @@ where
         }
 
         let mut nvx = 0_usize;
-        let pd_vertices = self.power_diagram.vertices.to_vec();
         let mut partner = [0_i32; 2];
-        for zp_i in self.power_diagram.points[iatom].my_zero_points.clone() {
+        let nzp = self.power_diagram.points[iatom].my_zero_points.len();
+        for zi in 0..nzp {
+            let zp_i = self.power_diagram.points[iatom].my_zero_points[zi];
             if zp_i < 0 {
                 continue;
             }
@@ -649,14 +650,16 @@ where
             if zp_idx >= self.power_diagram.zeros.len() {
                 continue;
             }
-            let zp = self.power_diagram.zeros[zp_idx].clone();
-            if !self.power_diagram.zero_point_valid(&zp) {
+            if !self.power_diagram.zero_point_valid(&self.power_diagram.zeros[zp_idx]) {
                 continue;
             }
-            let zp_pos = self.power_diagram.zero_point_pos(&zp);
+            let zp_pos = self.power_diagram.zero_point_pos(&self.power_diagram.zeros[zp_idx]);
+            let zp_gen_refs   = self.power_diagram.zeros[zp_idx].generator_refs;
+            let zp_pos_scalar = self.power_diagram.zeros[zp_idx].pos;
+            let zp_from_id    = self.power_diagram.zeros[zp_idx].from_id;
+            let zp_branch     = self.power_diagram.zeros[zp_idx].branch;
             let mut ptn = 0_usize;
-            for kg in 0..3 {
-                let zp_generator_ref = zp.generator_refs[kg];
+            for zp_generator_ref in zp_gen_refs {
                 if !zp_generator_ref.is_valid() {
                     continue;
                 }
@@ -674,7 +677,7 @@ where
                 return Err(SasaError::PartnerOutOfRange);
             }
 
-            if zp.pos < Scalar::zero() || zp.pos > Scalar::one() {
+            if zp_pos_scalar < Scalar::zero() || zp_pos_scalar > Scalar::one() {
                 self.nt[ptn0] += 1;
                 self.nt[ptn1] += 1;
                 continue;
@@ -704,12 +707,13 @@ where
             self.np[ptn1] += 1;
 
             if self.with_vol {
-                let node1_id = zp.from_id;
+                let pd_vertices = &self.power_diagram.vertices;
+                let node1_id = zp_from_id;
                 if node1_id == crate::power_diagram::GeneratorRef::INVALID_ID || node1_id >= pd_vertices.len() {
                     return Err(SasaError::VolumeNodeOutOfBounds);
                 }
                 let node1 = &pd_vertices[node1_id];
-                let node2_id = node1.end_point_ids[zp.branch as usize];
+                let node2_id = node1.end_point_ids[zp_branch as usize];
                 if node2_id == crate::power_diagram::GeneratorRef::INVALID_ID || node2_id >= pd_vertices.len() {
                     return Err(SasaError::VolumeNodeOutOfBounds);
                 }
@@ -747,11 +751,11 @@ where
                     }
                 } else if node1.power_value > Scalar::zero() && node2.power_value > Scalar::zero() {
                     let denom =
-                        node2.power_value * zp.pos + node1.power_value * (Scalar::one() - zp.pos);
+                        node2.power_value * zp_pos_scalar + node1.power_value * (Scalar::one() - zp_pos_scalar);
                     if denom == Scalar::zero() {
                         return Err(SasaError::ZeroVolumeDenominator);
                     }
-                    let dpos = node1.power_value * (Scalar::one() - zp.pos) / denom - zp.pos;
+                    let dpos = node1.power_value * (Scalar::one() - zp_pos_scalar) / denom - zp_pos_scalar;
                     let half = Scalar::from_f64(0.5).unwrap();
                     if !self.fknot[ptn0] {
                         self.fknot[ptn0] = true;
@@ -775,6 +779,7 @@ where
             }
         }
 
+        let pd_vertices = &self.power_diagram.vertices;
         for node1_id in my_vertices_ids.iter().copied() {
             if node1_id >= pd_vertices.len() {
                 continue;
