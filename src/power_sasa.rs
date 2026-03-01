@@ -54,9 +54,9 @@ where
     /// Unit vectors of contour vertices on the current atom sphere.
     vx: Vec<Vector3<Scalar>>,
     /// For each contour vertex, the two incident neighbor-circle ids.
-    br_c: Vec<Vec<i32>>,
+    br_c: Vec<[i32; 2]>,
     /// For each contour vertex, local point indices on the two incident circles.
-    br_p: Vec<Vec<i32>>,
+    br_p: Vec<[i32; 2]>,
 
     /// Polar angle of each registered point on each neighbor circle.
     ang: Vec<Vec<Scalar>>,
@@ -296,8 +296,8 @@ where
     fn resize_vx(&mut self, nvx: usize) {
         self.off.resize(nvx, 0);
         self.vx.resize(nvx, Vector3::zeros());
-        self.br_c.resize(nvx, vec![0; 2]);
-        self.br_p.resize(nvx, vec![0; 2]);
+        self.br_c.resize(nvx, [0; 2]);
+        self.br_p.resize(nvx, [0; 2]);
     }
 
     /// Resizes per-circle point-order arrays used to sort angles and build successor links.
@@ -320,7 +320,7 @@ where
     }
 
     /// Computes the oriented angle from vector a to b around axis c, normalized to [0, 2*pi).
-    fn ang_about(&self, a: Vector3<Scalar>, b: Vector3<Scalar>, c: Vector3<Scalar>) -> Result<Scalar, SasaError> {
+    fn ang_about(a: Vector3<Scalar>, b: Vector3<Scalar>, c: Vector3<Scalar>) -> Result<Scalar, SasaError> {
         let co = a.dot(&b);
         let mut ang;
         let v = a.cross(&b);
@@ -356,13 +356,13 @@ where
 
     /// Computes polar angles of contour points projected onto one neighbor intersection circle.
     fn get_ang(
-        &self,
         np: i32,
         p: &[i32],
         e: Vector3<Scalar>,
         sintheta: Scalar,
         costheta: Scalar,
         ang: &mut [Scalar],
+        vx: &[Vector3<Scalar>],
     ) -> Result<(), SasaError> {
         if np <= 0 {
             return Ok(());
@@ -373,29 +373,31 @@ where
         }
         ang[0] = Scalar::zero();
         let p0 = p[0] as usize;
-        if p0 >= self.vx.len() {
+        if p0 >= vx.len() {
             return Err(SasaError::SurfaceVertexIndexOutOfBounds);
         }
-        let pu0 = (self.vx[p0] - e * costheta) / sintheta;
+        let pu0 = (vx[p0] - e * costheta) / sintheta;
         for j in 1..n {
             let pj = p[j] as usize;
-            if pj >= self.vx.len() {
+            if pj >= vx.len() {
                 return Err(SasaError::SurfaceVertexIndexOutOfBounds);
             }
-            let pu = (self.vx[pj] - e * costheta) / sintheta;
-            ang[j] = self.ang_about(pu0, pu, e)?;
+            let pu = (vx[pj] - e * costheta) / sintheta;
+            ang[j] = Self::ang_about(pu0, pu, e)?;
         }
         Ok(())
     }
 
     /// Sorts circle points by angle (with tolerances) and builds cyclic next-point traversal links.
     fn get_next(
-        &mut self,
         n: i32,
         ang: &mut [Scalar],
         next: &mut [i32],
         p: &[i32],
         e: Vector3<Scalar>,
+        vx: &[Vector3<Scalar>],
+        rang: &mut [i32],
+        pos: &mut [i32],
     ) -> Result<(), SasaError> {
         if n <= 0 {
             return Ok(());
@@ -403,9 +405,6 @@ where
         let n_usize = n as usize;
         if n_usize > ang.len() || n_usize > next.len() || n_usize > p.len() {
             return Err(SasaError::InvalidGetNextInput);
-        }
-        if self.rang.len() < n_usize || self.pos.len() < n_usize {
-            self.resize_pnt(n_usize);
         }
         let two_pi = Scalar::from_f64(2.0).unwrap() * Scalar::pi();
 
@@ -415,10 +414,10 @@ where
             }
             let pj = p[j] as usize;
             let p0 = p[0] as usize;
-            if pj >= self.vx.len() || p0 >= self.vx.len() {
+            if pj >= vx.len() || p0 >= vx.len() {
                 return Err(SasaError::SurfaceVertexIndexOutOfBounds);
             }
-            let dp = self.vx[pj].cross(&self.vx[p0]).dot(&e);
+            let dp = vx[pj].cross(&vx[p0]).dot(&e);
             if dp < Scalar::zero() {
                 ang[j] = Scalar::zero();
             } else if dp == Scalar::zero() {
@@ -426,50 +425,50 @@ where
             }
         }
 
-        self.rang[0] = 0;
+        rang[0] = 0;
         if n_usize > 1 {
-            self.rang[1] = 1;
+            rang[1] = 1;
         }
         for j in 2..n_usize {
             let mut m = j as i32;
             for k in 1..j {
                 if ang[k] > ang[j] + Self::dang() {
-                    self.rang[k] += 1;
+                    rang[k] += 1;
                     m -= 1;
                 } else if ang[k] > ang[j] - Self::dang() {
                     let pj = p[j] as usize;
                     let pk = p[k] as usize;
-                    if pj >= self.vx.len() || pk >= self.vx.len() {
+                    if pj >= vx.len() || pk >= vx.len() {
                         return Err(SasaError::SurfaceVertexIndexOutOfBounds);
                     }
-                    let dp = self.vx[pj].cross(&self.vx[pk]).dot(&e);
+                    let dp = vx[pj].cross(&vx[pk]).dot(&e);
                     if dp > Scalar::zero() {
-                        self.rang[k] += 1;
+                        rang[k] += 1;
                         m -= 1;
                     } else if dp == Scalar::zero() {
                         return Err(SasaError::DegenerateCircleOrdering);
                     }
                 }
             }
-            self.rang[j] = m;
+            rang[j] = m;
         }
 
         for j in 0..n_usize {
-            self.pos[j] = -1;
+            pos[j] = -1;
         }
         for j in 0..n_usize {
-            let rj = self.rang[j];
+            let rj = rang[j];
             if rj < 0 || (rj as usize) >= n_usize {
                 return Err(SasaError::RankOutOfRange);
             }
-            self.pos[rj as usize] = j as i32;
+            pos[rj as usize] = j as i32;
         }
         for j in 0..n_usize {
-            let rj = self.rang[j];
+            let rj = rang[j];
             if rj == (n_usize as i32 - 1) {
-                next[j] = self.pos[0];
+                next[j] = pos[0];
             } else {
-                next[j] = self.pos[(rj + 1) as usize];
+                next[j] = pos[(rj + 1) as usize];
             }
         }
         Ok(())
@@ -881,29 +880,29 @@ where
                 continue;
             }
             let np_i = self.np[i] as usize;
-            let mut ang_i = vec![Scalar::zero(); np_i];
-            let p_i = self.p[i][..np_i].to_vec();
-            if self
-                .get_ang(
+            if self.rang.len() < np_i || self.pos.len() < np_i {
+                self.resize_pnt(np_i);
+            }
+            let e_i        = self.e[i];
+            let sintheta_i = self.sintheta[i];
+            let costheta_i = self.costheta[i];
+            if Self::get_ang(
+                self.np[i], &self.p[i][..np_i], e_i,
+                sintheta_i, costheta_i,
+                &mut self.ang[i][..np_i], &self.vx,
+            ).is_err() {
+                self.np[i] = -1;
+                continue;
+            }
+            if Self::get_next(
                 self.np[i],
-                &p_i,
-                self.e[i],
-                self.sintheta[i],
-                self.costheta[i],
-                &mut ang_i,
-            )
-                .is_err()
-            {
+                &mut self.ang[i][..np_i], &mut self.next[i][..np_i],
+                &self.p[i][..np_i], e_i, &self.vx,
+                &mut self.rang[..np_i], &mut self.pos[..np_i],
+            ).is_err() {
                 self.np[i] = -1;
                 continue;
             }
-            let mut next_i = vec![0_i32; np_i];
-            if self.get_next(self.np[i], &mut ang_i, &mut next_i, &p_i, self.e[i]).is_err() {
-                self.np[i] = -1;
-                continue;
-            }
-            self.ang[i][..np_i].copy_from_slice(&ang_i);
-            self.next[i][..np_i].copy_from_slice(&next_i);
         }
 
         let two = Scalar::from_f64(2.0).unwrap();
