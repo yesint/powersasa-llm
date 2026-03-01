@@ -1743,12 +1743,10 @@ where
             }
             let current_gen3 = self.vertices[vertex_index].generator_refs[3];
             let endpoint_start = if !self.ref_is_real_point(current_gen3) { 3 } else { 0 };
-            let current_end_point_ids  = self.vertices[vertex_index].end_point_ids;
-            let current_power_value    = self.vertices[vertex_index].power_value;
-            let current_generator_refs = self.vertices[vertex_index].generator_refs;
-            let current_position       = self.vertices[vertex_index].position;
+            let current_power_value = self.vertices[vertex_index].power_value;
+            let current_position    = self.vertices[vertex_index].position;
             for endpoint_idx in endpoint_start..=3 {
-                let endpoint_id = current_end_point_ids[endpoint_idx];
+                let endpoint_id = self.vertices[vertex_index].end_point_ids[endpoint_idx];
                 if endpoint_id == GeneratorRef::INVALID_ID || endpoint_id <= vertex_index || endpoint_id >= self.n_vertices {
                     continue;
                 }
@@ -1757,7 +1755,7 @@ where
                     let endpoint = &self.vertices[endpoint_id];
                     let v3 = endpoint.power_value;
                     let v2 = current_power_value;
-                    let refg = current_generator_refs[if branch == 0 { 1 } else { 0 }];
+                    let refg = self.vertices[vertex_index].generator_refs[if branch == 0 { 1 } else { 0 }];
                     let v1 = self.get_generator(refg).power(current_position * Scalar::from_f64(2.0).unwrap() - endpoint.position);
                     let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
                     let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
@@ -1793,7 +1791,7 @@ where
                         let branch = endpoint_idx as i32;
                         let v3 = ep_power;
                         let v2 = current_power_value;
-                        let refg = current_generator_refs[if branch == 0 { 1 } else { 0 }];
+                        let refg = self.vertices[vertex_index].generator_refs[if branch == 0 { 1 } else { 0 }];
                         let v1 = self.get_generator(refg).power(current_position * Scalar::from_f64(2.0).unwrap() - ep_position);
                         let quot = Scalar::from_f64(2.0).unwrap() * (v1 + v3 - Scalar::from_f64(2.0).unwrap() * v2);
                         let rootsq = (v1 - v3) * (v1 - v3) - Scalar::from_f64(4.0).unwrap() * quot * v2;
