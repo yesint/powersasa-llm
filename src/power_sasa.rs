@@ -481,17 +481,12 @@ where
             return Err(SasaError::AtomIndexOutOfBounds);
         }
 
-        let (rad, rad2, atom_pos, neighbours_ids, my_vertices_ids) = {
+        let (rad, rad2, atom_pos) = {
             let atom = &self.power_diagram.points[iatom];
-            (
-                atom.r,
-                atom.r2,
-                atom.position,
-                atom.neighbours_ids.clone(),
-                atom.my_vertices_ids.clone(),
-            )
+            (atom.r, atom.r2, atom.position)
         };
-        let nnb = neighbours_ids.len();
+        let nnb  = self.power_diagram.points[iatom].neighbours_ids.len();
+        let nvid = self.power_diagram.points[iatom].my_vertices_ids.len();
 
         if nnb > self.np.len() {
             self.resize_nb(nnb);
@@ -532,11 +527,12 @@ where
         }
 
         let mut covered = true;
-        for vid in &my_vertices_ids {
-            if *vid >= self.power_diagram.vertices.len() {
+        for vi in 0..nvid {
+            let vid = self.power_diagram.points[iatom].my_vertices_ids[vi];
+            if vid >= self.power_diagram.vertices.len() {
                 continue;
             }
-            let atom_vertex = &self.power_diagram.vertices[*vid];
+            let atom_vertex = &self.power_diagram.vertices[vid];
             if atom_vertex.power_value.abs() < self.tol_pow {
                 return Err(SasaError::AmbiguousVertexPower);
             }
@@ -552,7 +548,8 @@ where
             return Ok(());
         }
 
-        for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
+        for i in 0..nnb {
+            let nb_id = self.power_diagram.points[iatom].neighbours_ids[i];
             if nb_id < self.power_diagram.points.len() {
                 self.power_diagram.get_cell_mut(nb_id).visited_as = i as i32;
             } else {
@@ -562,7 +559,8 @@ where
 
         let mut n_apart = 0_usize;
         let mut contributing = 0_usize;
-        for (i, nb_id) in neighbours_ids.iter().copied().enumerate() {
+        for i in 0..nnb {
+            let nb_id = self.power_diagram.points[iatom].neighbours_ids[i];
             let neighbour = &self.power_diagram.points[nb_id];
             let nb_rad = neighbour.r;
             let nb_rad2 = neighbour.r2;
@@ -580,9 +578,10 @@ where
 
             if dist <= nb_rad - rad {
                 // Completely covered by one larger neighbor.
-                for nb_id in neighbours_ids {
-                    if nb_id < self.power_diagram.points.len() {
-                        self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
+                for k in 0..nnb {
+                    let nb_k = self.power_diagram.points[iatom].neighbours_ids[k];
+                    if nb_k < self.power_diagram.points.len() {
+                        self.power_diagram.get_cell_mut(nb_k).visited_as = 0;
                     }
                 }
                 if self.with_sasa  { self.sasa.push(local_sasa); }
@@ -600,9 +599,10 @@ where
 
             self.costheta[i] = (Scalar::from_f64(0.5).unwrap() * (dist + (rad2 - nb_rad2) / dist)) / rad;
             if self.costheta[i] <= -Scalar::one() {
-                for nb_id in neighbours_ids {
-                    if nb_id < self.power_diagram.points.len() {
-                        self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
+                for k in 0..nnb {
+                    let nb_k = self.power_diagram.points[iatom].neighbours_ids[k];
+                    if nb_k < self.power_diagram.points.len() {
+                        self.power_diagram.get_cell_mut(nb_k).visited_as = 0;
                     }
                 }
                 if self.with_sasa  { self.sasa.push(local_sasa); }
@@ -626,9 +626,10 @@ where
             let three = Scalar::from_f64(3.0).unwrap();
             if self.with_sasa { local_sasa = four * Scalar::pi() * rad2; }
             if self.with_vol  { local_vol  = (four / three) * Scalar::pi() * rad * rad2; }
-            for nb_id in neighbours_ids {
-                if nb_id < self.power_diagram.points.len() {
-                    self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
+            for k in 0..nnb {
+                let nb_k = self.power_diagram.points[iatom].neighbours_ids[k];
+                if nb_k < self.power_diagram.points.len() {
+                    self.power_diagram.get_cell_mut(nb_k).visited_as = 0;
                 }
             }
             if self.with_sasa  { self.sasa.push(local_sasa); }
@@ -780,7 +781,8 @@ where
         }
 
         let pd_vertices = &self.power_diagram.vertices;
-        for node1_id in my_vertices_ids.iter().copied() {
+        for vi in 0..nvid {
+            let node1_id = self.power_diagram.points[iatom].my_vertices_ids[vi];
             if node1_id >= pd_vertices.len() {
                 continue;
             }
@@ -1042,7 +1044,8 @@ where
                 if j == i {
                     continue;
                 }
-                let nb_j = self.power_diagram.points[neighbours_ids[j]].position;
+                let nb_id_j = self.power_diagram.points[iatom].neighbours_ids[j];
+                let nb_j = self.power_diagram.points[nb_id_j].position;
                 let pw_j = (nb_j - cc).norm_squared() - self.nb_rad2[j];
                 if pw_j <= pw_i {
                     ok = false;
@@ -1095,7 +1098,8 @@ where
             local_vol = rad * rad2 * sasa_ia / three + rad * rad2 * vol2 / six + vol3 / six;
         }
 
-        for nb_id in neighbours_ids {
+        for k in 0..nnb {
+            let nb_id = self.power_diagram.points[iatom].neighbours_ids[k];
             if nb_id < self.power_diagram.points.len() {
                 self.power_diagram.get_cell_mut(nb_id).visited_as = 0;
             }
