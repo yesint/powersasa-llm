@@ -123,41 +123,7 @@ where
         let coords_vec: Vec<Vector3<Scalar>> = coords.collect();
         let radii_vec: Vec<Scalar> = radii.collect();
         let power_diagram = Self::create_with_chain_bond(&coords_vec, &radii_vec);
-
-        let mut this = Self {
-            power_diagram,
-            with_sasa,
-            with_dsasa,
-            with_vol,
-            with_dvol,
-            sasa: Vec::new(),
-            dsasa_parts: Vec::new(),
-            dsasa: Vec::new(),
-            vol: Vec::new(),
-            dvol: Vec::new(),
-            tol_pow: Scalar::zero(),
-            np: Vec::new(),
-            nt: Vec::new(),
-            e: Vec::new(),
-            sintheta: Vec::new(),
-            costheta: Vec::new(),
-            nb_rad2: Vec::new(),
-            nb_dist: Vec::new(),
-            off: Vec::new(),
-            vx: Vec::new(),
-            br_c: Vec::new(),
-            br_p: Vec::new(),
-            ang: Vec::new(),
-            next: Vec::new(),
-            p: Vec::new(),
-            volnb: Vec::new(),
-            knot: Vec::new(),
-            fknot: Vec::new(),
-            rang: Vec::new(),
-            pos: Vec::new(),
-        };
-        this.init();
-        this
+        Self::from_diagram(power_diagram, with_sasa, with_dsasa, with_vol, with_dvol)
     }
 
     /// Builds a PowerSasa with explicit bond-parent hints for power-diagram insertion order.
@@ -187,7 +153,17 @@ where
             .with_warnings(false)
             .without_check(true),
         );
+        Self::from_diagram(power_diagram, with_sasa, with_dsasa, with_vol, with_dvol)
+    }
 
+    /// Wraps an already-built `PowerDiagram` and initializes all scratch/output buffers.
+    fn from_diagram(
+        power_diagram: PowerDiagram<Scalar>,
+        with_sasa: bool,
+        with_dsasa: bool,
+        with_vol: bool,
+        with_dvol: bool,
+    ) -> Self {
         let mut this = Self {
             power_diagram,
             with_sasa,
