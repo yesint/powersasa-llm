@@ -36,7 +36,7 @@ where
 
     /// Number of contour points registered on each neighbor circle.
     np: Vec<i32>,
-    /// Marker/counter for "single circle" handling on each neighbor.
+    /// Per-neighbor flag: set to -1 when the circle has no contour crossings and is a candidate isolated cap.
     nt: Vec<i32>,
     /// Unit direction from current atom center to each neighbor center.
     e: Vec<Vector3<Scalar>>,
@@ -82,10 +82,10 @@ impl<Scalar> PowerSasa<Scalar>
 where
     Scalar: RealField + Copy,
 {
-    pub const K_MAX_NB: usize = 20;
-    pub const K_MAX_VX: usize = 12;
-    pub const K_MAX_PNT: usize = 4;
-    pub const K_MAX_COUNT: usize = 100;
+    pub const K_MAX_NB: usize = 20;    // Initial scratch capacity for neighbor-scoped arrays; resized if exceeded.
+    pub const K_MAX_VX: usize = 12;    // Initial scratch capacity for contour-vertex arrays; resized if exceeded.
+    pub const K_MAX_PNT: usize = 4;    // Initial scratch capacity for per-circle point arrays; resized if exceeded.
+    pub const K_MAX_COUNT: usize = 100; // Maximum contour-walk steps per cycle before aborting (overflow guard).
 
     #[inline(always)]
     /// Returns the power-value tolerance scale used to detect near-degenerate radius/power comparisons.
@@ -325,6 +325,8 @@ where
         let mut ang;
         let v = a.cross(&b);
 
+        // When cos(angle)≈±1 the standard acos formula loses precision near 0 and π;
+        // use asin(|cross-product|) instead, which remains accurate in those regions.
         if co <= -Self::near_one_cosine_threshold() {
             ang = Scalar::pi() - v.norm().asin();
         } else if co >= Self::near_one_cosine_threshold() {
@@ -426,6 +428,8 @@ where
             }
         }
 
+        // Rank-sort: rang[j] = number of other points with strictly smaller angle than j.
+        // After two passes we have pos[rank] = original_index, then next[j] = successor in sorted order.
         rang[0] = 0;
         if n_usize > 1 {
             rang[1] = 1;
@@ -502,6 +506,7 @@ where
 
         let do_sasa = self.with_sasa || self.with_vol;
 
+        // Step 1: isolated atom — no neighbors, return full-sphere SASA/volume.
         if nnb == 0 {
             let four = Scalar::from_f64(4.0).unwrap();
             let three = Scalar::from_f64(3.0).unwrap();
@@ -523,6 +528,7 @@ where
             return Ok(());
         }
 
+        // Step 2: check coverage — if all local vertices have non-positive power the atom surface is fully hidden.
         let mut covered = true;
         for vi in 0..nvid {
             let vid = self.power_diagram.points[iatom].my_vertices_ids[vi];
@@ -545,6 +551,7 @@ where
             return Ok(());
         }
 
+        // Step 3: stamp each neighbor with its loop index so vertices can map back to neighbor slots.
         for i in 0..nnb {
             let nb_id = self.power_diagram.points[iatom].neighbours_ids[i];
             if nb_id < self.power_diagram.points.len() {
@@ -554,6 +561,7 @@ where
             }
         }
 
+        // Step 4: compute intersection-circle geometry for each neighbor (costheta, sintheta, unit direction e).
         let mut n_apart = 0_usize;
         let mut contributing = 0_usize;
         for i in 0..nnb {
@@ -594,6 +602,9 @@ where
                 continue;
             }
 
+            // Radical-plane intersection: the cutting plane is at distance
+            // d_plane = 0.5*(dist + (R² − r²)/dist) from the atom center,
+            // giving costheta = d_plane / R.
             self.costheta[i] = (Scalar::from_f64(0.5).unwrap() * (dist + (rad2 - nb_rad2) / dist)) / rad;
             if self.costheta[i] <= -Scalar::one() {
                 for k in 0..nnb {
@@ -637,6 +648,7 @@ where
         }
 
         let mut nvx = 0_usize;
+        // Step 5a: collect contour vertices from power-zero crossings on diagram edges.
         let mut partner = [0_i32; 2];
         let nzp = self.power_diagram.points[iatom].my_zero_points.len();
         for zi in 0..nzp {
@@ -777,6 +789,7 @@ where
             }
         }
 
+        // Step 5b: collect contour vertices from fully interior edges (both endpoints inside the surface).
         let pd_vertices = &self.power_diagram.vertices;
         for vi in 0..nvid {
             let node1_id = self.power_diagram.points[iatom].my_vertices_ids[vi];
@@ -869,6 +882,7 @@ where
             }
         }
 
+        // Step 6: project each circle's contour points onto the intersection plane and sort them by angle.
         for i in 0..nnb {
             if self.np[i] <= 0 {
                 continue;
@@ -918,6 +932,7 @@ where
             self.off[iv] = 0;
         }
 
+        // Step 7: walk each contour cycle and accumulate the spherical SASA and volume integrals.
         for iv in 0..nvx {
             if self.off[iv] != 0 {
                 continue;
@@ -960,6 +975,8 @@ where
                     let mut co = (self.e[ic1].dot(&self.e[ic2]) - self.costheta[ic1] * self.costheta[ic2])
                         / (self.sintheta[ic1] * self.sintheta[ic2]);
                     co = co.clamp(-Scalar::one(), Scalar::one());
+                    // Spherical-excess integral for this arc: phi*cos(theta_ic2) − acos(co),
+                    // where co is the cosine of the dihedral angle between the two neighbor planes.
                     sasa_ia += phi * self.costheta[ic2] - co.acos();
                 }
 
@@ -1028,6 +1045,7 @@ where
                 }
             }
         }
+        // Step 8: add closed-form cap contributions from neighbor circles with no contour crossings.
         for i in 0..nnb {
             if self.np[i] != 0 || self.nt[i] != 0 {
                 continue;
@@ -1078,6 +1096,7 @@ where
             }
         }
 
+        // Step 9: assemble final per-atom results from accumulated terms.
         if self.with_sasa {
             local_sasa = rad2 * sasa_ia;
         }
@@ -1092,6 +1111,10 @@ where
                     vol3 += rad * self.volnb[i] * self.costheta[i];
                 }
             }
+            // Three-term volume decomposition:
+            //   RAD * RAD2 * sasa_ia / 3  — cone frustum from atom center to SASA surface,
+            //   RAD * RAD2 * vol2 / 6     — curved cap correction from contour arcs,
+            //   vol3 / 6                   — fan-triangle volume from zero-crossing edges.
             local_vol = rad * rad2 * sasa_ia / three + rad * rad2 * vol2 / six + vol3 / six;
         }
 
