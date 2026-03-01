@@ -389,6 +389,7 @@ where
     }
 
     /// Sorts circle points by angle (with tolerances) and builds cyclic next-point traversal links.
+    #[allow(clippy::too_many_arguments)]
     fn get_next(
         n: i32,
         ang: &mut [Scalar],
@@ -453,11 +454,8 @@ where
             rang[j] = m;
         }
 
-        for j in 0..n_usize {
-            pos[j] = -1;
-        }
-        for j in 0..n_usize {
-            let rj = rang[j];
+        pos[..n_usize].fill(-1);
+        for (j, &rj) in rang[..n_usize].iter().enumerate() {
             if rj < 0 || (rj as usize) >= n_usize {
                 return Err(SasaError::RankOutOfRange);
             }
