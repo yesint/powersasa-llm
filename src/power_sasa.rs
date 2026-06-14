@@ -2,6 +2,8 @@ use nalgebra::{RealField, Vector3};
 
 use crate::error::SasaError;
 use crate::power_diagram::PowerDiagram;
+use crate::ses::{atom_ses, NeighborCap, SesStats};
+use crate::surface::{Cap, SurfaceMesh, tessellate_atom, unit_icosphere};
 
 /// PowerSasa orchestrates per-atom SASA/volume evaluation over a power diagram, including optional derivatives.
 pub struct PowerSasa<Scalar>
@@ -1154,5 +1156,179 @@ where
     pub fn per_atom_dsasa(&self) -> &[Vector3<Scalar>] {
         assert!(self.with_dsasa, "per_atom_dsasa() called but with_dsasa was not enabled");
         &self.dsasa
+    }
+
+    /// Extracts the solvent-accessible surface (SAS) as a triangle mesh in the
+    /// original input coordinate frame. `subdiv` is the per-atom icosphere
+    /// subdivision level (0 → 20 triangles, 1 → 80, 2 → 320, 3 → 1280, …): higher
+    /// is smoother and heavier.
+    ///
+    /// Each atom's exposed region is found by clipping the icosphere against its
+    /// neighbor caps — exactly the burial test used for the analytic area (see
+    /// [`Self::calc_single`]). Atoms with no cutting neighbor emit a closed sphere.
+    ///
+    /// **Call [`Self::calc_all`] first** (with `with_sasa`): atoms whose computed
+    /// SASA is zero are skipped, which is what reliably removes fully-engulfed
+    /// atoms whose Laguerre cell is empty (and therefore have no neighbors to clip
+    /// against). Without a prior `calc_all` only the geometric burial short-circuits
+    /// apply.
+    pub fn surface_mesh(&self, subdiv: usize) -> SurfaceMesh<Scalar> {
+        let half = Scalar::from_f64(0.5).unwrap();
+        let area_eps = Scalar::default_epsilon();
+        let have_sasa = self.with_sasa && self.sasa.len() == self.power_diagram.points.len();
+        let (ico_v, ico_f) = unit_icosphere::<Scalar>(subdiv);
+        let mut mesh = SurfaceMesh::default();
+        let center = self.power_diagram.center;
+        let n = self.power_diagram.points.len();
+        for i in 0..n {
+            // Authoritative burial test: a zero-area atom contributes no surface.
+            if have_sasa && self.sasa[i] <= area_eps {
+                continue;
+            }
+            let (rad, rad2, pos) = {
+                let cell = &self.power_diagram.points[i];
+                (cell.r, cell.r2, cell.position)
+            };
+            let mut caps: Vec<Cap<Scalar>> = Vec::new();
+            let mut fully_buried = false;
+            for k in 0..self.power_diagram.points[i].neighbours_ids.len() {
+                let nb_id = self.power_diagram.points[i].neighbours_ids[k];
+                if nb_id >= n {
+                    continue;
+                }
+                let nb = &self.power_diagram.points[nb_id];
+                let nb_rad = nb.r;
+                let nb_rad2 = nb.r2;
+                let rel = nb.position - pos;
+                let dist = rel.norm();
+                if dist <= Scalar::default_epsilon() {
+                    continue; // coincident centers — ignore
+                }
+                if dist <= nb_rad - rad {
+                    fully_buried = true; // atom i lies fully inside a larger neighbor
+                    break;
+                }
+                if dist >= rad + nb_rad || dist <= rad - nb_rad {
+                    continue; // spheres apart, or neighbor fully inside atom i — no cut
+                }
+                let costheta = (half * (dist + (rad2 - nb_rad2) / dist)) / rad;
+                if costheta <= -Scalar::one() {
+                    fully_buried = true; // whole sphere buried by this neighbor
+                    break;
+                }
+                if costheta >= Scalar::one() {
+                    continue; // no real cut
+                }
+                caps.push(Cap { axis: rel / dist, cos_theta: costheta });
+            }
+            if fully_buried {
+                continue;
+            }
+            let world_center = pos + center;
+            tessellate_atom(&ico_v, &ico_f, &caps, world_center, rad, i as u32, &mut mesh);
+        }
+        mesh
+    }
+
+    /// Extract the **solvent-excluded surface** (SES / Connolly / rolling-probe) as
+    /// a smooth triangle mesh in the original coordinate frame. `probe` is the
+    /// rolling-probe radius (nm; must match the probe folded into the radii passed
+    /// to [`Self::new`], so `vdw_i = radius_i - probe`). `subdiv` controls patch
+    /// tessellation density.
+    ///
+    /// Built from three smoothly-joined patch types — convex atom-contact caps,
+    /// toroidal saddles between atom pairs, and concave reentrant triangles at
+    /// three-atom contacts — derived from a per-atom circle arrangement. As with
+    /// [`Self::surface_mesh`], call [`Self::calc_all`] first so buried atoms drop.
+    pub fn ses_mesh(&self, probe: Scalar, subdiv: usize) -> SurfaceMesh<Scalar> {
+        let half = Scalar::from_f64(0.5).unwrap();
+        let area_eps = Scalar::default_epsilon();
+        let have_sasa = self.with_sasa && self.sasa.len() == self.power_diagram.points.len();
+        let (ico_v, ico_f) = unit_icosphere::<Scalar>(subdiv);
+        let mut mesh = SurfaceMesh::default();
+        let center = self.power_diagram.center;
+        let n = self.power_diagram.points.len();
+        let mut stats = SesStats::default();
+        for i in 0..n {
+            if have_sasa && self.sasa[i] <= area_eps {
+                continue;
+            }
+            let (sas_r, r2, pos) = {
+                let cell = &self.power_diagram.points[i];
+                (cell.r, cell.r2, cell.position)
+            };
+            if sas_r <= probe {
+                continue; // vdW radius would be non-positive
+            }
+            let mut caps: Vec<NeighborCap<Scalar>> = Vec::new();
+            let mut fully_buried = false;
+            for k in 0..self.power_diagram.points[i].neighbours_ids.len() {
+                let nb_id = self.power_diagram.points[i].neighbours_ids[k];
+                if nb_id >= n {
+                    continue;
+                }
+                let nb = &self.power_diagram.points[nb_id];
+                let nb_r = nb.r;
+                let nb_r2 = nb.r2;
+                let rel = nb.position - pos;
+                let dist = rel.norm();
+                if dist <= Scalar::default_epsilon() {
+                    continue;
+                }
+                if dist <= nb_r - sas_r {
+                    fully_buried = true;
+                    break;
+                }
+                if dist >= sas_r + nb_r || dist <= sas_r - nb_r {
+                    continue;
+                }
+                let costheta = (half * (dist + (r2 - nb_r2) / dist)) / sas_r;
+                if costheta <= -Scalar::one() {
+                    fully_buried = true;
+                    break;
+                }
+                if costheta >= Scalar::one() {
+                    continue;
+                }
+                let sintheta = (Scalar::one() - costheta * costheta).sqrt();
+                caps.push(NeighborCap {
+                    e: rel / dist,
+                    costheta,
+                    sintheta,
+                    center: nb.position,
+                    id: nb_id as u32,
+                });
+            }
+            if fully_buried {
+                continue;
+            }
+            atom_ses(
+                &ico_v,
+                &ico_f,
+                &caps,
+                pos,
+                sas_r,
+                probe,
+                i as u32,
+                subdiv,
+                &mut stats,
+                &mut mesh,
+            );
+        }
+        // Shift from the power diagram's centered frame back to world coordinates.
+        for v in &mut mesh.vertices {
+            *v += center;
+        }
+        if std::env::var("POWERSASA_SES_DEBUG").is_ok() {
+            eprintln!(
+                "SES stats: convex={} toroidal={} concave={} tris, spindle_skips={}, verts={}",
+                stats.convex_tris,
+                stats.toroidal_tris,
+                stats.concave_tris,
+                stats.spindle_skips,
+                mesh.vertices.len()
+            );
+        }
+        mesh
     }
 }
